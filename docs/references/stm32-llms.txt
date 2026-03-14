@@ -1,0 +1,102 @@
+# STM32 Reference Materials for LLMs
+
+STM32 开发参考资料，供 Agent 查询使用。
+
+## 官方文档
+
+### Reference Manuals
+- RM0390: STM32F411 Reference Manual
+- RM0090: STM32F4xx Reference Manual
+- RM0433: STM32H7xx Reference Manual
+
+### Programming Manuals
+- PM0214: STM32 Cortex-M4 Programming Manual
+- PM0253: STM32 Cortex-M7 Programming Manual
+
+### Application Notes
+- AN4031: Using STM32F4 DMA controller
+- AN4566: Extending DAC performance with DMA
+- AN4739: STM32Cube firmware tips for developers
+
+## HAL/LL Drivers
+
+### Key Concepts
+- HAL: High-level abstraction, portable, higher overhead
+- LL: Low-level, direct register access, minimal overhead
+- Use HAL for initialization, LL for time-critical paths
+
+### Common Patterns
+
+```c
+// HAL initialization
+HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+
+// LL for time-critical
+LL_TIM_SetCompareCH1(TIM2, pulse_value);
+```
+
+## Clock Configuration
+
+### STM32F411 Typical Setup
+- System Clock: 100 MHz (from PLL)
+- APB1: 50 MHz
+- APB2: 100 MHz
+- USB: 48 MHz (from PLL)
+
+### Key Registers
+- RCC_CR: Clock control
+- RCC_PLLCFGR: PLL configuration
+- RCC_CFGR: Clock configuration
+
+## Interrupt Priorities
+
+### NVIC Configuration
+- 4 bits priority (16 levels)
+- Preemption priority vs subpriority
+- Lower number = higher priority
+
+### Best Practices
+- Time-critical ISRs: Priority 0-2
+- Normal ISRs: Priority 3-7
+- Low-priority tasks: Priority 8-15
+- Never block in ISR
+
+## DMA
+
+### Stream/Channel Mapping (F4)
+- DMA1: Memory-to-memory, peripherals
+- DMA2: Memory-to-memory, peripherals, USB
+
+### Key Considerations
+- FIFO mode for burst transfers
+- Double-buffering for continuous data
+- TC (Transfer Complete) interrupt handling
+
+## Debugging
+
+### SWO Trace
+- ITM: Instrumentation Trace Macrocell
+- DWT: Data Watchpoint and Trace
+- ETM: Embedded Trace Macrocell (if available)
+
+### Common Issues
+- Hard fault: Check vector table, clock, stack
+- Bus fault: Check memory access alignment
+- Usage fault: Check undefined instructions
+
+## Tools
+
+- STM32CubeMX: Configuration code generation
+- STM32CubeIDE: IDE with debugger
+- OpenOCD: Open on-chip debugger
+- ST-Link: Debug probe
+
+## Errata
+
+Always check errata sheet for your specific silicon revision.
+
+Common issues:
+- DMA stream conflicts
+- I2C timing in fast mode+
+- Flash prefetch buffer

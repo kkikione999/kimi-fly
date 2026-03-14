@@ -1,0 +1,80 @@
+{
+  "skill_name": "ralph-loop-orchestrator",
+  "evals": [
+    {
+      "id": 1,
+      "eval_name": "simple-feature-request",
+      "prompt": "我想给这个 React 项目添加用户认证功能，包括登录页面和 JWT token 管理。用 Ralph-loop 来帮我实现。",
+      "expected_output": "应该创建 plan.md，包含用户认证的整体计划，拆分为小任务，启动 harness-architect 和 plan-reviewer，并创建团队",
+      "files": [],
+      "assertions": [
+        {
+          "name": "creates_plan_md",
+          "description": "创建 plan.md 文件",
+          "type": "file_exists",
+          "params": {"path": "ralph-loop-session/plan.md"}
+        },
+        {
+          "name": "creates_team",
+          "description": "使用 TeamCreate 创建团队",
+          "type": "tool_used",
+          "params": {"tool": "TeamCreate"}
+        },
+        {
+          "name": "starts_harness_architect",
+          "description": "启动 harness-architect agent",
+          "type": "tool_used",
+          "params": {"tool": "Agent", "subagent_type": "harness-architect"}
+        },
+        {
+          "name": "starts_plan_reviewer",
+          "description": "启动 plan-reviewer agent",
+          "type": "tool_used",
+          "params": {"tool": "Agent"}
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "eval_name": "complex-refactoring",
+      "prompt": "Ralph-loop: 我需要把这个 Python 项目的单体架构重构为微服务，先从提取用户服务开始。",
+      "expected_output": "应该创建包含多个阶段的高层次计划，识别当前阶段为'提取用户服务'，拆分为小任务，启动必要 agents",
+      "files": [],
+      "assertions": [
+        {
+          "name": "high_level_plan",
+          "description": "计划保持高层次，不过度详细",
+          "type": "file_content",
+          "params": {"path": "ralph-loop-session/plan.md", "contains": "微服务", "max_length": 500}
+        },
+        {
+          "name": "small_steps",
+          "description": "小步执行，限制在 1-3 个文件",
+          "type": "file_exists",
+          "params": {"path": "ralph-loop-session/tasks/*.md"}
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "eval_name": "continuing-workflow",
+      "prompt": "继续 Ralph-loop，完成上一个阶段的剩余任务",
+      "expected_output": "应该读取现有 plan.md，更新阶段状态，继续执行下一个微任务",
+      "files": ["ralph-loop-session/plan.md"],
+      "assertions": [
+        {
+          "name": "reads_existing_plan",
+          "description": "读取现有的 plan.md",
+          "type": "tool_used",
+          "params": {"tool": "Read", "path": "ralph-loop-session/plan.md"}
+        },
+        {
+          "name": "updates_progress",
+          "description": "更新计划中的进度状态",
+          "type": "file_content",
+          "params": {"path": "ralph-loop-session/plan.md", "contains": "完成"}
+        }
+      ]
+    }
+  ]
+}

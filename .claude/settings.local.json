@@ -1,7 +1,16 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
-      "Bash(git add:*)"
-    ]
-  }
+      "Bash(git add:*)",
+      "Bash(git remote:*)",
+      "Bash(curl -s -X PATCH \"https://gitee.com/api/v5/repos/kkikione/kimi-fly\" \\\\\n  -H \"Content-Type: application/json\" \\\\\n  -d '{\n    \"access_token\": \"a3502c450a9a7ddac161148618692f42\",\n    \"private\": false\n  }')",
+      "Bash(curl -s -X PATCH \"https://gitee.com/api/v5/repos/kkikione/kimi-fly\" \\\\\n  -H \"Content-Type: application/json\" \\\\\n  -d '{\n    \"access_token\": \"a3502c450a9a7ddac161148618692f42\",\n    \"name\": \"kimi-fly\",\n    \"private\": false\n  }')"
+    ],
+    "defaultMode": "bypassPermissions"
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true
+  },
+  "skipDangerousModePermissionPrompt": true
 }
