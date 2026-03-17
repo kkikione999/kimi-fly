@@ -1,19 +1,19 @@
 ---
 name: ralph-loop-orchestrator
 description: |
-  **启动 Ralph-loop 多 Agent 协作开发工作流**
+  **启动 Ralph-loop v2.0 多 Agent 协作开发工作流 (含 Hook 机制)**
 
   当用户提及 "Ralph-loop"、"Ralph loop" 或表达需要多 Agent 协作完成复杂开发任务时，立即使用此 skill。
 
-  Ralph-loop 是一个动态任务分解和分配系统：
-  1. 分析当前代码环境
-  2. 制定整体项目计划（保持高层次，细节在执行中调整）
-  3. 小步执行——选取计划的一小部分
-  4. 将任务拆分为 1-3 个文件修改的微任务
-  5. 通过 TeamCreate 创建团队，启动 harness-architect 和 plan-reviewer
-  6. 动态分配任务给团队成员，每个 agent 获得包含完整上下文的 .md 文件
-  7. 每个 agent 在自己的 worktree 中独立执行
-  8. 滚动创建 PR 并合并回主分支
+  Ralph-loop v2.0 是一个带 Hook 监控的动态任务分解和分配系统：
+  1. 读取 RALPH-HARNESS.md (v2.0) 和 CLAUDE.md 了解项目架构
+  2. Leader (team-orchestrator) 制定本轮计划
+  3. Reviewer (code-reviewer) 审核计划
+  4. Harness-Architect 配置 Hook 监控，设计 agent 架构
+  5. 将任务拆分为 1-3 个文件修改的微任务
+  6. Leader 动态分配任务给 Workers
+  7. Worker 在 Hook 监控下执行 (EnterWorktree/Edit/Pre-merge 检查)
+  8. Reviewer 审查 PR，合并回主分支
 
   只要用户提到 Ralph-loop，无论大小写或有无连字符，都必须使用此 skill。
 ---
@@ -22,256 +22,188 @@ description: |
 
 你是 Ralph-loop 的入口点，负责启动和协调整个多 Agent 协作开发流程。
 
-> **Main Agent**: `harness-architect` 是 Ralph-loop 的主要协调者
->
-> 在 Phase 5 中，**harness-architect 必须先于所有其他 agent 启动**，负责：
-> - 读取 `harness-engineering.md` 作为规范参考
-> - 设计整体 agent 架构
-> - 确定需要哪些 specialized agents
-> - 为每个任务推荐最合适的 agent 类型
->
-> 其他 agent（包括 plan-reviewer）等待 harness-architect 完成架构设计后再启动。
+> **Harness 文档**: 必须首先阅读 `/Users/ll/kimi-fly/RALPH-HARNESS.md`
+> **架构地图**: 必须阅读 `/Users/ll/kimi-fly/CLAUDE.md`
 
-## 核心原则
+## Agent 角色定义
 
-1. **渐进明细**：不要一次性制定完美计划，先定方向，细节在执行中调整
-2. **小步快跑**：每次只执行计划的一小部分，快速验证、快速调整
-3. **上下文完备**：每个 agent 获得的 .md 文件必须包含完成任务所需的所有信息
-4. **隔离执行**：每个 agent 在自己的 worktree 中工作，避免冲突
-5. **动态适应**：根据实际情况随时调整计划和任务分配
+| 角色 | Agent | 职责 | 禁止事项 |
+|------|-------|------|----------|
+| **Leader** | team-orchestrator | 编排、计划、任务分配 | 不写代码 |
+| **Reviewer** | code-reviewer | 审核计划、任务、代码、PR | 不实施代码 |
+| **Architect** | harness-architect | 流程监控、架构设计 | 不直接实施 |
+| **Worker** | *specialized* | 代码实施、测试编写 | 不制定计划 |
+
+## 核心原则 (v2.0)
+
+1. **Hook 监控**：在关键节点设置拦截，防止偏离轨道
+2. **渐进明细**：不要一次性制定完美计划，先定方向，细节在执行中调整
+3. **小步快跑**：每次只执行计划的一小部分，快速验证、快速调整
+4. **上下文完备**：每个 agent 获得的 .md 文件必须包含完成任务所需的所有信息
+5. **隔离执行**：每个 agent 在自己的 worktree 中工作，避免冲突
+6. **动态适应**：根据实际情况随时调整计划和任务分配
 
 ## 工作流程
 
-### Phase 1: 环境感知
+### Phase 1: 读取 Harness 文档
 
-首先阅读当前环境，了解：
-- 代码库结构和主要文件
-- 现有计划和任务列表（如果有）
-- 用户原始需求
+**必须首先读取：**
+1. `/Users/ll/kimi-fly/RALPH-HARNESS.md` - Harness 流程规范
+2. `/Users/ll/kimi-fly/CLAUDE.md` - 架构地图
+3. `/Users/ll/kimi-fly/docs/user-intent.md` - 用户意图
+4. `/Users/ll/kimi-fly/docs/exec-plans/tech-debt-tracker.md` - 技术债务
 
-```
-1. 使用 Glob 和 Read 了解代码库结构
-2. 检查是否已有 plan.md 或类似计划文件
-3. 理解用户当前需求的上下文
-```
+### Phase 2: 启动 Leader (team-orchestrator)
 
-### Phase 2: 计划制定/更新
+**这是第一步启动的 Agent：**
 
-创建或更新整体计划：
+- **subagent_type**: "team-orchestrator"
+- **任务**：
+  1. 读取所有上下文文档
+  2. 制定/更新本轮计划 (plan.md)
+  3. 拆分任务 (task-*.md)
+  4. 调用 Reviewer 审核
 
-**如果是新任务：**
-- 创建 `plan.md`，包含：
-  - 目标概述（1-2 句话）
-  - 高层阶段划分（3-5 个阶段）
-  - 当前阶段标记
-  - 已知风险和假设
+### Phase 3: 计划审核
 
-**如果是继续执行：**
-- 读取现有 `plan.md`
-- 根据完成情况更新阶段状态
-- 调整后续阶段（如果需要）
+**启动 Reviewer (code-reviewer) 审核计划：**
 
-**计划原则：**
-- 保持高层次，不要过度详细
-- 每个阶段应该是 1-3 个可交付成果
-- 明确标记"当前正在执行"的阶段
-- 留出调整空间
+- **subagent_type**: "code-reviewer"
+- **任务**：
+  1. 审查 plan.md
+  2. 审查所有 task-*.md
+  3. 输出审查报告
 
-### Phase 3: 小步执行
+**审核通过后继续，否则返回 Phase 2 修订**
 
-从当前阶段中选取**最小可行任务集**：
+### Phase 4: 启动 Harness-Architect
 
-```
-1. 确定当前阶段的核心目标
-2. 找出达成该目标所需的最少修改
-3. 限制在 1-3 个文件的修改范围内
-4. 明确定义"完成标准"
-```
-
-### Phase 4: 任务拆分与文档化
-
-将选定的小步任务拆分为独立的微任务：
-
-**每个微任务应该：**
-- 修改 1-3 个文件
-- 有明确的完成标准
-- 可以独立开发和测试
-- 不依赖其他微任务的结果
-
-**为每个微任务创建 .md 文件：**
-
-文件名格式：`task-{序号}-{简要描述}.md`
-
-内容结构：
-```markdown
-# Task: {任务名称}
-
-## 目标
-一句话描述这个任务要完成什么。
-
-## 背景上下文
-- 相关代码文件路径和关键内容
-- 依赖关系
-- 需要遵循的代码规范
-- 用户的特殊要求
-
-## 具体修改要求
-1. 文件 A: 做什么修改
-2. 文件 B: 做什么修改
-
-## 完成标准
-- [ ] 标准 1
-- [ ] 标准 2
-
-## 相关文件
-- `/path/to/file1`
-- `/path/to/file2`
-
-## 注意事项
-- 任何需要特别注意的事项
-```
-
-### Phase 5: 团队创建与启动
-
-#### 2. Agent Team 的工具调用
-
-Agent Team 是通过 **TeamCreate** 工具来创建的，teammates 之间通过 **SendMessage** 进行通信：
-
-| 组件 | 角色 |
-|------|------|
-| Team lead | 主 Claude Code 会话，协调工作 |
-| Teammates | 独立的 Claude Code 实例 |
-| Task list | 共享任务列表 |
-| Mailbox | 代理间消息系统 |
-
-**工具调用方式：**
-- **主代理** 使用 `TeamCreate` 创建团队
-- **Teammates** 使用 `SendMessage` 互相发送消息
-- **任务管理** 通过共享任务列表进行
-
-#### 使用 TeamCreate 创建团队
-
-```json
-{
-  "team_name": "ralph-loop-{project}-{timestamp}",
-  "description": "Ralph-loop development team for {task}",
-  "teammates": [
-    {
-      "name": "harness-architect",
-      "description": "Main coordinator agent",
-      "subagent_type": "harness-architect"
-    },
-    {
-      "name": "plan-reviewer",
-      "description": "Plan validation agent",
-      "subagent_type": "plan-reviewer"
-    }
-  ]
-}
-```
-
-**启动顺序（严格按此顺序）：**
-
-#### 第 1 步：启动 harness-architect（Main Agent）
-
-**harness-architect 必须先于所有其他 agent 启动**，它是整个 Ralph-loop 的架构决策者：
+**启动 harness-architect：**
 
 - **subagent_type**: "harness-architect"
 - **任务**：
-  1. 读取 `harness-engineering.md` 作为规范参考
-  2. 设计整体 agent 架构
-  3. 确定需要哪些 specialized agents
-  4. 为每个 task-*.md 推荐最合适的 agent 类型
-  5. 输出 agent 分配建议
-- **输入**：plan.md 和所有 task-*.md 文件
-- **输出**：agent-assignment.md（agent 分配方案）
+  1. 读取 RALPH-HARNESS.md
+  2. 分析所有 task-*.md
+  3. 为每个任务推荐 agent 类型
+  4. 输出 agent-assignment.md
+
+### Phase 5: 动态任务分配
+
+等待 **Reviewer 和 Harness-Architect 都完成**后：
 
 ```
-等待 harness-architect 完成后再进行下一步...
-```
-
-#### 第 2 步：启动 plan-reviewer
-
-在 harness-architect 完成后，启动 plan-reviewer：
-
-- **任务**：审查计划合理性，识别风险
-- **输入**：plan.md、所有 task-*.md 文件、harness-architect 的 agent-assignment.md
-- **输出**：plan-review.md（审查意见）
-
-**读取 team config 获取成员信息：**
-```bash
-Read: ~/.claude/teams/{team-name}/config.json
-```
-
-### Phase 6: 动态任务分配与通信
-
-#### SendMessage 通信机制
-
-Teammates 之间通过 `SendMessage` 进行异步通信：
-
-```json
-{
-  "tool": "SendMessage",
-  "params": {
-    "team_id": "{team-name}",
-    "to": "target-agent-name",
-    "message": "任务上下文和指令"
-  }
-}
-```
-
-**通信场景：**
-- **任务分配**：Team lead 向 agent 发送 task-*.md 内容
-- **进度同步**：Agent 向 Team lead 报告完成状态
-- **依赖协调**：需要协作的 agents 之间直接通信
-- **阻塞上报**：Agent 遇到阻碍时立即通知 Team lead
-
-等待 **harness-architect 和 plan-reviewer 都完成**后：
-
-```
-1. 读取 harness-architect 的 agent-assignment.md（优先）
-2. 读取 plan-reviewer 的审查意见
-3. 根据 harness-architect 的建议确定最终的 agent 分工
-4. 使用 TaskCreate 创建任务
-5. 使用 TaskUpdate 分配任务给具体 agent
+1. 读取 Harness-Architect 的 agent-assignment.md（优先）
+2. 读取 Reviewer 的审查意见
+3. 根据 Harness-Architect 建议确定 agent 分工
+4. 创建 Workers 执行任务
 ```
 
 **分配原则（按优先级）：**
-1. **遵循 harness-architect 的建议**（最高优先级）
+1. **遵循 Harness-Architect 的建议**（最高优先级）
 2. 根据任务类型选择 specialized agent
 3. 考虑 agent 的当前负载
 
-**如果 harness-architect 与其他 agent 建议冲突：**
-- 优先采用 harness-architect 的方案
-- 如有疑虑，询问 harness-architect 确认
+**可用的 Specialized Agents：**
+- `stm32-embedded-engineer` - STM32 HAL/驱动开发
+- `esp32-c3-autonomous-engineer` - ESP32-C3/WiFi 开发
+- `embedded-test-engineer` - 测试用例编写
+- `code-simplifier` - 通用代码优化
 
-### Phase 7: 执行监控
+### Phase 6: Worker 执行 (Hook 监控)
 
-监控任务执行情况：
+**Harness-Architect 启动 Hook 监控后，每个 Worker：**
+
+1. **[Hook: EnterWorktree]** 创建独立分支
+   - 分支名必须符合: `task-{NNN}-{description}`
+   - Hook 验证: 任务绑定、代码基础版本
+
+2. 读取任务文档
+   - 确认 `Related Files` 范围
+   - 理解完成标准
+
+3. **[Hook: Edit/Write]** 实施代码修改
+   - Hook 验证: 文件在任务范围内
+   - Hook 验证: 无未声明依赖
+   - 如发现问题: 简单问题自修，复杂问题上报 Leader
+
+4. 编写测试
+
+5. 创建 PR
+
+6. 通知 Reviewer 审查
+
+### Phase 7: PR 审查与合并 (Hook 检查)
+
+**Reviewer 审查每个 PR：**
+1. 代码质量检查
+2. 测试验证
+3. 技术债务检查
+4. 输出审查报告
+
+**[Hook: Pre-merge] 合并前检查：**
+- Reviewer 审批是否完成
+- 技术债务是否记录到 tech-debt-tracker.md
+- 测试是否通过
+- Hook 验证通过后，合并到 main
+
+### Phase 8: 下一轮
+
+**Leader 更新进度：**
+1. 更新 `ralph-loop-session/progress.md`
+2. 记录新技术债务
+3. 准备下一轮计划
+
+## 文件组织 (v2.0)
 
 ```
-1. 定期检查 TaskList 了解进度
-2. 当 agent 报告完成时，检查输出
-3. 如遇到问题，动态调整计划或重新分配
-4. 一个微任务完成后，标记 plan.md 中的进度
+/
+├── CLAUDE.md                    # 架构地图（入口）
+├── RALPH-HARNESS.md            # Harness 流程规范 (v2.0)
+├── docs/
+│   ├── user-intent.md          # 用户意图
+│   ├── harness-deviation.md    # 偏差记录 (v2.0新增)
+│   ├── exec-plans/
+│   │   ├── active/             # 当前计划
+│   │   │   ├── plan.md
+│   │   │   └── task-*.md       # 任务文档 (v2.0含Hook检查用字段)
+│   │   └── tech-debt-tracker.md
+├── ralph-loop-session/
+│   ├── plan.md                 # 本轮计划
+│   ├── progress.md             # 进度记录
+│   └── agent-assignment.md     # Agent 分配建议
+└── .claude/
+    ├── agents/                 # Agent 定义 (v2.0更新)
+    ├── skills/                 # Skill 定义
+    └── worktrees/              # Agent 工作区
 ```
 
-### Phase 8: PR 与合并
+## 质量检查清单 (v2.0)
 
-每个 agent 完成后的流程：
+每次迭代开始前检查：
 
-```
-1. Agent 在自己的 worktree 中创建 PR
-2. 通知 plan-reviewer 审查 PR
-3. 审查通过后合并到主分支
-4. 关闭该 agent 的 worktree
-5. 触发下一个微任务的执行
-```
+### 基础检查
+- [ ] RALPH-HARNESS.md (v2.0) 已阅读？
+- [ ] CLAUDE.md 已阅读？
+- [ ] plan.md 是否清晰且不过度详细？
+- [ ] 当前小步任务是否在 1-3 个文件范围内？
 
-**滚动 PR 策略：**
-- 每个微任务独立 PR
-- 快速审查、快速合并
-- 保持主分支始终可工作
+### 任务文档检查 (Hook 相关)
+- [ ] 每个 task-*.md 是否包含完整的 `Related Files` 列表？
+- [ ] 每个 task-*.md 是否声明了 `Dependencies`？
+- [ ] 完成标准是否可验证？
+- [ ] Worker 无需询问即可执行？
+
+### Agent 检查
+- [ ] **team-orchestrator (Leader) 是否已首先启动？**
+- [ ] code-reviewer 是否已审核计划？
+- [ ] harness-architect 是否已配置 Hook 监控？
+- [ ] harness-architect 是否已设计架构？
+
+### Hook 监控检查
+- [ ] EnterWorktree Hook 是否启用？
+- [ ] Edit/Write Hook 是否启用？
+- [ ] Pre-merge Hook 是否启用？
+- [ ] Agent 是否都知道 Hook 规则？
 
 ## 边界情况处理
 
@@ -282,62 +214,33 @@ Teammates 之间通过 `SendMessage` 进行异步通信：
 3. 重新评估未完成任务的相关性
 4. 根据需要重新拆分和分配
 
-### Agent 执行失败时
+### Agent 执行失败时 (v2.0 含 Worker 反馈)
 
+**Worker 发现任务清单问题：**
+- **简单问题** (如缺少头文件、typo):
+  - Worker 自行修复
+  - 在 PR 描述中注明修复内容
+  - 通知 Leader 更新任务模板
+- **复杂问题** (如设计缺陷、遗漏依赖):
+  - Worker 停止工作
+  - 上报 Leader
+  - Leader 修订任务清单
+  - Reviewer 重新审核
+  - Worker 重新领取任务
+
+**Agent 执行失败：**
 1. 分析失败原因
 2. 如果是任务定义不清：更新 task-*.md，重新分配
 3. 如果是技术障碍：调整计划，寻求帮助
 4. 如果是 agent 能力问题：更换 agent 类型
+5. **记录技术债务到 tech-debt-tracker.md**
+6. **Harness-Architect 记录偏差到 harness-deviation.md**
 
 ### 发现新依赖时
 
 1. 评估新依赖对当前计划的影响
 2. 如果影响小：在当前任务中处理
 3. 如果影响大：暂停当前阶段，插入新阶段处理依赖
-
-## 文件组织
-
-```
-ralph-loop-session/
-├── plan.md              # 整体计划
-├── tasks/               # 任务定义
-│   ├── task-001-xxx.md
-│   ├── task-002-xxx.md
-│   └── ...
-├── worktrees/           # agent 工作区（临时）
-│   ├── agent-a/
-│   └── agent-b/
-└── completed/           # 已完成的任务记录
-    └── ...
-```
-
-## 与用户的沟通
-
-**开始时：**
-- 简要说明 Ralph-loop 工作方式
-- 展示初步计划，询问是否有遗漏
-
-**执行中：**
-- 每完成一个微任务，简要汇报进度
-- 遇到需要用户决策的问题立即询问
-- 计划调整时说明原因
-
-**结束时：**
-- 总结完成的成果
-- 说明是否有遗留任务
-- 询问是否需要继续下一批任务
-
-## 质量检查清单
-
-每次迭代开始前检查：
-
-- [ ] plan.md 是否清晰且不过度详细？
-- [ ] 当前小步任务是否在 1-3 个文件范围内？
-- [ ] 每个 task-*.md 是否包含完整的上下文？
-- [ ] **harness-architect 是否已首先启动？**（Main Agent 必须最先启动）
-- [ ] plan-reviewer 是否在 harness-architect 完成后启动？
-- [ ] Agent 是否都有自己的 worktree？
-- [ ] PR 流程是否清晰？
 
 ## 输出要求
 
