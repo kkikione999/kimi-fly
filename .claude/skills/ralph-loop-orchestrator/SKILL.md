@@ -22,6 +22,16 @@ description: |
 
 你是 Ralph-loop 的入口点，负责启动和协调整个多 Agent 协作开发流程。
 
+> **Main Agent**: `harness-architect` 是 Ralph-loop 的主要协调者
+>
+> 在 Phase 5 中，**harness-architect 必须先于所有其他 agent 启动**，负责：
+> - 读取 `harness-engineering.md` 作为规范参考
+> - 设计整体 agent 架构
+> - 确定需要哪些 specialized agents
+> - 为每个任务推荐最合适的 agent 类型
+>
+> 其他 agent（包括 plan-reviewer）等待 harness-architect 完成架构设计后再启动。
+
 ## 核心原则
 
 1. **渐进明细**：不要一次性制定完美计划，先定方向，细节在执行中调整
@@ -123,48 +133,117 @@ description: |
 
 ### Phase 5: 团队创建与启动
 
-使用 TeamCreate 创建团队：
+#### 2. Agent Team 的工具调用
 
-```bash
-TeamCreate: {
-  team_name: "ralph-loop-{项目名称}-{时间戳}",
-  description: "Ralph-loop 开发团队: {任务简述}"
+Agent Team 是通过 **TeamCreate** 工具来创建的，teammates 之间通过 **SendMessage** 进行通信：
+
+| 组件 | 角色 |
+|------|------|
+| Team lead | 主 Claude Code 会话，协调工作 |
+| Teammates | 独立的 Claude Code 实例 |
+| Task list | 共享任务列表 |
+| Mailbox | 代理间消息系统 |
+
+**工具调用方式：**
+- **主代理** 使用 `TeamCreate` 创建团队
+- **Teammates** 使用 `SendMessage` 互相发送消息
+- **任务管理** 通过共享任务列表进行
+
+#### 使用 TeamCreate 创建团队
+
+```json
+{
+  "team_name": "ralph-loop-{project}-{timestamp}",
+  "description": "Ralph-loop development team for {task}",
+  "teammates": [
+    {
+      "name": "harness-architect",
+      "description": "Main coordinator agent",
+      "subagent_type": "harness-architect"
+    },
+    {
+      "name": "plan-reviewer",
+      "description": "Plan validation agent",
+      "subagent_type": "plan-reviewer"
+    }
+  ]
 }
 ```
 
-**必须首先启动的两个 agent：**
+**启动顺序（严格按此顺序）：**
 
-1. **harness-architect**
-   - subagent_type: "harness-architect"
-   - 任务：设计 agent 架构，确定需要哪些 specialized agents
-   - 输入：plan.md 和所有 task-*.md 文件
+#### 第 1 步：启动 harness-architect（Main Agent）
 
-2. **plan-reviewer**
-   - 可以是 general-purpose agent
-   - 任务：审查计划合理性，识别风险
-   - 输入：plan.md 和所有 task-*.md 文件
+**harness-architect 必须先于所有其他 agent 启动**，它是整个 Ralph-loop 的架构决策者：
+
+- **subagent_type**: "harness-architect"
+- **任务**：
+  1. 读取 `harness-engineering.md` 作为规范参考
+  2. 设计整体 agent 架构
+  3. 确定需要哪些 specialized agents
+  4. 为每个 task-*.md 推荐最合适的 agent 类型
+  5. 输出 agent 分配建议
+- **输入**：plan.md 和所有 task-*.md 文件
+- **输出**：agent-assignment.md（agent 分配方案）
+
+```
+等待 harness-architect 完成后再进行下一步...
+```
+
+#### 第 2 步：启动 plan-reviewer
+
+在 harness-architect 完成后，启动 plan-reviewer：
+
+- **任务**：审查计划合理性，识别风险
+- **输入**：plan.md、所有 task-*.md 文件、harness-architect 的 agent-assignment.md
+- **输出**：plan-review.md（审查意见）
 
 **读取 team config 获取成员信息：**
 ```bash
 Read: ~/.claude/teams/{team-name}/config.json
 ```
 
-### Phase 6: 动态任务分配
+### Phase 6: 动态任务分配与通信
 
-等待 harness-architect 和 plan-reviewer 完成初步分析后：
+#### SendMessage 通信机制
+
+Teammates 之间通过 `SendMessage` 进行异步通信：
+
+```json
+{
+  "tool": "SendMessage",
+  "params": {
+    "team_id": "{team-name}",
+    "to": "target-agent-name",
+    "message": "任务上下文和指令"
+  }
+}
+```
+
+**通信场景：**
+- **任务分配**：Team lead 向 agent 发送 task-*.md 内容
+- **进度同步**：Agent 向 Team lead 报告完成状态
+- **依赖协调**：需要协作的 agents 之间直接通信
+- **阻塞上报**：Agent 遇到阻碍时立即通知 Team lead
+
+等待 **harness-architect 和 plan-reviewer 都完成**后：
 
 ```
-1. 读取两个初始 agent 的输出
-2. 根据建议确定最终的 agent 分工
-3. 为每个任务选择合适的 agent
+1. 读取 harness-architect 的 agent-assignment.md（优先）
+2. 读取 plan-reviewer 的审查意见
+3. 根据 harness-architect 的建议确定最终的 agent 分工
 4. 使用 TaskCreate 创建任务
 5. 使用 TaskUpdate 分配任务给具体 agent
 ```
 
-**分配原则：**
-- 根据任务类型选择 specialized agent
-- 考虑 agent 的当前负载
-- 优先使用 harness-architect 建议的架构
+**分配原则（按优先级）：**
+1. **遵循 harness-architect 的建议**（最高优先级）
+2. 根据任务类型选择 specialized agent
+3. 考虑 agent 的当前负载
+
+**如果 harness-architect 与其他 agent 建议冲突：**
+- 优先采用 harness-architect 的方案
+- 如有疑虑，询问 harness-architect 确认
 
 ### Phase 7: 执行监控
 
@@ -255,7 +334,8 @@ ralph-loop-session/
 - [ ] plan.md 是否清晰且不过度详细？
 - [ ] 当前小步任务是否在 1-3 个文件范围内？
 - [ ] 每个 task-*.md 是否包含完整的上下文？
-- [ ] harness-architect 和 plan-reviewer 是否已启动？
+- [ ] **harness-architect 是否已首先启动？**（Main Agent 必须最先启动）
+- [ ] plan-reviewer 是否在 harness-architect 完成后启动？
 - [ ] Agent 是否都有自己的 worktree？
 - [ ] PR 流程是否清晰？
 
