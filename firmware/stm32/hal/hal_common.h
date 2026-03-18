@@ -12,6 +12,11 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+/* STM32Cube HAL支持 - 当USE_HAL_DRIVER定义时包含HAL头文件 */
+#ifdef USE_HAL_DRIVER
+    #include "stm32f4xx_hal.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -20,23 +25,39 @@ extern "C" {
  * HAL 状态定义
  * ============================================================================ */
 
-typedef enum {
-    HAL_OK       = 0x00U,    /**< 操作成功 */
-    HAL_ERROR    = 0x01U,    /**< 操作错误 */
-    HAL_BUSY     = 0x02U,    /**< 外设忙 */
-    HAL_TIMEOUT  = 0x03U     /**< 操作超时 */
-} hal_status_t;
+/* USE_HAL_DRIVER由PlatformIO在使用STM32Cube框架时定义
+ * 裸机模式下没有定义此宏
+ */
+#ifdef USE_HAL_DRIVER
+    /* 使用STM32Cube HAL的HAL_StatusTypeDef作为hal_status_t的别名
+     * 注意：STM32Cube HAL的头文件需要在包含此文件之前被包含
+     */
+    typedef HAL_StatusTypeDef hal_status_t;
+#else
+    /* 自定义HAL状态定义（裸机模式） */
+    typedef enum {
+        HAL_OK       = 0x00U,    /**< 操作成功 */
+        HAL_ERROR    = 0x01U,    /**< 操作错误 */
+        HAL_BUSY     = 0x02U,    /**< 外设忙 */
+        HAL_TIMEOUT  = 0x03U     /**< 操作超时 */
+    } hal_status_t;
+#endif
 
 /* ============================================================================
  * 布尔值定义 (兼容STM32标准库)
  * ============================================================================ */
 
-#ifndef ENABLE
-#define ENABLE  1
-#endif
-
-#ifndef DISABLE
-#define DISABLE 0
+/* USE_HAL_DRIVER由PlatformIO在使用STM32Cube框架时定义
+ * 裸机模式下定义ENABLE/DISABLE，STM32Cube模式下使用stm32f4xx.h中的枚举定义
+ */
+#ifndef USE_HAL_DRIVER
+    /* 裸机模式 - 定义ENABLE/DISABLE */
+    #ifndef ENABLE
+        #define ENABLE  1
+    #endif
+    #ifndef DISABLE
+        #define DISABLE 0
+    #endif
 #endif
 
 /* ============================================================================
