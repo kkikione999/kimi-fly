@@ -107,11 +107,13 @@ extern "C" {
 
 /* ============================================================================
  * 时钟频率定义 (STM32F411CEU6)
+ * @note STM32F411 APB1 max = 42MHz, APB2 max = 100MHz
+ *       Current config: SYSCLK=84MHz, APB1=42MHz, APB2=84MHz
  * ============================================================================ */
 
-#define HAL_SYSCLK_FREQ     96000000U   /**< 系统时钟 96MHz */
-#define HAL_APB1_CLK_FREQ   42000000U   /**< APB1时钟 42MHz (I2C1时钟源) */
-#define HAL_APB2_CLK_FREQ   96000000U   /**< APB2时钟 96MHz */
+#define HAL_SYSCLK_FREQ     84000000U   /**< 系统时钟 84MHz */
+#define HAL_APB1_CLK_FREQ   42000000U   /**< APB1时钟 42MHz (USART2/I2C1, max for F411) */
+#define HAL_APB2_CLK_FREQ   84000000U   /**< APB2时钟 84MHz (USART1) */
 
 #ifdef __cplusplus
 }
