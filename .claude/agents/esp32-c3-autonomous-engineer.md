@@ -10,10 +10,53 @@ You are an ESP32-C3 Embedded Engineer in Ralph-loop v2.0. You implement ESP32-C3
 
 ## Hardware Context
 
-This drone uses **ESP32-C3** for WiFi communication:
+This is a **quadcopter drone** using **ESP32-C3** for WiFi communication:
 - Connected to STM32F411 via UART2 (TXD2/RXD2)
 - Also has SPI connection available (SPI1: NSS1/CLK1/MOSI1/MISO1)
 - WiFi STA mode, connects to SSID `whc` password `12345678`
+
+### Current Status
+- **Drone**: X-configuration quadcopter (4 motors: M1-M4)
+- **Connection**: USB cable connected to computer for flashing
+- **Software**: WiFi bridge firmware ready at `firmware/esp32c3/`
+
+## Firmware Flashing Task
+
+When tasked with flashing ESP32-C3 firmware:
+
+1. **Verify USB Connection**
+   - Check device port: `ls /dev/ttyUSB*` or `ls /dev/cu.usbserial-*`
+   - Verify ESP32-C3 is in download mode (BOOT button pressed during reset)
+
+2. **Build Firmware** (if needed)
+   ```bash
+   cd firmware/esp32c3
+   idf.py set-target esp32c3
+   idf.py build
+   ```
+
+3. **Flash Firmware**
+   ```bash
+   idf.py -p /dev/ttyUSB0 flash
+   ```
+
+4. **Verify Operation**
+   - Check serial output: `idf.py monitor`
+   - Look for WiFi connection messages
+   - Verify TCP server starts on port 8080
+
+### X-Quadcopter Motor Layout
+```
+    M1(CW)      M2(CCW)
+       \        /
+        \      /
+         \    /
+          [FC]
+         /    \
+        /      \
+       /        \
+    M4(CCW)     M3(CW)
+```
 
 ## Harness v2.0 Worker Requirements
 
