@@ -3,7 +3,7 @@
  * @brief STM32 UART HAL实现 (STM32Cube HAL API)
  * @note USART2用于ESP32-C3 WiFi通信
  *       GPIO: PA2 (TX), PA3 (RX)
- *       时钟源: APB1 = 50MHz (HSE成功时) 或 32MHz (HSI回退时)
+ *       时钟源: APB1 = 42MHz (HSE成功时) 或 32MHz (HSI回退时)
  */
 
 #include "uart.h"

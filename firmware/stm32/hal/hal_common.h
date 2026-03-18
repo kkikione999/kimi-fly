@@ -107,14 +107,15 @@ extern "C" {
 
 /* ============================================================================
  * 时钟频率定义 (STM32F411CEU6)
- * @note 实际时钟配置见 system_clock_config() in uart_comm_test.c
- *       HSE成功时: SYSCLK=100MHz, APB1=50MHz, APB2=100MHz
+ * @note STM32F411 APB1 max = 42MHz, APB2 max = 100MHz
+ *       实际时钟配置见 system_clock_config() in uart_comm_test.c
+ *       HSE成功时: SYSCLK=84MHz, APB1=42MHz, APB2=84MHz
  *       HSI回退时: SYSCLK=64MHz, APB1=32MHz, APB2=64MHz
  * ============================================================================ */
 
-#define HAL_SYSCLK_FREQ     100000000U  /**< 系统时钟 100MHz (HSE成功时) */
-#define HAL_APB1_CLK_FREQ   50000000U   /**< APB1时钟 50MHz (USART2/I2C1时钟源) */
-#define HAL_APB2_CLK_FREQ   100000000U  /**< APB2时钟 100MHz (USART1时钟源) */
+#define HAL_SYSCLK_FREQ     84000000U   /**< 系统时钟 84MHz (HSE成功时) */
+#define HAL_APB1_CLK_FREQ   42000000U   /**< APB1时钟 42MHz (USART2/I2C1, max for F411) */
+#define HAL_APB2_CLK_FREQ   84000000U   /**< APB2时钟 84MHz (USART1时钟源) */
 
 #ifdef __cplusplus
 }

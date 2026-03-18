@@ -381,9 +381,9 @@ static void system_clock_config(void)
         }
     }
 
-    /* HSE is ready, configure PLL for 100MHz */
-    /* 8MHz / 4 * 100 / 2 = 100MHz */
-    __HAL_RCC_PLL_CONFIG(RCC_PLLSOURCE_HSE, 4, 100, 2, 4);
+    /* HSE is ready, configure PLL for 84MHz (APB1 max = 42MHz for STM32F411) */
+    /* 8MHz / 8 * 84 / 2 = 84MHz */
+    __HAL_RCC_PLL_CONFIG(RCC_PLLSOURCE_HSE, 8, 84, 2, 4);
     __HAL_RCC_PLL_ENABLE();
 
     /* Wait for PLL with timeout */
@@ -395,8 +395,8 @@ static void system_clock_config(void)
         }
     }
 
-    /* Configure Flash latency */
-    __HAL_FLASH_SET_LATENCY(FLASH_LATENCY_3);
+    /* Configure Flash latency for 84MHz */
+    __HAL_FLASH_SET_LATENCY(FLASH_LATENCY_2);
 
     /* Switch to PLL */
     __HAL_RCC_SYSCLK_CONFIG(RCC_SYSCLKSOURCE_PLLCLK);
@@ -405,13 +405,13 @@ static void system_clock_config(void)
         if (--timeout == 0) break;
     }
 
-    /* Configure bus clocks - using register access directly */
+    /* Configure bus clocks - APB1 max 42MHz for STM32F411CEU6 */
     RCC->CFGR &= ~RCC_CFGR_HPRE_Msk;
-    RCC->CFGR |= RCC_CFGR_HPRE_DIV1;          /* HCLK = 100MHz */
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1;          /* HCLK = 84MHz */
     RCC->CFGR &= ~RCC_CFGR_PPRE1_Msk;
-    RCC->CFGR |= RCC_CFGR_PPRE1_DIV2;         /* APB1 = 50MHz */
+    RCC->CFGR |= RCC_CFGR_PPRE1_DIV2;         /* APB1 = 42MHz (max for F411) */
     RCC->CFGR &= ~RCC_CFGR_PPRE2_Msk;
-    RCC->CFGR |= RCC_CFGR_PPRE2_DIV1;         /* APB2 = 100MHz */
+    RCC->CFGR |= RCC_CFGR_PPRE2_DIV1;         /* APB2 = 84MHz */
 }
 
 /**
