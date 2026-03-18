@@ -1,0 +1,39 @@
+# STM32 Firmware specific clangd configuration
+# This configuration applies to firmware/stm32/ directory
+
+CompileFlags:
+  Add:
+    # Target CPU flags
+    - -mcpu=cortex-m4
+    - -mthumb
+    - -mfpu=fpv4-sp-d16
+    - -mfloat-abi=hard
+
+    # STM32 HAL defines
+    - -DUSE_HAL_DRIVER
+    - -DSTM32F411xE
+
+    # Include paths - PlatformIO STM32CubeF4 framework
+    - -I/Users/ll/.platformio/packages/framework-stm32cubef4/Drivers/STM32F4xx_HAL_Driver/Inc
+    - -I/Users/ll/.platformio/packages/framework-stm32cubef4/Drivers/CMSIS/Device/ST/STM32F4xx/Include
+    - -I/Users/ll/.platformio/packages/framework-stm32cubef4/Drivers/CMSIS/Include
+
+    # Project include paths (relative to this file)
+    - -Ihal
+    - -Idrivers
+    - -Imain
+    - -I../platform
+
+    # Suppress common warnings in embedded code
+    - -Wno-unused-parameter
+    - -Wno-unused-function
+    - -Wno-missing-field-initializers
+    - -Wno-gnu-zero-variadic-macro-arguments
+
+  Remove:
+    - -fno-tree-loop-distribute-patterns
+    - -mno-thumb-interwork
+
+Diagnostics:
+  Suppress:
+    - unused-includes

@@ -31,12 +31,17 @@
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
-| Agent | 职责 | 不做什么 |
-|-------|------|----------|
-| **Leader** | 任务编排、计划制定、任务分配、进度跟踪 | 不写代码、不修复bug |
-| **Reviewer** | 计划审核、代码审查、PR审查、质量把关 | 不实施代码、不分配任务 |
-| **Worker** | 代码实施、测试编写、文档更新 | 不制定计划、不分配任务给其他agent |
-| **Harness-Architect** | 流程监控、偏差纠正、机制优化 | 不直接实施代码 |
+| 角色 | subagent_type | 职责 | 不做什么 |
+|------|---------------|------|----------|
+| **Leader** | team-orchestrator | 任务编排、计划制定、任务分配 | 不写代码 |
+| **Reviewer** | plan-reviewer | 计划审核 | 不实施代码 |
+| **Architect** | harness-architect | 流程监控、架构设计 | 不直接实施 |
+
+**动态Worker** (通过Task分配):
+| **Worker** | code-reviewer | 代码/PR审查 | 不制定计划 |
+| **Worker** | stm32-embedded-engineer | STM32开发 | 不制定计划 |
+| **Worker** | esp32-c3-autonomous-engineer | ESP32开发 | 不制定计划 |
+| **Worker** | embedded-test-engineer | 测试编写 | 不制定计划 |
 
 ### 1.2 文档结构
 
@@ -76,6 +81,13 @@
 │                              单轮Ralph-Loop流程                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 
+    ┌──────────────────┐
+    │ 0. TeamCreate    │
+    │  创建团队        │
+    │  - 固定核心团队  │
+    └────────┬─────────┘
+             │
+             ▼
     ┌──────────────────┐
     │  1. 读取上下文   │
     │  - 上一轮反馈    │
@@ -140,7 +152,13 @@
          │ 8. 本轮总结      │
          │ - 更新progress.md│
          │ - 记录技术债务   │
-         │ - 准备下一轮     │
+         └────────┬─────────┘
+                  │
+                  ▼
+         ┌──────────────────┐
+         │ 9. TeamDelete    │
+         │  清理团队        │
+         │  - 归档任务      │
          └──────────────────┘
 ```
 
@@ -322,7 +340,9 @@ Hook机制在关键节点拦截操作，验证是否符合Harness规范。
 8. 所有任务完成后，更新progress.md，准备下一轮
 ```
 
-### 5.2 Reviewer工作流
+### 5.2a plan-reviewer工作流 (计划审核)
+
+固定核心团队成员，负责审核计划和任务文档。
 
 ```
 1. 收到审核请求后，读取相关文档
@@ -331,18 +351,39 @@ Hook机制在关键节点拦截操作，验证是否符合Harness规范。
    - 状态: APPROVED / NEEDS_REVISION
    - 问题列表 (如有)
    - 建议改进 (如有)
-4. 代码/PR审查时，确保:
-   - 符合架构设计
-   - 有适当测试
-   - 不产生新的技术债务
 ```
 
-**Reviewer检查清单**:
+**plan-reviewer检查清单**:
 - [ ] 任务边界是否清晰?
 - [ ] 完成标准是否可验证?
 - [ ] 是否有遗漏的依赖?
 - [ ] 是否考虑了错误处理?
 - [ ] 是否符合代码规范?
+
+### 5.2b code-reviewer工作流 (代码/PR审查)
+
+动态Worker，负责审核代码实现和PR。
+
+```
+1. 收到PR审查请求后，读取相关代码和任务文档
+2. 按照代码审查清单进行审核
+3. 输出审查报告:
+   - 状态: APPROVED / CHANGES_REQUESTED
+   - 问题列表 (如有)
+   - 建议改进 (如有)
+4. 确保:
+   - 符合架构设计
+   - 有适当测试
+   - 不产生新的技术债务
+```
+
+**code-reviewer检查清单**:
+- [ ] 代码是否符合任务要求?
+- [ ] 是否遵循代码规范?
+- [ ] 是否有适当的测试?
+- [ ] 错误处理是否完善?
+- [ ] 是否有明显的bug或边界情况遗漏?
+- [ ] 是否引入新的技术债务?
 
 ### 5.3 Worker工作流
 
@@ -401,6 +442,25 @@ Hook机制在关键节点拦截操作，验证是否符合Harness规范。
 | 技术债务未记录 | 中 | 要求记录债务 |
 | 计划变更未文档化 | 中 | 要求更新计划 |
 
+### 5.5 本轮结束流程
+
+**任务完成后执行**:
+
+1. **Leader更新进度**
+   - 更新 `progress.md`
+   - 记录技术债务到 `tech-debt-tracker.md`
+
+2. **TeamDelete清理团队**
+   ```bash
+   TeamDelete(team_name="kimi-fly-iteration-N")
+   ```
+   - 删除团队配置 `~/.claude/teams/{team-name}/`
+   - 结束所有团队成员
+
+3. **归档任务**
+   - 将完成的 task-*.md 移动到 `exec-plans/completed/`
+   - 更新主计划 `plan.md`
+
 ---
 
 ## 6. 启动Ralph-Loop
@@ -448,10 +508,14 @@ Harness-Architect应定期审查：
 
 | 需求 | 操作 |
 |------|------|
+| 创建团队 | `TeamCreate(team_name="...")` |
+| 删除团队 | `TeamDelete(team_name="...")` |
+| 查看团队 | `TeamList()` |
+| 创建任务 | `TaskCreate(subject="...")` |
+| 分配任务 | `TaskUpdate(taskId="N", owner="...")` |
+| 查看任务 | `TaskList()` |
 | 查看当前计划 | `cat docs/exec-plans/active/plan.md` |
 | 查看技术债务 | `cat docs/exec-plans/tech-debt-tracker.md` |
-| 查看用户意图 | `cat docs/user-intent.md` |
-| 查看硬件信息 | `cat hardware-docs/pinout.md` |
 | 启动Ralph-loop | `/ralph-loop` |
 
 ### 8.2 Agent类型选择指南

@@ -30,9 +30,17 @@ description: |
 | 角色 | Agent | 职责 | 禁止事项 |
 |------|-------|------|----------|
 | **Leader** | team-orchestrator | 编排、计划、任务分配 | 不写代码 |
-| **Reviewer** | code-reviewer | 审核计划、任务、代码、PR | 不实施代码 |
+| **Reviewer** | plan-reviewer | 审核计划 | 不实施代码 |
 | **Architect** | harness-architect | 流程监控、架构设计 | 不直接实施 |
-| **Worker** | *specialized* | 代码实施、测试编写 | 不制定计划 |
+
+**动态 Worker（任务分配时动态加入）**:
+
+| 角色 | Agent | 职责 | 禁止事项 |
+|------|-------|------|----------|
+| **Worker** | code-reviewer | 代码/PR审查 | 不制定计划 |
+| **Worker** | stm32-embedded-engineer | STM32开发 | 不制定计划 |
+| **Worker** | esp32-c3-autonomous-engineer | ESP32开发 | 不制定计划 |
+| **Worker** | embedded-test-engineer | 测试编写 | 不制定计划 |
 
 ## 核心原则 (v2.0)
 
@@ -45,6 +53,38 @@ description: |
 
 ## 工作流程
 
+### Phase 0: 创建团队
+
+**使用 TeamCreate 创建团队（仅创建队长）：**
+
+```bash
+TeamCreate(team_name="kimi-fly-iteration-N", description="本轮目标...")
+```
+
+**重要说明**：TeamCreate 只将当前会话设为 team-lead，**不会自动创建其他 agent**。
+
+### Phase 0.5: 启动固定核心成员
+
+**必须手动启动3个固定核心成员并加入团队：**
+
+```bash
+# 1. 启动 Leader（制定计划）
+Agent(team_name="kimi-fly-iteration-N", subagent_type="team-orchestrator", name="leader")
+
+# 2. 启动 Reviewer（审核计划）
+Agent(team_name="kimi-fly-iteration-N", subagent_type="plan-reviewer", name="reviewer")
+
+# 3. 启动 Architect（流程监控）
+Agent(team_name="kimi-fly-iteration-N", subagent_type="harness-architect", name="architect")
+```
+
+**固定核心团队（3人）**：
+| 角色 | Agent Type | 职责 |
+|------|------------|------|
+| Leader | team-orchestrator | 编排、计划、任务分配 |
+| Reviewer | plan-reviewer | 审核计划 |
+| Architect | harness-architect | 流程监控、架构设计 |
+
 ### Phase 1: 读取 Harness 文档
 
 **必须首先读取：**
@@ -53,60 +93,83 @@ description: |
 3. `/Users/ll/kimi-fly/docs/user-intent.md` - 用户意图
 4. `/Users/ll/kimi-fly/docs/exec-plans/tech-debt-tracker.md` - 技术债务
 
-### Phase 2: 启动 Leader (team-orchestrator)
+### Phase 2: Leader 制定计划
 
-**这是第一步启动的 Agent：**
+**Leader (team-orchestrator) 开始工作：**
 
-- **subagent_type**: "team-orchestrator"
+- **通过 SendMessage 通知 Leader 开始工作**
 - **任务**：
   1. 读取所有上下文文档
   2. 制定/更新本轮计划 (plan.md)
   3. 拆分任务 (task-*.md)
-  4. 调用 Reviewer 审核
+  4. 通过 SendMessage 通知 Reviewer 审核
 
-### Phase 3: 计划审核
+### Phase 3: Reviewer 审核计划
 
-**启动 Reviewer (code-reviewer) 审核计划：**
+**Reviewer (plan-reviewer) 审核计划：**
 
-- **subagent_type**: "code-reviewer"
+- **通过 SendMessage 通知 Reviewer 开始审核**
 - **任务**：
   1. 审查 plan.md
   2. 审查所有 task-*.md
   3. 输出审查报告
+  4. 通过 SendMessage 通知主会话审核结果
 
 **审核通过后继续，否则返回 Phase 2 修订**
 
-### Phase 4: 启动 Harness-Architect
+### Phase 4: Architect 配置 Hook
 
-**启动 harness-architect：**
+**Architect (harness-architect) 配置流程：**
 
-- **subagent_type**: "harness-architect"
+- **通过 SendMessage 通知 Architect 开始工作**
 - **任务**：
   1. 读取 RALPH-HARNESS.md
   2. 分析所有 task-*.md
   3. 为每个任务推荐 agent 类型
   4. 输出 agent-assignment.md
+  5. 通过 SendMessage 通知主会话配置完成
 
-### Phase 5: 动态任务分配
+### Phase 5: 主会话协调与任务分配
 
-等待 **Reviewer 和 Harness-Architect 都完成**后：
+**主会话（你）负责协调，等待核心成员完成：**
+
+等待 **Reviewer 和 Architect 都通过 SendMessage 报告完成**后：
 
 ```
-1. 读取 Harness-Architect 的 agent-assignment.md（优先）
-2. 读取 Reviewer 的审查意见
-3. 根据 Harness-Architect 建议确定 agent 分工
-4. 创建 Workers 执行任务
+1. 读取 Harness-Architect 的 agent-assignment.md
+2. 读取 Reviewer 的审查报告
+3. 确定 Worker 分工
+4. 使用 TaskCreate 创建任务
+5. 使用 Agent 工具启动 Workers 执行
 ```
+
+**通信流程**：
+- 主会话 ←SendMessage→ Leader（制定计划）
+- 主会话 ←SendMessage→ Reviewer（审核计划）
+- 主会话 ←SendMessage→ Architect（配置 Hook）
+- 主会话 → 启动 Workers（执行实施）
 
 **分配原则（按优先级）：**
 1. **遵循 Harness-Architect 的建议**（最高优先级）
 2. 根据任务类型选择 specialized agent
 3. 考虑 agent 的当前负载
 
+**方式1 - Task工具：**
+```bash
+TaskCreate(subject="UART HAL实现", description="...")
+TaskUpdate(taskId="4", owner="stm32-embedded-engineer")
+```
+
+**方式2 - Agent工具：**
+```bash
+Agent(team_name="kimi-fly-iteration-N", subagent_type="stm32-embedded-engineer")
+```
+
 **可用的 Specialized Agents：**
 - `stm32-embedded-engineer` - STM32 HAL/驱动开发
 - `esp32-c3-autonomous-engineer` - ESP32-C3/WiFi 开发
 - `embedded-test-engineer` - 测试用例编写
+- `code-reviewer` - 代码/PR审查
 - `code-simplifier` - 通用代码优化
 
 ### Phase 6: Worker 执行 (Hook 监控)
@@ -153,6 +216,18 @@ description: |
 2. 记录新技术债务
 3. 准备下一轮计划
 
+### Phase 9: 团队清理
+
+**使用 TeamDelete 结束本轮循环：**
+
+```bash
+TeamDelete(team_name="kimi-fly-iteration-N")
+```
+
+**清理内容**:
+- 删除团队配置文件
+- 结束所有团队成员
+
 ## 文件组织 (v2.0)
 
 ```
@@ -194,10 +269,10 @@ description: |
 - [ ] Worker 无需询问即可执行？
 
 ### Agent 检查
-- [ ] **team-orchestrator (Leader) 是否已首先启动？**
-- [ ] code-reviewer 是否已审核计划？
-- [ ] harness-architect 是否已配置 Hook 监控？
-- [ ] harness-architect 是否已设计架构？
+- [ ] **3个固定核心成员是否已启动？** (Leader/Reviewer/Architect)
+- [ ] Leader (team-orchestrator) 是否已制定计划？
+- [ ] Reviewer (plan-reviewer) 是否已审核计划？
+- [ ] Architect (harness-architect) 是否已配置 Hook 监控？
 
 ### Hook 监控检查
 - [ ] EnterWorktree Hook 是否启用？

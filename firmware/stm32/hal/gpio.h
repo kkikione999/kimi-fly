@@ -3,6 +3,7 @@
  * @brief STM32 GPIO HAL接口定义
  *
  * @note 本文件为Ralph-loop v2.0 HAL层基础文件
+ *       当USE_HAL_DRIVER定义时，直接映射到STM32Cube HAL
  */
 
 #ifndef GPIO_H
@@ -15,7 +16,7 @@ extern "C" {
 #endif
 
 /* ============================================================================
- * GPIO 端口定义 (STM32F411CEU6)
+ * GPIO 端口定义
  * ============================================================================ */
 
 typedef enum {
@@ -28,103 +29,173 @@ typedef enum {
 } gpio_port_t;
 
 /* ============================================================================
- * GPIO 引脚定义
+ * GPIO 引脚定义 - 条件定义避免冲突
  * ============================================================================ */
 
-typedef enum {
-    GPIO_PIN_0  = 0x0001U,
-    GPIO_PIN_1  = 0x0002U,
-    GPIO_PIN_2  = 0x0004U,
-    GPIO_PIN_3  = 0x0008U,
-    GPIO_PIN_4  = 0x0010U,
-    GPIO_PIN_5  = 0x0020U,
-    GPIO_PIN_6  = 0x0040U,
-    GPIO_PIN_7  = 0x0080U,
-    GPIO_PIN_8  = 0x0100U,
-    GPIO_PIN_9  = 0x0200U,
-    GPIO_PIN_10 = 0x0400U,
-    GPIO_PIN_11 = 0x0800U,
-    GPIO_PIN_12 = 0x1000U,
-    GPIO_PIN_13 = 0x2000U,
-    GPIO_PIN_14 = 0x4000U,
-    GPIO_PIN_15 = 0x8000U,
-    GPIO_PIN_ALL = 0xFFFFU
-} gpio_pin_t;
+#ifndef GPIO_PIN_0
+#define GPIO_PIN_0                 ((uint16_t)0x0001)
+#define GPIO_PIN_1                 ((uint16_t)0x0002)
+#define GPIO_PIN_2                 ((uint16_t)0x0004)
+#define GPIO_PIN_3                 ((uint16_t)0x0008)
+#define GPIO_PIN_4                 ((uint16_t)0x0010)
+#define GPIO_PIN_5                 ((uint16_t)0x0020)
+#define GPIO_PIN_6                 ((uint16_t)0x0040)
+#define GPIO_PIN_7                 ((uint16_t)0x0080)
+#define GPIO_PIN_8                 ((uint16_t)0x0100)
+#define GPIO_PIN_9                 ((uint16_t)0x0200)
+#define GPIO_PIN_10                ((uint16_t)0x0400)
+#define GPIO_PIN_11                ((uint16_t)0x0800)
+#define GPIO_PIN_12                ((uint16_t)0x1000)
+#define GPIO_PIN_13                ((uint16_t)0x2000)
+#define GPIO_PIN_14                ((uint16_t)0x4000)
+#define GPIO_PIN_15                ((uint16_t)0x8000)
+#define GPIO_PIN_ALL               ((uint16_t)0xFFFF)
+#endif
 
 /* ============================================================================
- * GPIO 模式定义
+ * GPIO 模式定义 - 条件定义避免冲突
  * ============================================================================ */
 
+#ifndef GPIO_MODE_INPUT
+#define GPIO_MODE_INPUT                 (0x00000000U)
+#define GPIO_MODE_OUTPUT_PP             (0x00000001U)
+#define GPIO_MODE_OUTPUT_OD             (0x00000011U)
+#define GPIO_MODE_AF_PP                 (0x00000002U)
+#define GPIO_MODE_AF_OD                 (0x00000012U)
+#define GPIO_MODE_ANALOG                (0x00000003U)
+#endif
+
 typedef enum {
-    GPIO_MODE_INPUT     = 0x00U,  /**< 输入模式 */
-    GPIO_MODE_OUTPUT    = 0x01U,  /**< 输出模式 */
-    GPIO_MODE_AF        = 0x02U,  /**< 复用功能模式 */
-    GPIO_MODE_ANALOG    = 0x03U   /**< 模拟模式 */
+    KF_GPIO_MODE_INPUT = 0,
+    KF_GPIO_MODE_OUTPUT = 1,
+    KF_GPIO_MODE_AF = 2,
+    KF_GPIO_MODE_ANALOG = 3
 } gpio_mode_t;
+
+/* ============================================================================
+ * GPIO 速度定义 - 条件定义避免冲突
+ * ============================================================================ */
+
+#ifndef GPIO_SPEED_FREQ_LOW
+#define GPIO_SPEED_FREQ_LOW         (0x00000000U)
+#define GPIO_SPEED_FREQ_MEDIUM      (0x00000001U)
+#define GPIO_SPEED_FREQ_HIGH        (0x00000002U)
+#define GPIO_SPEED_FREQ_VERY_HIGH   (0x00000003U)
+#endif
+
+typedef enum {
+    KF_GPIO_SPEED_LOW = 0,
+    KF_GPIO_SPEED_MEDIUM = 1,
+    KF_GPIO_SPEED_FAST = 2,
+    KF_GPIO_SPEED_HIGH = 3
+} gpio_speed_t;
+
+#define GPIO_SPEED_LOW      GPIO_SPEED_FREQ_LOW
+#define GPIO_SPEED_MEDIUM   GPIO_SPEED_FREQ_MEDIUM
+#define GPIO_SPEED_FAST     GPIO_SPEED_FREQ_HIGH
+#define GPIO_SPEED_HIGH     GPIO_SPEED_FREQ_VERY_HIGH
+
+/* ============================================================================
+ * GPIO 上下拉定义 - 条件定义避免冲突
+ * ============================================================================ */
+
+#ifndef GPIO_NOPULL
+#define GPIO_NOPULL                 (0x00000000U)
+#define GPIO_PULLUP                 (0x00000001U)
+#define GPIO_PULLDOWN               (0x00000002U)
+#endif
+
+typedef enum {
+    KF_GPIO_PUPD_NONE = 0,
+    KF_GPIO_PUPD_UP = 1,
+    KF_GPIO_PUPD_DOWN = 2
+} gpio_pupd_t;
+
+#define GPIO_PUPD_NONE  KF_GPIO_PUPD_NONE
+#define GPIO_PUPD_UP    KF_GPIO_PUPD_UP
+#define GPIO_PUPD_DOWN  KF_GPIO_PUPD_DOWN
+
+/* ============================================================================
+ * GPIO 复用功能定义 - 条件定义避免冲突
+ * ============================================================================ */
+
+#ifndef GPIO_AF0
+#define GPIO_AF0                     ((uint8_t)0x00)
+#define GPIO_AF1                     ((uint8_t)0x01)
+#define GPIO_AF2                     ((uint8_t)0x02)
+#define GPIO_AF3                     ((uint8_t)0x03)
+#define GPIO_AF4                     ((uint8_t)0x04)
+#define GPIO_AF5                     ((uint8_t)0x05)
+#define GPIO_AF6                     ((uint8_t)0x06)
+#define GPIO_AF7                     ((uint8_t)0x07)
+#define GPIO_AF8                     ((uint8_t)0x08)
+#define GPIO_AF9                     ((uint8_t)0x09)
+#define GPIO_AF10                    ((uint8_t)0x0A)
+#define GPIO_AF11                    ((uint8_t)0x0B)
+#define GPIO_AF12                    ((uint8_t)0x0C)
+#define GPIO_AF13                    ((uint8_t)0x0D)
+#define GPIO_AF14                    ((uint8_t)0x0E)
+#define GPIO_AF15                    ((uint8_t)0x0F)
+#endif
+
+typedef enum {
+    KF_GPIO_AF_0 = 0,
+    KF_GPIO_AF_1 = 1,
+    KF_GPIO_AF_2 = 2,
+    KF_GPIO_AF_3 = 3,
+    KF_GPIO_AF_4 = 4,
+    KF_GPIO_AF_5 = 5,
+    KF_GPIO_AF_6 = 6,
+    KF_GPIO_AF_7 = 7,
+    KF_GPIO_AF_8 = 8,
+    KF_GPIO_AF_9 = 9,
+    KF_GPIO_AF_10 = 10,
+    KF_GPIO_AF_11 = 11,
+    KF_GPIO_AF_12 = 12,
+    KF_GPIO_AF_13 = 13,
+    KF_GPIO_AF_14 = 14,
+    KF_GPIO_AF_15 = 15
+} gpio_af_t;
+
+#define GPIO_AF_0   KF_GPIO_AF_0
+#define GPIO_AF_1   KF_GPIO_AF_1
+#define GPIO_AF_2   KF_GPIO_AF_2
+#define GPIO_AF_3   KF_GPIO_AF_3
+#define GPIO_AF_4   KF_GPIO_AF_4
+#define GPIO_AF_5   KF_GPIO_AF_5
+#define GPIO_AF_6   KF_GPIO_AF_6
+#define GPIO_AF_7   KF_GPIO_AF_7
+#define GPIO_AF_8   KF_GPIO_AF_8
+#define GPIO_AF_9   KF_GPIO_AF_9
+#define GPIO_AF_10  KF_GPIO_AF_10
+#define GPIO_AF_11  KF_GPIO_AF_11
+#define GPIO_AF_12  KF_GPIO_AF_12
+#define GPIO_AF_13  KF_GPIO_AF_13
+#define GPIO_AF_14  KF_GPIO_AF_14
+#define GPIO_AF_15  KF_GPIO_AF_15
 
 /* ============================================================================
  * GPIO 输出类型定义
  * ============================================================================ */
 
 typedef enum {
-    GPIO_OTYPE_PP = 0x00U,  /**< 推挽输出 */
-    GPIO_OTYPE_OD = 0x01U   /**< 开漏输出 */
+    KF_GPIO_OTYPE_PP = 0,
+    KF_GPIO_OTYPE_OD = 1
 } gpio_otype_t;
 
-/* ============================================================================
- * GPIO 速度定义
- * ============================================================================ */
-
-typedef enum {
-    GPIO_SPEED_LOW    = 0x00U,  /**< 低速 2MHz */
-    GPIO_SPEED_MEDIUM = 0x01U,  /**< 中速 25MHz */
-    GPIO_SPEED_FAST   = 0x02U,  /**< 快速 50MHz */
-    GPIO_SPEED_HIGH   = 0x03U   /**< 高速 100MHz */
-} gpio_speed_t;
-
-/* ============================================================================
- * GPIO 上下拉定义
- * ============================================================================ */
-
-typedef enum {
-    GPIO_PUPD_NONE = 0x00U,  /**< 无上下拉 */
-    GPIO_PUPD_UP   = 0x01U,  /**< 上拉 */
-    GPIO_PUPD_DOWN = 0x02U   /**< 下拉 */
-} gpio_pupd_t;
-
-/* ============================================================================
- * GPIO 复用功能定义 (AF0-AF15)
- * ============================================================================ */
-
-typedef enum {
-    GPIO_AF_0  = 0x00U,   /**< AF0: SYS_AF */
-    GPIO_AF_1  = 0x01U,   /**< AF1: TIM1/TIM2 */
-    GPIO_AF_2  = 0x02U,   /**< AF2: TIM3/TIM4/TIM5 */
-    GPIO_AF_3  = 0x03U,   /**< AF3: TIM9/TIM10/TIM11 */
-    GPIO_AF_4  = 0x04U,   /**< AF4: I2C1/I2C2/I2C3 */
-    GPIO_AF_5  = 0x05U,   /**< AF5: SPI1/SPI2/SPI3/SPI4/SPI5 */
-    GPIO_AF_6  = 0x06U,   /**< AF6: SPI3 */
-    GPIO_AF_7  = 0x07U,   /**< AF7: USART1/USART2 */
-    GPIO_AF_8  = 0x08U,   /**< AF8: USART6 */
-    GPIO_AF_9  = 0x09U,   /**< AF9: I2C2/I2C3 */
-    GPIO_AF_10 = 0x0AU,   /**< AF10: OTG_FS */
-    GPIO_AF_11 = 0x0BU,   /**< AF11: Reserved */
-    GPIO_AF_12 = 0x0CU,   /**< AF12: SDIO */
-    GPIO_AF_13 = 0x0DU,   /**< AF13: Reserved */
-    GPIO_AF_14 = 0x0EU,   /**< AF14: Reserved */
-    GPIO_AF_15 = 0x0FU    /**< AF15: EVENTOUT */
-} gpio_af_t;
+#define GPIO_OTYPE_PP   KF_GPIO_OTYPE_PP
+#define GPIO_OTYPE_OD   KF_GPIO_OTYPE_OD
 
 /* ============================================================================
  * GPIO 配置结构体
  * ============================================================================ */
 
 typedef struct {
-    gpio_mode_t   mode;      /**< GPIO模式 */
-    gpio_otype_t  otype;     /**< 输出类型 */
-    gpio_speed_t  speed;     /**< 速度 */
-    gpio_pupd_t   pupd;      /**< 上下拉配置 */
-    gpio_af_t     af;        /**< 复用功能 (仅在AF模式下有效) */
+    gpio_mode_t   mode;
+    gpio_otype_t  otype;
+    gpio_speed_t  speed;
+    gpio_pupd_t   pupd;
+    gpio_af_t     af;
 } gpio_config_t;
 
 /* ============================================================================
@@ -132,64 +203,20 @@ typedef struct {
  * ============================================================================ */
 
 typedef struct {
-    gpio_port_t   port;      /**< GPIO端口 */
-    uint16_t      pin_mask;  /**< 引脚掩码 (可多位) */
+    gpio_port_t   port;
+    uint16_t      pin_mask;
 } gpio_handle_t;
 
 /* ============================================================================
  * GPIO API 声明
  * ============================================================================ */
 
-/**
- * @brief 初始化GPIO
- * @param gpio GPIO句柄
- * @param config GPIO配置
- * @return HAL状态
- */
 hal_status_t gpio_init(gpio_handle_t *gpio, const gpio_config_t *config);
-
-/**
- * @brief 反初始化GPIO
- * @param gpio GPIO句柄
- * @return HAL状态
- */
 hal_status_t gpio_deinit(gpio_handle_t *gpio);
-
-/**
- * @brief 设置GPIO输出电平
- * @param gpio GPIO句柄
- * @param value 电平值 (0=低, 1=高)
- * @return HAL状态
- */
 hal_status_t gpio_write(gpio_handle_t *gpio, uint8_t value);
-
-/**
- * @brief 读取GPIO输入电平
- * @param gpio GPIO句柄
- * @param value 输出电平值
- * @return HAL状态
- */
 hal_status_t gpio_read(gpio_handle_t *gpio, uint8_t *value);
-
-/**
- * @brief 切换GPIO输出电平
- * @param gpio GPIO句柄
- * @return HAL状态
- */
 hal_status_t gpio_toggle(gpio_handle_t *gpio);
-
-/**
- * @brief 使能GPIO端口时钟
- * @param port GPIO端口
- * @return HAL状态
- */
 hal_status_t gpio_clk_enable(gpio_port_t port);
-
-/**
- * @brief 禁用GPIO端口时钟
- * @param port GPIO端口
- * @return HAL状态
- */
 hal_status_t gpio_clk_disable(gpio_port_t port);
 
 #ifdef __cplusplus

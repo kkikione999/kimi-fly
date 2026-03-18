@@ -1,65 +1,26 @@
 /**
  * @file gpio.c
- * @brief STM32 GPIO HAL实现
+ * @brief STM32 GPIO HAL实现 (STM32Cube HAL API)
  *
  * @note 本文件为Ralph-loop v2.0 HAL层基础文件
  */
 
 #include "gpio.h"
+#include "stm32f4xx_hal.h"
 
-/* STM32F4xx 寄存器定义 (用于裸机开发) */
-#define RCC_BASE            0x40023800U
-#define RCC_AHB1ENR         (*(volatile uint32_t *)(RCC_BASE + 0x30U))
-
-#define GPIOA_BASE          0x40020000U
-#define GPIOB_BASE          0x40020400U
-#define GPIOC_BASE          0x40020800U
-#define GPIOD_BASE          0x40020C00U
-#define GPIOE_BASE          0x40021000U
-#define GPIOH_BASE          0x40021C00U
-
-#define RCC_AHB1ENR_GPIOAEN (1U << 0)
-#define RCC_AHB1ENR_GPIOBEN (1U << 1)
-#define RCC_AHB1ENR_GPIOCEN (1U << 2)
-#define RCC_AHB1ENR_GPIODEN (1U << 3)
-#define RCC_AHB1ENR_GPIOEEN (1U << 4)
-#define RCC_AHB1ENR_GPIOHEN (1U << 7)
-
-typedef struct {
-    volatile uint32_t MODER;
-    volatile uint32_t OTYPER;
-    volatile uint32_t OSPEEDR;
-    volatile uint32_t PUPDR;
-    volatile uint32_t IDR;
-    volatile uint32_t ODR;
-    volatile uint32_t BSRR;
-    volatile uint32_t LCKR;
-    volatile uint32_t AFRL;
-    volatile uint32_t AFRH;
-} GPIO_TypeDef;
-
+/* GPIO端口映射表 */
 static GPIO_TypeDef *const GPIO_PORTS[] = {
-    (GPIO_TypeDef *)GPIOA_BASE,
-    (GPIO_TypeDef *)GPIOB_BASE,
-    (GPIO_TypeDef *)GPIOC_BASE,
-    (GPIO_TypeDef *)GPIOD_BASE,
-    (GPIO_TypeDef *)GPIOE_BASE,
-    (GPIO_TypeDef *)GPIOH_BASE
-};
-
-static const uint32_t GPIO_CLK_EN_BITS[] = {
-    RCC_AHB1ENR_GPIOAEN,
-    RCC_AHB1ENR_GPIOBEN,
-    RCC_AHB1ENR_GPIOCEN,
-    RCC_AHB1ENR_GPIODEN,
-    RCC_AHB1ENR_GPIOEEN,
-    RCC_AHB1ENR_GPIOHEN
+    GPIOA,
+    GPIOB,
+    GPIOC,
+    GPIOD,
+    GPIOE,
+    GPIOH
 };
 
 hal_status_t gpio_init(gpio_handle_t *gpio, const gpio_config_t *config)
 {
-    GPIO_TypeDef *port;
-    uint32_t pin_num;
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
     uint32_t i;
 
     if (gpio == NULL || config == NULL || gpio->port >= 6) {
@@ -69,108 +30,171 @@ hal_status_t gpio_init(gpio_handle_t *gpio, const gpio_config_t *config)
     /* 使能时钟 */
     gpio_clk_enable(gpio->port);
 
-    port = GPIO_PORTS[gpio->port];
+    /* 配置GPIO参数 */
+    GPIO_InitStruct.Pin = gpio->pin_mask;
 
-    for (i = 0; i < 16; i++) {
-        if (gpio->pin_mask & (1U << i)) {
-            pin_num = i;
+    /* 转换模式 */
+    switch (config->mode) {
+        case GPIO_MODE_INPUT:
+            GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+            break;
+        case KF_GPIO_MODE_OUTPUT:
+            GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+            break;
+        case KF_GPIO_MODE_AF:
+            GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+            break;
+        case GPIO_MODE_ANALOG:
+            GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+            break;
+        default:
+            return HAL_ERROR;
+    }
 
-            /* 配置模式 */
-            port->MODER &= ~(3U << (pin_num * 2));
-            port->MODER |= ((uint32_t)config->mode << (pin_num * 2));
+    /* 转换输出类型 (仅在输出模式下有效) */
+    if (config->mode == KF_GPIO_MODE_OUTPUT) {
+        if (config->otype == GPIO_OTYPE_OD) {
+            GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+        }
+    } else if (config->mode == KF_GPIO_MODE_AF) {
+        if (config->otype == GPIO_OTYPE_OD) {
+            GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+        }
+    }
 
-            /* 配置输出类型 */
-            port->OTYPER &= ~(1U << pin_num);
-            port->OTYPER |= ((uint32_t)config->otype << pin_num);
+    /* 转换速度 */
+    switch (config->speed) {
+        case GPIO_SPEED_LOW:
+            GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+            break;
+        case GPIO_SPEED_MEDIUM:
+            GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+            break;
+        case GPIO_SPEED_FAST:
+            GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+            break;
+        case GPIO_SPEED_HIGH:
+            GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+            break;
+        default:
+            GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+            break;
+    }
 
-            /* 配置速度 */
-            port->OSPEEDR &= ~(3U << (pin_num * 2));
-            port->OSPEEDR |= ((uint32_t)config->speed << (pin_num * 2));
+    /* 转换上下拉 */
+    switch (config->pupd) {
+        case GPIO_PUPD_NONE:
+            GPIO_InitStruct.Pull = GPIO_NOPULL;
+            break;
+        case GPIO_PUPD_UP:
+            GPIO_InitStruct.Pull = GPIO_PULLUP;
+            break;
+        case GPIO_PUPD_DOWN:
+            GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+            break;
+        default:
+            GPIO_InitStruct.Pull = GPIO_NOPULL;
+            break;
+    }
 
-            /* 配置上下拉 */
-            port->PUPDR &= ~(3U << (pin_num * 2));
-            port->PUPDR |= ((uint32_t)config->pupd << (pin_num * 2));
-
-            /* 配置复用功能 */
-            if (pin_num < 8) {
-                port->AFRL &= ~(0xFU << (pin_num * 4));
-                port->AFRL |= ((uint32_t)config->af << (pin_num * 4));
-            } else {
-                port->AFRH &= ~(0xFU << ((pin_num - 8) * 4));
-                port->AFRH |= ((uint32_t)config->af << ((pin_num - 8) * 4));
+    /* 配置复用功能 */
+    if (config->mode == KF_GPIO_MODE_AF) {
+        /* 找到第一个使能的引脚，设置其复用功能 */
+        for (i = 0; i < 16; i++) {
+            if (gpio->pin_mask & (1U << i)) {
+                GPIO_InitStruct.Alternate = (uint8_t)config->af;
+                break;
             }
         }
     }
+
+    /* 调用HAL_GPIO_Init */
+    HAL_GPIO_Init(GPIO_PORTS[gpio->port], &GPIO_InitStruct);
 
     return HAL_OK;
 }
 
 hal_status_t gpio_deinit(gpio_handle_t *gpio)
 {
-    GPIO_TypeDef *port;
-    uint32_t i;
-
     if (gpio == NULL || gpio->port >= 6) {
         return HAL_ERROR;
     }
 
-    port = GPIO_PORTS[gpio->port];
-
-    for (i = 0; i < 16; i++) {
-        if (gpio->pin_mask & (1U << i)) {
-            /* 恢复为输入模式 */
-            port->MODER &= ~(3U << (i * 2));
-        }
-    }
+    /* 调用HAL_GPIO_DeInit */
+    HAL_GPIO_DeInit(GPIO_PORTS[gpio->port], gpio->pin_mask);
 
     return HAL_OK;
 }
 
 hal_status_t gpio_write(gpio_handle_t *gpio, uint8_t value)
 {
-    GPIO_TypeDef *port;
-
     if (gpio == NULL || gpio->port >= 6) {
         return HAL_ERROR;
     }
 
-    port = GPIO_PORTS[gpio->port];
-
-    if (value) {
-        port->BSRR = gpio->pin_mask;
-    } else {
-        port->BSRR = (uint32_t)gpio->pin_mask << 16;
+    /* 找到第一个使能的引脚 */
+    uint16_t pin = 0;
+    for (uint32_t i = 0; i < 16; i++) {
+        if (gpio->pin_mask & (1U << i)) {
+            pin = (1U << i);
+            break;
+        }
     }
+
+    if (pin == 0) {
+        return HAL_ERROR;
+    }
+
+    HAL_GPIO_WritePin(GPIO_PORTS[gpio->port], pin,
+                      value ? GPIO_PIN_SET : GPIO_PIN_RESET);
 
     return HAL_OK;
 }
 
 hal_status_t gpio_read(gpio_handle_t *gpio, uint8_t *value)
 {
-    GPIO_TypeDef *port;
-
     if (gpio == NULL || value == NULL || gpio->port >= 6) {
         return HAL_ERROR;
     }
 
-    port = GPIO_PORTS[gpio->port];
+    /* 找到第一个使能的引脚 */
+    uint16_t pin = 0;
+    for (uint32_t i = 0; i < 16; i++) {
+        if (gpio->pin_mask & (1U << i)) {
+            pin = (1U << i);
+            break;
+        }
+    }
 
-    *value = (port->IDR & gpio->pin_mask) ? 1 : 0;
+    if (pin == 0) {
+        return HAL_ERROR;
+    }
+
+    *value = (HAL_GPIO_ReadPin(GPIO_PORTS[gpio->port], pin) == GPIO_PIN_SET) ? 1 : 0;
 
     return HAL_OK;
 }
 
 hal_status_t gpio_toggle(gpio_handle_t *gpio)
 {
-    GPIO_TypeDef *port;
-
     if (gpio == NULL || gpio->port >= 6) {
         return HAL_ERROR;
     }
 
-    port = GPIO_PORTS[gpio->port];
+    /* 找到第一个使能的引脚 */
+    uint16_t pin = 0;
+    for (uint32_t i = 0; i < 16; i++) {
+        if (gpio->pin_mask & (1U << i)) {
+            pin = (1U << i);
+            break;
+        }
+    }
 
-    port->ODR ^= gpio->pin_mask;
+    if (pin == 0) {
+        return HAL_ERROR;
+    }
+
+    HAL_GPIO_TogglePin(GPIO_PORTS[gpio->port], pin);
 
     return HAL_OK;
 }
@@ -181,7 +205,28 @@ hal_status_t gpio_clk_enable(gpio_port_t port)
         return HAL_ERROR;
     }
 
-    RCC_AHB1ENR |= GPIO_CLK_EN_BITS[port];
+    switch (port) {
+        case GPIO_PORT_A:
+            __HAL_RCC_GPIOA_CLK_ENABLE();
+            break;
+        case GPIO_PORT_B:
+            __HAL_RCC_GPIOB_CLK_ENABLE();
+            break;
+        case GPIO_PORT_C:
+            __HAL_RCC_GPIOC_CLK_ENABLE();
+            break;
+        case GPIO_PORT_D:
+            __HAL_RCC_GPIOD_CLK_ENABLE();
+            break;
+        case GPIO_PORT_E:
+            __HAL_RCC_GPIOE_CLK_ENABLE();
+            break;
+        case GPIO_PORT_H:
+            __HAL_RCC_GPIOH_CLK_ENABLE();
+            break;
+        default:
+            return HAL_ERROR;
+    }
 
     return HAL_OK;
 }
@@ -192,7 +237,28 @@ hal_status_t gpio_clk_disable(gpio_port_t port)
         return HAL_ERROR;
     }
 
-    RCC_AHB1ENR &= ~GPIO_CLK_EN_BITS[port];
+    switch (port) {
+        case GPIO_PORT_A:
+            __HAL_RCC_GPIOA_CLK_DISABLE();
+            break;
+        case GPIO_PORT_B:
+            __HAL_RCC_GPIOB_CLK_DISABLE();
+            break;
+        case GPIO_PORT_C:
+            __HAL_RCC_GPIOC_CLK_DISABLE();
+            break;
+        case GPIO_PORT_D:
+            __HAL_RCC_GPIOD_CLK_DISABLE();
+            break;
+        case GPIO_PORT_E:
+            __HAL_RCC_GPIOE_CLK_DISABLE();
+            break;
+        case GPIO_PORT_H:
+            __HAL_RCC_GPIOH_CLK_DISABLE();
+            break;
+        default:
+            return HAL_ERROR;
+    }
 
     return HAL_OK;
 }

@@ -1,65 +1,104 @@
-# Ralph-Loop 初始计划
+# Ralph-Loop Iteration 4 Plan - Phase 2
 
-> **创建日期**: 2026-03-17
-> **状态**: 初始化
-
----
-
-## 项目目标
-
-通过WiFi控制无人机飞行。
+> **创建日期**: 2026-03-18
+> **迭代**: 4
+> **目标**: 完成Phase 2传感器驱动实现 (IMU/气压计/磁力计)
 
 ---
 
-## 阶段划分
+## 本轮目标
 
-### Phase 1: HAL层基础
-- [ ] STM32 GPIO HAL
-- [ ] STM32 PWM HAL (电机控制)
-- [ ] STM32 UART HAL (ESP8266通信)
-- [ ] STM32 I2C HAL (传感器)
-- [ ] STM32 SPI HAL (IMU)
-
-### Phase 2: 传感器驱动
-- [ ] IMU驱动 (ICM-42688-P)
-- [ ] 气压计驱动 (LPS22HBTR)
-- [ ] 磁力计驱动 (QMC5883P)
-
-### Phase 3: 姿态解算
-- [ ] AHRS算法实现
-- [ ] 传感器数据融合
-
-### Phase 4: 飞控算法
-- [ ] PID控制器
-- [ ] 角度环/角速度环
-
-### Phase 5: 通信协议
-- [ ] ESP8266 WiFi配置
-- [ ] 控制协议定义
-- [ ] 命令解析器
-
-### Phase 6: 整合测试
-- [ ] 系统集成
-- [ ] 飞行调试 (用户辅助插入电池)
+完成Phase 2传感器驱动层开发，为后续姿态解算(AHRS)提供数据基础。
 
 ---
 
-## 当前阶段
+## 任务清单
 
-**Phase 1: HAL层基础** - 尚未开始
+### Task 006: IMU驱动 (ICM-42688-P)
+- **文件**: `docs/exec-plans/active/task-006-imu-driver.md`
+- **目标**: 实现ICM-42688-P 6轴IMU驱动 (SPI3接口)
+- **输出文件**:
+  - `firmware/stm32/drivers/icm42688.h`
+  - `firmware/stm32/drivers/icm42688.c`
+- **依赖**: Task 005 (SPI HAL) - 已完成
+- **状态**: 待启动
+
+### Task 007: 气压计驱动 (LPS22HBTR)
+- **文件**: `docs/exec-plans/active/task-007-barometer-driver.md`
+- **目标**: 实现LPS22HBTR气压计驱动 (I2C1接口)
+- **输出文件**:
+  - `firmware/stm32/drivers/lps22hb.h`
+  - `firmware/stm32/drivers/lps22hb.c`
+- **依赖**: Task 004 (I2C HAL) - 已完成
+- **状态**: 待启动
+
+### Task 008: 磁力计驱动 (QMC5883P)
+- **文件**: `docs/exec-plans/active/task-008-magnetometer-driver.md`
+- **目标**: 实现QMC5883P磁力计驱动 (I2C1接口)
+- **输出文件**:
+  - `firmware/stm32/drivers/qmc5883p.h`
+  - `firmware/stm32/drivers/qmc5883p.c`
+- **依赖**: Task 004 (I2C HAL) - 已完成
+- **状态**: 待启动
 
 ---
 
-## 已知风险
+## 执行顺序
 
-1. USB供电动力不足，电机测试受限
-2. ESP8266与STM32通信稳定性
-3. 传感器校准需要实际硬件测试
+三个任务相互独立，可并行执行:
+- IMU使用SPI3接口
+- 气压计和磁力计共享I2C1接口但地址不同
+
+建议执行顺序:
+1. Task 006 (IMU) - 优先级最高，6轴数据最重要
+2. Task 007 (气压计) 和 Task 008 (磁力计) - 可并行
 
 ---
 
-## 假设
+## 验收标准
 
-1. 用户将在飞控调试阶段按需插入电池
-2. WiFi网络 `whc/12345678` 可用
-3. 硬件连接正确无误
+每个任务完成后需要验证:
+- [ ] 代码编译通过，无警告
+- [ ] WHO_AM_I/CHIP_ID读取正确
+- [ ] 数据读取功能正常
+- [ ] 数据转换公式正确
+- [ ] 代码风格符合项目规范
+
+---
+
+## 技术债务记录
+
+本轮产生的技术债务需记录到 `docs/exec-plans/tech-debt-tracker.md`
+
+---
+
+## 风险与注意事项
+
+1. **SPI3引脚注意**: IMU使用PA15(NSS), PB3(SCK), PB4(MISO), PB5(MOSI)
+2. **I2C地址冲突**: 气压计(0x5C)和磁力计(0x0D)地址不同，无冲突
+3. **数据字节序**:
+   - IMU (ICM-42688-P): 大端序 (Big Endian)
+   - 气压计 (LPS22HBTR): 大端序
+   - 磁力计 (QMC5883P): 小端序 (Little Endian)
+4. **传感器校准**: 本阶段只实现原始数据读取，校准在Phase 3处理
+
+---
+
+## 参考文档
+
+- 硬件规格: `hardware-docs/components.md`
+- 引脚定义: `hardware-docs/pinout.md`
+- SPI HAL: `firmware/stm32/hal/spi.c`, `firmware/stm32/hal/spi.h`
+- I2C HAL: `firmware/stm32/hal/i2c.c`, `firmware/stm32/hal/i2c.h`
+- Harness流程: `RALPH-HARNESS.md`
+
+---
+
+## 上一轮回顾 (Iteration 3)
+
+**已完成**:
+- Task 003: UART HAL
+- Task 004: I2C HAL
+- Task 005: SPI HAL
+
+**状态**: Phase 1 (HAL层基础) 全部完成

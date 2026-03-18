@@ -1,0 +1,64 @@
+# STM32F411CEU6 Project Configuration for clangd
+# This file configures clangd to properly parse STM32 HAL code
+
+CompileFlags:
+  # Compiler settings
+  Compiler: arm-none-eabi-gcc
+  Add:
+    # Target CPU flags
+    - -mcpu=cortex-m4
+    - -mthumb
+    - -mfpu=fpv4-sp-d16
+    - -mfloat-abi=hard
+
+    # STM32 HAL defines
+    - -DUSE_HAL_DRIVER
+    - -DSTM32F411xE
+
+    # Include paths - PlatformIO STM32CubeF4 framework
+    - -I/Users/ll/.platformio/packages/framework-stm32cubef4/Drivers/STM32F4xx_HAL_Driver/Inc
+    - -I/Users/ll/.platformio/packages/framework-stm32cubef4/Drivers/CMSIS/Device/ST/STM32F4xx/Include
+    - -I/Users/ll/.platformio/packages/framework-stm32cubef4/Drivers/CMSIS/Include
+
+    # Project include paths
+    - -Ifirmware/stm32/hal
+    - -Ifirmware/stm32/drivers
+    - -Ifirmware/stm32/main
+    - -Ifirmware/platform
+
+    # Suppress warnings from HAL headers
+    - -Wno-unknown-pragmas
+    - -Wno-unused-parameter
+    - -Wno-unused-function
+    - -Wno-missing-field-initializers
+
+  Remove:
+    # Remove problematic flags for clangd parsing
+    - -fno-tree-loop-distribute-patterns
+    - -mno-thumb-interwork
+    - -fpermissive
+
+Diagnostics:
+  # Suppress specific diagnostics that are common in HAL code
+  Suppress:
+    - unused-includes
+    - unreachable-code-break
+    - unused-parameter
+    - unused-variable
+
+Index:
+  # Enable background indexing
+  Background: Build
+
+---
+# ESP32-C3 firmware (separate configuration)
+If:
+  PathMatch: firmware/esp32c3/.*
+CompileFlags:
+  Add:
+    - -DESP32C3
+    - -DCONFIG_IDF_TARGET_ESP32C3
+    - -I/Users/ll/.platformio/packages/framework-espidf/components/esp_common/include
+    - -I/Users/ll/.platformio/packages/framework-espidf/components/freertos/include
+    - -I/Users/ll/.platformio/packages/framework-espidf/components/driver/include
+    - -I/Users/ll/.platformio/packages/framework-espidf/components/hal/include

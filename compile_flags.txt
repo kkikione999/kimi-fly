@@ -1,0 +1,26 @@
+# STM32F411CEU6 Compile Flags for clang-based tools
+# This file provides compilation flags for code analysis tools
+
+# Target CPU
+-mcpu=cortex-m4
+-mthumb
+-mfpu=fpv4-sp-d16
+-mfloat-abi=hard
+
+# STM32 HAL defines
+-DUSE_HAL_DRIVER
+-DSTM32F411xE
+
+# Include paths - PlatformIO STM32CubeF4 framework
+-I/Users/ll/.platformio/packages/framework-stm32cubef4/Drivers/STM32F4xx_HAL_Driver/Inc
+-I/Users/ll/.platformio/packages/framework-stm32cubef4/Drivers/CMSIS/Device/ST/STM32F4xx/Include
+-I/Users/ll/.platformio/packages/framework-stm32cubef4/Drivers/CMSIS/Include
+
+# Project include paths
+-Ifirmware/stm32/hal
+-Ifirmware/stm32/drivers
+-Ifirmware/stm32/main
+-Ifirmware/platform
+
+# Standard includes
+-std=c11

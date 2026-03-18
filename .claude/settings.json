@@ -2,6 +2,75 @@
   "enabledPlugins": {
     "context7@claude-plugins-official": true,
     "firecrawl@claude-plugins-official": true,
-    "superpowers@claude-plugins-official": true
-  }
+    "superpowers@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true
+  },
+  "PreToolUse": [
+    {
+      "matcher": "EnterWorktree",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash /Users/ll/kimi-fly/.claude/hooks/scripts/enter-worktree-check.sh ${branch}",
+          "timeout": 30
+        }
+      ]
+    },
+    {
+      "matcher": "Edit|Write",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash /Users/ll/kimi-fly/.claude/hooks/scripts/edit-check.sh ${file_path}",
+          "timeout": 30
+        }
+      ]
+    },
+    {
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "[Ralph-loop Hook: Bash] 如果命令包含 'git merge' 或 'git push origin main'，阻止操作并要求通过 pre-merge-check.sh 验证。",
+          "timeout": 20
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "Edit|Write",
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "[Ralph-loop Hook] 文件已修改。如果是任务最后一个文件，提醒创建 PR: 1) git push origin <branch> 2) gh pr create 3) 通知 Reviewer",
+          "timeout": 15
+        }
+      ]
+    }
+  ],
+  "SessionStart": [
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "[Ralph-loop] 检查项目状态: cat ralph-loop-session/progress.md",
+          "timeout": 10
+        }
+      ]
+    }
+  ],
+  "Stop": [
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash -c 'echo [Ralph-loop] Session ended at $(date)'",
+          "timeout": 5
+        }
+      ]
+    }
+  ]
 }

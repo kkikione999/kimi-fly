@@ -1,89 +1,86 @@
-# 执行计划 - 无人机WiFi飞行控制
+# 执行计划 - 修复 STM32 HAL 兼容性
 
-> **创建日期**: 2026-03-17
-> **状态**: 初始化
-> **当前阶段**: Phase 1
-
----
-
-## 项目目标
-
-通过WiFi远程控制无人机飞行。
+> **创建日期**: 2026-03-18
+> **更新日期**: 2026-03-18
+> **状态**: 进行中
+> **当前阶段**: HAL 兼容性修复
 
 ---
 
-## 阶段划分
+## 背景
 
-### Phase 1: HAL层基础
-**目标**: 建立STM32硬件抽象层
+HAL 层头文件已更新为支持 STM32Cube 框架（使用 USE_HAL_DRIVER 宏条件编译），但源文件（.c 文件）仍然使用旧的常量名，导致编译失败。
 
-- [ ] Task 001: STM32 GPIO HAL实现
-- [ ] Task 002: STM32 PWM HAL实现 (电机控制)
-- [ ] Task 003: STM32 UART HAL实现 (ESP8266通信)
-- [ ] Task 004: STM32 I2C HAL实现 (传感器)
-- [ ] Task 005: STM32 SPI HAL实现 (IMU)
-
-### Phase 2: 传感器驱动
-**目标**: 实现所有传感器驱动
-
-- [ ] Task 006: IMU驱动 (ICM-42688-P, SPI3)
-- [ ] Task 007: 气压计驱动 (LPS22HBTR, I2C1)
-- [ ] Task 008: 磁力计驱动 (QMC5883P, I2C1)
-
-### Phase 3: 姿态解算
-**目标**: 实现AHRS姿态解算
-
-- [ ] Task 009: 传感器数据读取与校准
-- [ ] Task 010: AHRS算法实现 (Mahony/Madgwick)
-
-### Phase 4: 飞控算法
-**目标**: 实现PID飞行控制
-
-- [ ] Task 011: PID控制器实现
-- [ ] Task 012: 角度环/角速度环整定
-
-### Phase 5: 通信协议
-**目标**: 建立WiFi通信
-
-- [ ] Task 013: ESP8266 WiFi STA模式配置
-- [ ] Task 014: 控制协议定义与实现
-- [ ] Task 015: 命令解析器实现
-
-### Phase 6: 整合测试
-**目标**: 系统集成与飞行调试
-
-- [ ] Task 016: 系统集成测试
-- [ ] Task 017: 飞行调试 (用户辅助插入电池)
+**技术债务**: `docs/exec-plans/tech-debt-tracker.md` - P0 优先级
 
 ---
 
-## 当前阶段
+## 本轮目标
 
-**Phase 1: HAL层基础**
-
-当前任务: 待分配
+修复 HAL 层源文件中的常量命名，使其与头文件保持一致，确保 STM32 固件可以正常编译。
 
 ---
 
-## 已知风险
+## 任务列表
 
-1. **USB供电限制**: 电机测试动力不足，无法起飞
-2. **WiFi稳定性**: ESP8266与STM32通信需验证
-3. **传感器校准**: 需要实际硬件测试环境
+### Task 1: 修复 spi.c GPIO 常量
+- **文件**: `firmware/stm32/hal/spi.c`
+- **问题**: 使用旧 GPIO 常量名（GPIO_MODE_AF, GPIO_OTYPE_PP 等）
+- **修复**: 更新为 HAL_GPIO_MODE_AF, HAL_GPIO_OTYPE_PP 等
+
+### Task 2: 修复 pwm.c TIM 枚举冲突
+- **文件**: `firmware/stm32/hal/pwm.c`
+- **问题**: TIM1/TIM2/TIM3/TIM4 枚举与 STM32Cube 宏冲突
+- **修复**: 更新为 HAL_TIM_1, HAL_TIM_2, HAL_TIM_3, HAL_TIM_4
+
+### Task 3: 修复 uart.c 状态常量
+- **文件**: `firmware/stm32/hal/uart.c`
+- **问题**: 使用 HAL_STATE_BUSY, HAL_STATE_READY, HAL_STATE_ERROR, HAL_STATE_RESET
+- **修复**: 更新为 HAL_UART_STATE_*
 
 ---
 
-## 假设
+## 常量映射表
 
-1. 用户将在飞控调试阶段按需插入电池
-2. WiFi网络 `whc/12345678` 可用
-3. 硬件连接正确无误
+### GPIO 常量 (Task 1)
+| 旧常量 | 新常量 |
+|--------|--------|
+| GPIO_MODE_AF | HAL_GPIO_MODE_AF |
+| GPIO_MODE_OUTPUT | HAL_GPIO_MODE_OUTPUT |
+| GPIO_OTYPE_PP | HAL_GPIO_OTYPE_PP |
+| GPIO_SPEED_HIGH | HAL_GPIO_SPEED_HIGH |
+| GPIO_PUPD_NONE | HAL_GPIO_PUPD_NONE |
+| GPIO_PUPD_UP | HAL_GPIO_PUPD_UP |
+| GPIO_AF_6 | HAL_GPIO_AF_6 |
+| GPIO_AF_0 | HAL_GPIO_AF_0 |
+
+### TIM 常量 (Task 2)
+| 旧常量 | 新常量 |
+|--------|--------|
+| TIM1 | HAL_TIM_1 |
+| TIM2 | HAL_TIM_2 |
+| TIM3 | HAL_TIM_3 |
+| TIM4 | HAL_TIM_4 |
+| TIM_CH1 | HAL_TIM_CH1 |
+| TIM_CH2 | HAL_TIM_CH2 |
+| TIM_CH3 | HAL_TIM_CH3 |
+| TIM_CH4 | HAL_TIM_CH4 |
+
+### UART 状态常量 (Task 3)
+| 旧常量 | 新常量 |
+|--------|--------|
+| HAL_STATE_BUSY | HAL_UART_STATE_BUSY |
+| HAL_STATE_READY | HAL_UART_STATE_READY |
+| HAL_STATE_ERROR | HAL_UART_STATE_ERROR |
+| HAL_STATE_RESET | HAL_UART_STATE_RESET |
 
 ---
 
-## 技术债务
+## 完成标准
 
-见: `docs/exec-plans/tech-debt-tracker.md`
+- [ ] 所有源文件编译通过
+- [ ] 无常量命名冲突
+- [ ] 代码审查通过
 
 ---
 
@@ -91,5 +88,4 @@
 
 - 架构地图: `CLAUDE.md`
 - Harness流程: `RALPH-HARNESS.md`
-- 用户意图: `docs/user-intent.md`
-- 硬件引脚: `docs/pinout.md`
+- 技术债务: `docs/exec-plans/tech-debt-tracker.md`

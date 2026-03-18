@@ -5,10 +5,10 @@
 
 /* TIM peripheral definitions */
 typedef enum {
-    TIM1 = 0,
-    TIM2 = 1,
-    TIM3 = 2,
-    TIM4 = 3
+    KF_TIM1 = 0,
+    KF_TIM2 = 1,
+    KF_TIM3 = 2,
+    KF_TIM4 = 3
 } tim_t;
 
 /* TIM channel definitions */
