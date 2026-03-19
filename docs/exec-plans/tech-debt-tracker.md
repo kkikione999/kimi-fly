@@ -7,12 +7,13 @@
 
 ## 待处理 (TODO)
 
-- [ ] 2026-03-18 - STM32 HAL层头文件常量命名冲突 - 来源: Ralph-loop Iteration 9 - 优先级: P0
-  - 问题: 自定义HAL常量(GPIO_MODE_INPUT/TIM1等)与STM32Cube HAL宏冲突
-  - 已修复: hal_common.h, spi.h, uart.h, pwm.h 已添加USE_HAL_DRIVER条件编译
-  - 待修复: gpio.h中的常量需要重命名为HAL_GPIO_MODE_*避免自引用宏问题
-  - 解决方案: 将所有HAL常量重命名为HAL_前缀(HAL_GPIO_MODE_INPUT等)
-  - 阻塞原因: 无法编译STM32固件，无法烧录到无人机
+- [x] 2026-03-19 - STM32 HAL层头文件常量命名冲突 - 来源: Ralph-loop Round 1 - 解决: 2026-03-19
+  - 方案: 将gpio.h中GPIO_MODE_*/GPIO_OTYPE_*/GPIO_SPEED_*/GPIO_PUPD_*重命名为HAL_GPIO_*前缀
+  - 修改文件: `firmware/stm32/hal/gpio.h`, `firmware/stm32/hal/gpio.c`
+
+- [x] 2026-03-19 - uart.h中类型错误hal_state_t - 来源: Ralph-loop Round 1 - 解决: 2026-03-19
+  - 方案: 将hal_state_t改为hal_status_t
+  - 修改文件: `firmware/stm32/hal/uart.h`
 
 ## 已解决 (Resolved)
 

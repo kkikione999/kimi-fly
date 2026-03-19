@@ -75,7 +75,7 @@ hal_status_t gpio_init(gpio_handle_t *gpio, const gpio_config_t *config)
         if (gpio->pin_mask & (1U << i)) {
             pin_num = i;
 
-            /* 配置模式 */
+            /* 配置模式 - 使用HAL_前缀常量 */
             port->MODER &= ~(3U << (pin_num * 2));
             port->MODER |= ((uint32_t)config->mode << (pin_num * 2));
 

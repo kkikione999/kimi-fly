@@ -1,10 +1,16 @@
 /**
  * @file icm42688.c
- * @brief ICM-42688-P 6轴IMU传感器驱动实现
+ * @brief ICM-42688-P 6轴IMU传感器驱动实现 (I2C版本)
  *
  * @note 基于TDK InvenSense ICM-42688-P数据手册
- *       SPI模式: Mode 0 (CPOL=0, CPHA=0), 8-bit, MSB first
- *       数据格式: 大端序
+ *       接口: I2C1 (PB6=SCL, PB7=SDA)
+ *       I2C地址: 0x68
+ *
+ * @hardware
+ *   - 芯片型号: ICM-42688-P
+ *   - 接口: I2C1 (PB6=SCL, PB7=SDA)
+ *   - I2C地址: 0x68
+ *   - WHO_AM_I: 0x47
  */
 
 #include "icm42688.h"
@@ -14,47 +20,19 @@
  * 私有宏定义
  * ============================================================================ */
 
-/* SPI读写命令位 */
-#define ICM42688_SPI_READ_BIT       0x80U   /**< 读操作位 (bit7=1) */
-#define ICM42688_SPI_WRITE_BIT      0x00U   /**< 写操作位 (bit7=0) */
-
-/* 延时定义 */
+#define ICM42688_TIMEOUT_MS         100U    /**< I2C超时时间(ms) */
 #define ICM42688_RESET_DELAY_MS     10U     /**< 复位后延时 */
 #define ICM42688_STARTUP_DELAY_MS   10U     /**< 启动延时 */
-#define ICM42688_SPI_TIMEOUT_MS     100U    /**< SPI超时时间 */
 
 /* ============================================================================
  * 私有函数声明
  * ============================================================================ */
 
-/**
- * @brief 向寄存器写入一个字节
- */
 static hal_status_t icm42688_write_reg(icm42688_handle_t *himu, uint8_t reg, uint8_t value);
-
-/**
- * @brief 从寄存器读取一个字节
- */
 static hal_status_t icm42688_read_reg(icm42688_handle_t *himu, uint8_t reg, uint8_t *p_value);
-
-/**
- * @brief 从连续寄存器读取多个字节 (burst read)
- */
 static hal_status_t icm42688_read_burst(icm42688_handle_t *himu, uint8_t start_reg, uint8_t *p_data, uint16_t len);
-
-/**
- * @brief 获取当前陀螺仪灵敏度系数
- */
 static float icm42688_get_gyro_sensitivity(icm42688_gyro_range_t range);
-
-/**
- * @brief 获取当前加速度计灵敏度系数
- */
 static float icm42688_get_accel_sensitivity(icm42688_accel_range_t range);
-
-/**
- * @brief 延时函数 (简单实现)
- */
 static void icm42688_delay_ms(uint32_t ms);
 
 /* ============================================================================
@@ -62,14 +40,11 @@ static void icm42688_delay_ms(uint32_t ms);
  * ============================================================================ */
 
 /**
- * @brief 简单延时函数 (基于循环)
- * @note 在100MHz系统时钟下，此实现约为1ms
- *       实际项目中建议使用SysTick定时器
+ * @brief 简单延时函数
  */
 static void icm42688_delay_ms(uint32_t ms)
 {
     volatile uint32_t count;
-    /* 粗略估算: 100MHz时钟，每ms约100000个周期 */
     while (ms--) {
         for (count = 0; count < 10000; count++) {
             __asm__ volatile("nop");
@@ -78,101 +53,36 @@ static void icm42688_delay_ms(uint32_t ms)
 }
 
 /**
- * @brief 向寄存器写入一个字节
+ * @brief 向寄存器写入一个字节 (I2C)
  */
 static hal_status_t icm42688_write_reg(icm42688_handle_t *himu, uint8_t reg, uint8_t value)
 {
-    hal_status_t status;
-    uint8_t tx_buf[2];
-
-    if (himu == NULL || himu->spi_handle == NULL) {
+    if (himu == NULL || himu->i2c_handle == NULL) {
         return HAL_ERROR;
     }
-
-    /* 准备数据: 寄存器地址(写操作) + 数据 */
-    tx_buf[0] = reg | ICM42688_SPI_WRITE_BIT;
-    tx_buf[1] = value;
-
-    /* 拉低NSS开始传输 */
-    spi_set_nss(himu->spi_handle, 0);
-
-    /* 发送数据 */
-    status = spi_transmit(himu->spi_handle, tx_buf, 2, ICM42688_SPI_TIMEOUT_MS);
-
-    /* 拉高NSS结束传输 */
-    spi_set_nss(himu->spi_handle, 1);
-
-    return status;
+    return i2c_mem_write(himu->i2c_handle, himu->dev_addr, reg, 1U, &value, 1U, himu->timeout);
 }
 
 /**
- * @brief 从寄存器读取一个字节
+ * @brief 从寄存器读取一个字节 (I2C)
  */
 static hal_status_t icm42688_read_reg(icm42688_handle_t *himu, uint8_t reg, uint8_t *p_value)
 {
-    hal_status_t status;
-    uint8_t tx_buf[2];
-    uint8_t rx_buf[2];
-
-    if (himu == NULL || himu->spi_handle == NULL || p_value == NULL) {
+    if (himu == NULL || himu->i2c_handle == NULL || p_value == NULL) {
         return HAL_ERROR;
     }
-
-    /* 准备数据: 寄存器地址(读操作) + 空字节 */
-    tx_buf[0] = reg | ICM42688_SPI_READ_BIT;
-    tx_buf[1] = 0x00;
-
-    /* 拉低NSS开始传输 */
-    spi_set_nss(himu->spi_handle, 0);
-
-    /* 发送并接收数据 */
-    status = spi_transmit_receive(himu->spi_handle, tx_buf, rx_buf, 2, ICM42688_SPI_TIMEOUT_MS);
-
-    /* 拉高NSS结束传输 */
-    spi_set_nss(himu->spi_handle, 1);
-
-    if (status == HAL_OK) {
-        /* rx_buf[0]是发送地址时的返回(通常为0或状态)，rx_buf[1]是实际数据 */
-        *p_value = rx_buf[1];
-    }
-
-    return status;
+    return i2c_mem_read(himu->i2c_handle, himu->dev_addr, reg, 1U, p_value, 1U, himu->timeout);
 }
 
 /**
- * @brief 从连续寄存器读取多个字节 (burst read)
- * @note ICM-42688-P支持burst read，地址会自动递增
+ * @brief 从连续寄存器读取多个字节 (I2C burst read)
  */
 static hal_status_t icm42688_read_burst(icm42688_handle_t *himu, uint8_t start_reg, uint8_t *p_data, uint16_t len)
 {
-    hal_status_t status;
-    uint8_t tx_byte;
-    uint16_t i;
-
-    if (himu == NULL || himu->spi_handle == NULL || p_data == NULL || len == 0) {
+    if (himu == NULL || himu->i2c_handle == NULL || p_data == NULL || len == 0) {
         return HAL_ERROR;
     }
-
-    /* 准备起始地址 (读操作) */
-    tx_byte = start_reg | ICM42688_SPI_READ_BIT;
-
-    /* 拉低NSS开始传输 */
-    spi_set_nss(himu->spi_handle, 0);
-
-    /* 发送起始地址 */
-    status = spi_transmit(himu->spi_handle, &tx_byte, 1, ICM42688_SPI_TIMEOUT_MS);
-    if (status != HAL_OK) {
-        spi_set_nss(himu->spi_handle, 1);
-        return status;
-    }
-
-    /* 接收数据 */
-    status = spi_receive(himu->spi_handle, p_data, len, ICM42688_SPI_TIMEOUT_MS);
-
-    /* 拉高NSS结束传输 */
-    spi_set_nss(himu->spi_handle, 1);
-
-    return status;
+    return i2c_mem_read(himu->i2c_handle, himu->dev_addr, start_reg, 1U, p_data, len, himu->timeout);
 }
 
 /**
@@ -220,23 +130,25 @@ static float icm42688_get_accel_sensitivity(icm42688_accel_range_t range)
  * ============================================================================ */
 
 /**
- * @brief 初始化ICM-42688-P传感器
+ * @brief 初始化ICM-42688-P传感器 (I2C版本)
  */
-hal_status_t icm42688_init(icm42688_handle_t *himu, spi_handle_t *hspi)
+hal_status_t icm42688_init(icm42688_handle_t *himu, i2c_handle_t *hi2c)
 {
     hal_status_t status;
     uint8_t id;
     uint8_t reg_val;
 
-    if (himu == NULL || hspi == NULL) {
+    if (himu == NULL || hi2c == NULL) {
         return HAL_ERROR;
     }
 
     /* 清零句柄 */
     memset(himu, 0, sizeof(icm42688_handle_t));
 
-    /* 保存SPI句柄 */
-    himu->spi_handle = hspi;
+    /* 保存I2C句柄 */
+    himu->i2c_handle = hi2c;
+    himu->dev_addr = ICM42688_I2C_ADDR;
+    himu->timeout = ICM42688_TIMEOUT_MS;
 
     /* 延时等待传感器上电稳定 */
     icm42688_delay_ms(ICM42688_STARTUP_DELAY_MS);
@@ -248,7 +160,6 @@ hal_status_t icm42688_init(icm42688_handle_t *himu, spi_handle_t *hspi)
     }
 
     if (id != ICM42688_WHO_AM_I_VALUE) {
-        /* WHO_AM_I不匹配 */
         return HAL_ERROR;
     }
 
@@ -297,7 +208,7 @@ hal_status_t icm42688_deinit(icm42688_handle_t *himu)
 {
     hal_status_t status;
 
-    if (himu == NULL || himu->spi_handle == NULL) {
+    if (himu == NULL || himu->i2c_handle == NULL) {
         return HAL_ERROR;
     }
 
@@ -503,8 +414,6 @@ hal_status_t icm42688_set_odr(icm42688_handle_t *himu, icm42688_odr_t gyro_odr, 
 
 /**
  * @brief 软复位传感器
- * @note ICM-42688-P没有专门的复位寄存器位，
- *       需要通过配置电源管理寄存器实现软复位效果
  */
 hal_status_t icm42688_reset(icm42688_handle_t *himu)
 {
@@ -613,7 +522,7 @@ hal_status_t icm42688_self_test(icm42688_handle_t *himu)
 }
 
 /* ============================================================================
- * 测试代码示例 (可在main中调用)
+ * 测试代码
  * ============================================================================ */
 
 #if defined(ICM42688_ENABLE_TEST)
@@ -621,51 +530,34 @@ hal_status_t icm42688_self_test(icm42688_handle_t *himu)
 #include <stdio.h>
 
 /**
- * @brief ICM-42688-P 测试函数示例
- * @note 在main函数中调用此函数进行测试
- *
- * 示例代码:
- * @code
- * int main(void) {
- *     spi_handle_t spi3;
- *     icm42688_handle_t imu;
- *
- *     // 初始化SPI3
- *     if (spi3_init_for_imu(&spi3) != HAL_OK) {
- *         printf("SPI3 init failed\n");
- *         return -1;
- *     }
- *
- *     // 初始化IMU
- *     if (icm42688_init(&imu, &spi3) != HAL_OK) {
- *         printf("IMU init failed\n");
- *         return -1;
- *     }
- *
- *     // 运行测试
- *     icm42688_test(&imu);
- *
- *     return 0;
- * }
- * @endcode
+ * @brief ICM-42688-P 测试函数 (I2C版本)
  */
-void icm42688_test(icm42688_handle_t *himu)
+hal_status_t icm42688_test(i2c_handle_t *hi2c)
 {
     hal_status_t status;
+    icm42688_handle_t himu;
     uint8_t id;
     icm42688_data_t data;
     int i;
 
-    printf("=== ICM-42688-P Test ===\n");
+    printf("=== ICM-42688-P I2C Test ===\n");
+
+    /* 初始化IMU */
+    status = icm42688_init(&himu, hi2c);
+    if (status != HAL_OK) {
+        printf("[FAIL] IMU init failed\n");
+        return status;
+    }
+    printf("[PASS] IMU initialized\n");
 
     /* 测试1: 读取WHO_AM_I */
-    status = icm42688_read_id(himu, &id);
+    status = icm42688_read_id(&himu, &id);
     if (status == HAL_OK && id == ICM42688_WHO_AM_I_VALUE) {
         printf("[PASS] WHO_AM_I = 0x%02X\n", id);
     } else {
         printf("[FAIL] WHO_AM_I read failed, expected 0x%02X, got 0x%02X\n",
                ICM42688_WHO_AM_I_VALUE, id);
-        return;
+        return HAL_ERROR;
     }
 
     /* 测试2: 连续读取10次数据 */
@@ -674,7 +566,7 @@ void icm42688_test(icm42688_handle_t *himu)
            "#", "AccX(g)", "AccY(g)", "AccZ(g)", "GyroX(dps)", "GyroY(dps)", "GyroZ(dps)", "Temp(C)");
 
     for (i = 0; i < 10; i++) {
-        status = icm42688_read_data(himu, &data);
+        status = icm42688_read_data(&himu, &data);
         if (status == HAL_OK) {
             printf("%-4d %-10.3f %-10.3f %-10.3f %-10.2f %-10.2f %-10.2f %-8.1f\n",
                    i + 1,
@@ -684,28 +576,14 @@ void icm42688_test(icm42688_handle_t *himu)
         } else {
             printf("Sample %d: Read failed\n", i + 1);
         }
-
-        /* 延时100ms */
         icm42688_delay_ms(100);
     }
 
-    /* 测试3: 量程切换测试 */
-    printf("\nRange change test:\n");
-
-    status = icm42688_set_gyro_range(himu, ICM42688_GYRO_RANGE_1000DPS);
-    printf("Set gyro range to 1000dps: %s\n", status == HAL_OK ? "OK" : "FAIL");
-
-    status = icm42688_set_accel_range(himu, ICM42688_ACCEL_RANGE_4G);
-    printf("Set accel range to 4g: %s\n", status == HAL_OK ? "OK" : "FAIL");
-
-    /* 读取一次数据验证 */
-    status = icm42688_read_data(himu, &data);
-    if (status == HAL_OK) {
-        printf("After range change - Accel: %.3f, %.3f, %.3f g\n",
-               data.accel_x, data.accel_y, data.accel_z);
-    }
+    /* 反初始化 */
+    icm42688_deinit(&himu);
 
     printf("\n=== Test Complete ===\n");
+    return HAL_OK;
 }
 
 #endif /* ICM42688_ENABLE_TEST */

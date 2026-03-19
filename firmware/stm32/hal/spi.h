@@ -64,7 +64,7 @@ typedef struct {
     spi_config_t config;                    /* Configuration */
     volatile uint32_t *reg_base;            /* Register base address */
     gpio_port_t nss_port;                   /* NSS GPIO port (for software NSS) */
-    gpio_pin_t nss_pin;                     /* NSS GPIO pin (for software NSS) */
+    uint16_t nss_pin_mask;                  /* NSS GPIO pin mask (for software NSS) */
     uint8_t initialized;                    /* Initialization flag */
 } spi_handle_t;
 

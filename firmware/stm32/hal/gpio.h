@@ -53,13 +53,14 @@ typedef enum {
 
 /* ============================================================================
  * GPIO 模式定义
+ * @note 使用HAL_前缀避免与STM32Cube HAL冲突
  * ============================================================================ */
 
 typedef enum {
-    GPIO_MODE_INPUT     = 0x00U,  /**< 输入模式 */
-    GPIO_MODE_OUTPUT    = 0x01U,  /**< 输出模式 */
-    GPIO_MODE_AF        = 0x02U,  /**< 复用功能模式 */
-    GPIO_MODE_ANALOG    = 0x03U   /**< 模拟模式 */
+    HAL_GPIO_MODE_INPUT     = 0x00U,  /**< 输入模式 */
+    HAL_GPIO_MODE_OUTPUT    = 0x01U,  /**< 输出模式 */
+    HAL_GPIO_MODE_AF        = 0x02U,  /**< 复用功能模式 */
+    HAL_GPIO_MODE_ANALOG    = 0x03U   /**< 模拟模式 */
 } gpio_mode_t;
 
 /* ============================================================================
@@ -67,8 +68,8 @@ typedef enum {
  * ============================================================================ */
 
 typedef enum {
-    GPIO_OTYPE_PP = 0x00U,  /**< 推挽输出 */
-    GPIO_OTYPE_OD = 0x01U   /**< 开漏输出 */
+    HAL_GPIO_OTYPE_PP = 0x00U,  /**< 推挽输出 */
+    HAL_GPIO_OTYPE_OD = 0x01U   /**< 开漏输出 */
 } gpio_otype_t;
 
 /* ============================================================================
@@ -76,10 +77,10 @@ typedef enum {
  * ============================================================================ */
 
 typedef enum {
-    GPIO_SPEED_LOW    = 0x00U,  /**< 低速 2MHz */
-    GPIO_SPEED_MEDIUM = 0x01U,  /**< 中速 25MHz */
-    GPIO_SPEED_FAST   = 0x02U,  /**< 快速 50MHz */
-    GPIO_SPEED_HIGH   = 0x03U   /**< 高速 100MHz */
+    HAL_GPIO_SPEED_LOW    = 0x00U,  /**< 低速 2MHz */
+    HAL_GPIO_SPEED_MEDIUM = 0x01U,  /**< 中速 25MHz */
+    HAL_GPIO_SPEED_FAST   = 0x02U,  /**< 快速 50MHz */
+    HAL_GPIO_SPEED_HIGH   = 0x03U   /**< 高速 100MHz */
 } gpio_speed_t;
 
 /* ============================================================================
@@ -87,9 +88,9 @@ typedef enum {
  * ============================================================================ */
 
 typedef enum {
-    GPIO_PUPD_NONE = 0x00U,  /**< 无上下拉 */
-    GPIO_PUPD_UP   = 0x01U,  /**< 上拉 */
-    GPIO_PUPD_DOWN = 0x02U   /**< 下拉 */
+    HAL_GPIO_PUPD_NONE = 0x00U,  /**< 无上下拉 */
+    HAL_GPIO_PUPD_UP   = 0x01U,  /**< 上拉 */
+    HAL_GPIO_PUPD_DOWN = 0x02U   /**< 下拉 */
 } gpio_pupd_t;
 
 /* ============================================================================

@@ -41,4 +41,71 @@ hal_status_t pwm_set_frequency(tim_t tim, uint32_t frequency_hz);
 hal_status_t pwm_start(tim_t tim, tim_channel_t channel);
 hal_status_t pwm_stop(tim_t tim, tim_channel_t channel);
 
+/* ============================================================================
+ * Motor Control API
+ * Hardware: 4x 空心杯电机 @ 42kHz PWM
+ * ============================================================================ */
+
+typedef enum {
+    MOTOR_1 = 0,    /* TIM1_CH1 (PA8) */
+    MOTOR_2 = 1,    /* TIM1_CH4 (PA11) */
+    MOTOR_3 = 2,    /* TIM3_CH4 (PB1) */
+    MOTOR_4 = 3     /* TIM2_CH3 (PB10) */
+} motor_id_t;
+
+/**
+ * @brief 初始化所有电机PWM
+ * @param frequency_hz PWM频率(推荐42000=42kHz)
+ * @return HAL状态
+ * @note 初始化后电机处于停止状态，需调用motor_start()启动
+ */
+hal_status_t motor_init_all(uint32_t frequency_hz);
+
+/**
+ * @brief 设置电机转速
+ * @param motor 电机ID
+ * @param throttle 油门值 0-1000 (对应0-100%)
+ * @return HAL状态
+ */
+hal_status_t motor_set_throttle(motor_id_t motor, uint16_t throttle);
+
+/**
+ * @brief 设置所有电机相同油门
+ * @param throttle 油门值 0-1000
+ * @return HAL状态
+ */
+hal_status_t motor_set_all_throttle(uint16_t throttle);
+
+/**
+ * @brief 启动指定电机
+ * @param motor 电机ID
+ * @return HAL状态
+ */
+hal_status_t motor_start(motor_id_t motor);
+
+/**
+ * @brief 启动所有电机
+ * @return HAL状态
+ */
+hal_status_t motor_start_all(void);
+
+/**
+ * @brief 停止指定电机
+ * @param motor 电机ID
+ * @return HAL状态
+ */
+hal_status_t motor_stop(motor_id_t motor);
+
+/**
+ * @brief 停止所有电机
+ * @return HAL状态
+ */
+hal_status_t motor_stop_all(void);
+
+/**
+ * @brief 紧急停止所有电机(油门归零并停止)
+ * @return HAL状态
+ */
+hal_status_t motor_emergency_stop(void);
+
 #endif /* PWM_H */

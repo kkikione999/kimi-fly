@@ -55,14 +55,16 @@
 /* Default timeout in ms */
 #define SPI_DEFAULT_TIMEOUT 100
 
-/* SPI3 GPIO pins (Alternate Function 6) */
-/* PC10 - SPI3_SCK, PC11 - SPI3_MISO, PC12 - SPI3_MOSI */
-#define SPI3_SCK_PORT       GPIO_PORT_C
-#define SPI3_SCK_PIN        GPIO_PIN_10
-#define SPI3_MISO_PORT      GPIO_PORT_C
-#define SPI3_MISO_PIN       GPIO_PIN_11
-#define SPI3_MOSI_PORT      GPIO_PORT_C
-#define SPI3_MOSI_PIN       GPIO_PIN_12
+/* SPI3 GPIO pins (Alternate Function 6) - 根据pinout.md
+ * PB3 - SPI3_SCK, PB4 - SPI3_MISO, PB5 - SPI3_MOSI
+ * PA15 - NSS (软件控制)
+ */
+#define SPI3_SCK_PORT       GPIO_PORT_B
+#define SPI3_SCK_PIN        GPIO_PIN_3
+#define SPI3_MISO_PORT      GPIO_PORT_B
+#define SPI3_MISO_PIN       GPIO_PIN_4
+#define SPI3_MOSI_PORT      GPIO_PORT_B
+#define SPI3_MOSI_PIN       GPIO_PIN_5
 
 /* NSS pin - software controlled (PA15) */
 #define SPI3_NSS_PORT       GPIO_PORT_A
@@ -85,12 +87,13 @@ static void spi_enable_clock(spi_periph_t periph)
 
 /**
  * @brief Configure GPIO pins for SPI3
- * PC10 - SCK (AF6), PC11 - MISO (AF6), PC12 - MOSI (AF6)
+ * PB3 - SCK (AF6), PB4 - MISO (AF6), PB5 - MOSI (AF6)
  * PA15 - NSS (software controlled, output)
  */
 static hal_status_t spi_configure_gpio(spi_periph_t periph)
 {
-    gpio_init_t gpio_init;
+    gpio_handle_t gpio_handle;
+    gpio_config_t gpio_cfg;
     hal_status_t status;
 
     if (periph != SPI_PERIPH_3) {
@@ -99,62 +102,46 @@ static hal_status_t spi_configure_gpio(spi_periph_t periph)
 
     /* Enable GPIO clocks */
     RCC_AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
-    RCC_AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
+    RCC_AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
 
-    /* Configure SCK (PC10) - Alternate Function, Push-pull, High speed */
-    gpio_init.port = SPI3_SCK_PORT;
-    gpio_init.pin = SPI3_SCK_PIN;
-    gpio_init.mode = GPIO_MODE_AF;
-    gpio_init.otype = GPIO_OTYPE_PP;
-    gpio_init.speed = GPIO_SPEED_HIGH;
-    gpio_init.pupd = GPIO_PUPD_NONE;
-    gpio_init.af = 6;  /* AF6 for SPI3 */
-    status = gpio_init(&gpio_init);
+    /* Configure SCK (PB3) - Alternate Function, Push-pull, High speed */
+    gpio_handle.port = SPI3_SCK_PORT;
+    gpio_handle.pin_mask = SPI3_SCK_PIN;
+    gpio_cfg.mode = HAL_GPIO_MODE_AF;
+    gpio_cfg.otype = HAL_GPIO_OTYPE_PP;
+    gpio_cfg.speed = HAL_GPIO_SPEED_HIGH;
+    gpio_cfg.pupd = HAL_GPIO_PUPD_NONE;
+    gpio_cfg.af = GPIO_AF_6;  /* AF6 for SPI3 */
+    status = gpio_init(&gpio_handle, &gpio_cfg);
     if (status != HAL_OK) {
         return status;
     }
 
-    /* Configure MISO (PC11) - Alternate Function, Push-pull, High speed */
-    gpio_init.port = SPI3_MISO_PORT;
-    gpio_init.pin = SPI3_MISO_PIN;
-    gpio_init.mode = GPIO_MODE_AF;
-    gpio_init.otype = GPIO_OTYPE_PP;
-    gpio_init.speed = GPIO_SPEED_HIGH;
-    gpio_init.pupd = GPIO_PUPD_NONE;
-    gpio_init.af = 6;  /* AF6 for SPI3 */
-    status = gpio_init(&gpio_init);
-    if (status != HAL_OK) {
-        return status;
-    }
+    /* Configure MISO (PB4) - Alternate Function, Push-pull, High speed */
+    gpio_handle.port = SPI3_MISO_PORT;
+    gpio_handle.pin_mask = SPI3_MISO_PIN;
+    gpio_init(&gpio_handle, &gpio_cfg);
 
-    /* Configure MOSI (PC12) - Alternate Function, Push-pull, High speed */
-    gpio_init.port = SPI3_MOSI_PORT;
-    gpio_init.pin = SPI3_MOSI_PIN;
-    gpio_init.mode = GPIO_MODE_AF;
-    gpio_init.otype = GPIO_OTYPE_PP;
-    gpio_init.speed = GPIO_SPEED_HIGH;
-    gpio_init.pupd = GPIO_PUPD_NONE;
-    gpio_init.af = 6;  /* AF6 for SPI3 */
-    status = gpio_init(&gpio_init);
-    if (status != HAL_OK) {
-        return status;
-    }
+    /* Configure MOSI (PB5) - Alternate Function, Push-pull, High speed */
+    gpio_handle.port = SPI3_MOSI_PORT;
+    gpio_handle.pin_mask = SPI3_MOSI_PIN;
+    gpio_init(&gpio_handle, &gpio_cfg);
 
     /* Configure NSS (PA15) - Output, Push-pull, High speed (software controlled) */
-    gpio_init.port = SPI3_NSS_PORT;
-    gpio_init.pin = SPI3_NSS_PIN;
-    gpio_init.mode = GPIO_MODE_OUTPUT;
-    gpio_init.otype = GPIO_OTYPE_PP;
-    gpio_init.speed = GPIO_SPEED_HIGH;
-    gpio_init.pupd = GPIO_PUPD_UP;  /* Pull-up for NSS */
-    gpio_init.af = 0;
-    status = gpio_init(&gpio_init);
+    gpio_handle.port = SPI3_NSS_PORT;
+    gpio_handle.pin_mask = SPI3_NSS_PIN;
+    gpio_cfg.mode = HAL_GPIO_MODE_OUTPUT;
+    gpio_cfg.otype = HAL_GPIO_OTYPE_PP;
+    gpio_cfg.speed = HAL_GPIO_SPEED_HIGH;
+    gpio_cfg.pupd = HAL_GPIO_PUPD_UP;  /* Pull-up for NSS */
+    gpio_cfg.af = GPIO_AF_0;
+    status = gpio_init(&gpio_handle, &gpio_cfg);
     if (status != HAL_OK) {
         return status;
     }
 
     /* Set NSS high (inactive) */
-    gpio_write(SPI3_NSS_PORT, SPI3_NSS_PIN, 1);
+    gpio_write(&gpio_handle, 1);
 
     return HAL_OK;
 }
@@ -207,7 +194,7 @@ hal_status_t spi_init(spi_handle_t *hspi, const spi_config_t *config)
     hspi->config = *config;
     hspi->reg_base = (volatile uint32_t *)SPI3_BASE;
     hspi->nss_port = SPI3_NSS_PORT;
-    hspi->nss_pin = SPI3_NSS_PIN;
+    hspi->nss_pin_mask = SPI3_NSS_PIN;
 
     /* Enable peripheral clock */
     spi_enable_clock(hspi->periph);
@@ -452,11 +439,15 @@ hal_status_t spi_transmit_receive(spi_handle_t *hspi, const uint8_t *p_tx_data, 
  */
 void spi_set_nss(spi_handle_t *hspi, uint8_t level)
 {
+    gpio_handle_t gpio_handle;
+
     if (hspi == NULL || !hspi->initialized) {
         return;
     }
 
-    gpio_write(hspi->nss_port, hspi->nss_pin, level);
+    gpio_handle.port = hspi->nss_port;
+    gpio_handle.pin_mask = hspi->nss_pin_mask;
+    gpio_write(&gpio_handle, level);
 }
 
 /**

@@ -62,9 +62,10 @@ typedef struct {
 #define TIM_CCMR2_OC3M_PWM1 (6U << 4)
 #define TIM_CCMR2_OC4M_PWM1 (6U << 12)
 
-/* Clock frequencies */
-#define APB1_CLOCK_HZ   50000000U   /* 50 MHz */
-#define APB2_CLOCK_HZ   100000000U  /* 100 MHz */
+/* Clock frequencies - STM32F411CEU6 */
+/* SYSCLK=84MHz, APB1=42MHz (max), APB2=84MHz */
+#define APB1_CLOCK_HZ   42000000U   /* 42 MHz - TIM2/TIM3/TIM4 */
+#define APB2_CLOCK_HZ   84000000U   /* 84 MHz - TIM1 */
 
 /* TIM instance array */
 static tim_reg_t *const tim_instances[] = {
@@ -411,4 +412,113 @@ hal_status_t pwm_stop(tim_t tim, tim_channel_t channel)
     }
 
     return HAL_OK;
+}
+
+/* ============================================================================
+ * Motor Control Implementation
+ * ============================================================================ */
+
+typedef struct {
+    tim_t tim;
+    tim_channel_t channel;
+} motor_mapping_t;
+
+static const motor_mapping_t motor_map[4] = {
+    {TIM1, TIM_CH1},   /* MOTOR_1 - PA8 */
+    {TIM1, TIM_CH4},   /* MOTOR_2 - PA11 */
+    {TIM3, TIM_CH4},   /* MOTOR_3 - PB1 */
+    {TIM2, TIM_CH3}    /* MOTOR_4 - PB10 */
+};
+
+hal_status_t motor_init_all(uint32_t frequency_hz)
+{
+    pwm_init_t init;
+    hal_status_t status;
+    int i;
+
+    init.frequency_hz = frequency_hz;
+    init.duty_1000 = 0;  /* Start with 0% duty */
+
+    for (i = 0; i < 4; i++) {
+        init.tim = motor_map[i].tim;
+        init.channel = motor_map[i].channel;
+        status = pwm_init(&init);
+        if (status != HAL_OK) {
+            return status;
+        }
+    }
+
+    return HAL_OK;
+}
+
+hal_status_t motor_set_throttle(motor_id_t motor, uint16_t throttle)
+{
+    if (motor > MOTOR_4) {
+        return HAL_ERROR;
+    }
+    return pwm_set_duty(motor_map[motor].tim, motor_map[motor].channel, throttle);
+}
+
+hal_status_t motor_set_all_throttle(uint16_t throttle)
+{
+    hal_status_t status;
+    int i;
+
+    for (i = 0; i < 4; i++) {
+        status = motor_set_throttle((motor_id_t)i, throttle);
+        if (status != HAL_OK) {
+            return status;
+        }
+    }
+    return HAL_OK;
+}
+
+hal_status_t motor_start(motor_id_t motor)
+{
+    if (motor > MOTOR_4) {
+        return HAL_ERROR;
+    }
+    return pwm_start(motor_map[motor].tim, motor_map[motor].channel);
+}
+
+hal_status_t motor_start_all(void)
+{
+    hal_status_t status;
+    int i;
+
+    for (i = 0; i < 4; i++) {
+        status = motor_start((motor_id_t)i);
+        if (status != HAL_OK) {
+            return status;
+        }
+    }
+    return HAL_OK;
+}
+
+hal_status_t motor_stop(motor_id_t motor)
+{
+    if (motor > MOTOR_4) {
+        return HAL_ERROR;
+    }
+    return pwm_stop(motor_map[motor].tim, motor_map[motor].channel);
+}
+
+hal_status_t motor_stop_all(void)
+{
+    hal_status_t status;
+    int i;
+
+    for (i = 0; i < 4; i++) {
+        status = motor_stop((motor_id_t)i);
+        if (status != HAL_OK) {
+            return status;
+        }
+    }
+    return HAL_OK;
+}
+
+hal_status_t motor_emergency_stop(void)
+{
+    motor_set_all_throttle(0);
+    return motor_stop_all();
 }

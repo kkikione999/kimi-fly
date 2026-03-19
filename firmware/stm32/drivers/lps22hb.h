@@ -1,14 +1,14 @@
 /**
  * @file lps22hb.h
- * @brief LPS22HBTR 气压计驱动头文件
+ * @brief LPS22HBTR 气压计驱动头文件 (SPI版本)
  *
  * @note 本文件为Ralph-loop v2.0 传感器驱动层实现
  *       提供气压和温度数据读取功能
  *
  * @hardware
  *   - 芯片型号: LPS22HBTR
- *   - 接口: I2C1 (PB6=SCL, PB7=SDA)
- *   - I2C地址: 0x5C (SA0=GND)
+ *   - 接口: SPI3 (PA15=CS, PB3=SCK, PB4=MISO, PB5=MOSI)
+ *   - SPI配置: Mode 0 (CPOL=0, CPHA=0), 8-bit, MSB first
  *   - WHO_AM_I: 0xB1
  */
 
@@ -16,7 +16,7 @@
 #define LPS22HB_H
 
 #include "hal_common.h"
-#include "i2c.h"
+#include "spi.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,17 +26,7 @@ extern "C" {
  * LPS22HBTR 设备常量
  * ============================================================================ */
 
-/**
- * @brief LPS22HBTR I2C设备地址
- * @note SA0=GND -> 0x5C, SA0=VCC -> 0x5D
- *       电路中R52将SA0接地，使用0x5C
- */
-#define LPS22HB_I2C_ADDR            0x5CU
-
-/**
- * @brief WHO_AM_I 预期值
- */
-#define LPS22HB_WHO_AM_I_VALUE      0xB1U
+#define LPS22HB_WHO_AM_I_VALUE      0xB1U   /**< WHO_AM_I预期值 */
 
 /* ============================================================================
  * LPS22HBTR 寄存器地址定义
@@ -94,6 +84,13 @@ extern "C" {
 #define LPS22HB_STATUS_P_OR         (1U << 5)   /**< 气压数据溢出 */
 
 /* ============================================================================
+ * SPI读写命令位
+ * ============================================================================ */
+
+#define LPS22HB_SPI_READ_BIT        0x80U   /**< 读操作位 (bit7=1) */
+#define LPS22HB_SPI_WRITE_BIT       0x00U   /**< 写操作位 (bit7=0) */
+
+/* ============================================================================
  * 输出数据率 (ODR) 枚举
  * ============================================================================ */
 
@@ -121,10 +118,10 @@ typedef enum {
  * ============================================================================ */
 
 typedef struct {
-    i2c_handle_t   *i2c;            /**< I2C句柄指针 */
-    uint16_t        dev_addr;       /**< 设备I2C地址 */
+    spi_handle_t   *spi;            /**< SPI句柄指针 */
     lps22hb_odr_t   odr;            /**< 当前输出数据率 */
     uint32_t        timeout;        /**< 默认超时时间 (ms) */
+    uint8_t         initialized;    /**< 初始化标志 */
 } lps22hb_handle_t;
 
 /* ============================================================================
@@ -143,14 +140,14 @@ typedef struct {
  * ============================================================================ */
 
 /**
- * @brief 初始化LPS22HBTR传感器
+ * @brief 初始化LPS22HBTR传感器 (SPI版本)
  * @param hlps22hb LPS22HB句柄
- * @param hi2c I2C句柄指针
+ * @param hspi SPI句柄指针 (必须已初始化)
  * @param odr 输出数据率
  * @return HAL状态
  * @note 验证WHO_AM_I并配置默认ODR和BDU
  */
-hal_status_t lps22hb_init(lps22hb_handle_t *hlps22hb, i2c_handle_t *hi2c, lps22hb_odr_t odr);
+hal_status_t lps22hb_init(lps22hb_handle_t *hlps22hb, spi_handle_t *hspi, lps22hb_odr_t odr);
 
 /**
  * @brief 反初始化LPS22HBTR传感器
@@ -240,11 +237,11 @@ float lps22hb_temp_to_celsius(int16_t raw);
 
 /**
  * @brief LPS22HBTR驱动测试函数
- * @param hi2c I2C句柄指针
+ * @param hspi SPI句柄指针
  * @return HAL状态
  * @note 测试WHO_AM_I读取和数据读取功能
  */
-hal_status_t lps22hb_test(i2c_handle_t *hi2c);
+hal_status_t lps22hb_test(spi_handle_t *hspi);
 
 #endif /* LPS22HB_ENABLE_TEST */
 

@@ -102,7 +102,7 @@ typedef struct {
 typedef struct {
     uart_instance_t instance;   /*!< UART实例 */
     uart_config_t config;       /*!< 当前配置 */
-    hal_state_t state;          /*!< UART状态 */
+    hal_device_state_t state;    /*!< UART状态 */
     uint8_t *tx_buffer;         /*!< 发送缓冲区 */
     uint16_t tx_size;           /*!< 发送数据大小 */
     uint16_t tx_count;          /*!< 已发送字节数 */

@@ -136,31 +136,26 @@ static void uart_wait_timeout(uint32_t ms)
  */
 static void uart_gpio_init(uart_instance_t instance)
 {
-    gpio_init_t gpio_cfg;
+    gpio_handle_t gpio_handle;
+    gpio_config_t gpio_cfg;
 
     if (instance != UART_INSTANCE_2) {
         return;
     }
 
     /* PA2 - USART2_TX: 复用推挽输出 */
-    gpio_cfg.port = GPIO_PORT_A;
-    gpio_cfg.pin = GPIO_PIN_2;
-    gpio_cfg.mode = GPIO_MODE_AF;
-    gpio_cfg.otype = GPIO_OTYPE_PP;
-    gpio_cfg.speed = GPIO_SPEED_HIGH;
-    gpio_cfg.pupd = GPIO_PUPD_UP;
-    gpio_cfg.af = 7;   /* AF7 = USART2 */
-    gpio_init(&gpio_cfg);
+    gpio_handle.port = GPIO_PORT_A;
+    gpio_handle.pin_mask = GPIO_PIN_2;
+    gpio_cfg.mode = HAL_GPIO_MODE_AF;
+    gpio_cfg.otype = HAL_GPIO_OTYPE_PP;
+    gpio_cfg.speed = HAL_GPIO_SPEED_HIGH;
+    gpio_cfg.pupd = HAL_GPIO_PUPD_UP;
+    gpio_cfg.af = GPIO_AF_7;   /* AF7 = USART2 */
+    gpio_init(&gpio_handle, &gpio_cfg);
 
     /* PA3 - USART2_RX: 复用输入 */
-    gpio_cfg.port = GPIO_PORT_A;
-    gpio_cfg.pin = GPIO_PIN_3;
-    gpio_cfg.mode = GPIO_MODE_AF;
-    gpio_cfg.otype = GPIO_OTYPE_PP;
-    gpio_cfg.speed = GPIO_SPEED_HIGH;
-    gpio_cfg.pupd = GPIO_PUPD_UP;
-    gpio_cfg.af = 7;   /* AF7 = USART2 */
-    gpio_init(&gpio_cfg);
+    gpio_handle.pin_mask = GPIO_PIN_3;
+    gpio_init(&gpio_handle, &gpio_cfg);
 }
 
 /**
@@ -169,25 +164,26 @@ static void uart_gpio_init(uart_instance_t instance)
  */
 static void uart_gpio_deinit(uart_instance_t instance)
 {
-    gpio_init_t gpio_cfg;
+    gpio_handle_t gpio_handle;
+    gpio_config_t gpio_cfg;
 
     if (instance != UART_INSTANCE_2) {
         return;
     }
 
     /* PA2 - 恢复为输入模式 */
-    gpio_cfg.port = GPIO_PORT_A;
-    gpio_cfg.pin = GPIO_PIN_2;
-    gpio_cfg.mode = GPIO_MODE_INPUT;
-    gpio_cfg.otype = GPIO_OTYPE_PP;
-    gpio_cfg.speed = GPIO_SPEED_LOW;
-    gpio_cfg.pupd = GPIO_PUPD_NONE;
-    gpio_cfg.af = 0;
-    gpio_init(&gpio_cfg);
+    gpio_handle.port = GPIO_PORT_A;
+    gpio_handle.pin_mask = GPIO_PIN_2;
+    gpio_cfg.mode = HAL_GPIO_MODE_INPUT;
+    gpio_cfg.otype = HAL_GPIO_OTYPE_PP;
+    gpio_cfg.speed = HAL_GPIO_SPEED_LOW;
+    gpio_cfg.pupd = HAL_GPIO_PUPD_NONE;
+    gpio_cfg.af = GPIO_AF_0;
+    gpio_init(&gpio_handle, &gpio_cfg);
 
     /* PA3 - 恢复为输入模式 */
-    gpio_cfg.pin = GPIO_PIN_3;
-    gpio_init(&gpio_cfg);
+    gpio_handle.pin_mask = GPIO_PIN_3;
+    gpio_init(&gpio_handle, &gpio_cfg);
 }
 
 /**
@@ -209,7 +205,7 @@ static hal_status_t uart_set_brr(usart_reg_t *usart, uint32_t baudrate)
 
     /* 计算波特率寄存器值: BRR = APB1_FREQ / baudrate */
     /* 使用16倍过采样, 整数部分直接除法 */
-    brr = APB1_CLOCK_FREQ_HZ / baudrate;
+    brr = HAL_APB1_CLK_FREQ / baudrate;
 
     /* 检查波特率是否在有效范围内 */
     if (brr == 0 || brr > 0xFFFF) {

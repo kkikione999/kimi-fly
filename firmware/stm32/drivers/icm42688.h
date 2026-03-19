@@ -1,17 +1,23 @@
 /**
  * @file icm42688.h
- * @brief ICM-42688-P 6轴IMU传感器驱动头文件
+ * @brief ICM-42688-P 6轴IMU传感器驱动头文件 (I2C版本)
  *
  * @note 基于TDK InvenSense ICM-42688-P数据手册
- *       SPI模式: Mode 0 (CPOL=0, CPHA=0)
- *       数据格式: 大端序 (MSB在前)
+ *       接口: I2C1 (PB6=SCL, PB7=SDA)
+ *       I2C地址: 0x68 (7-bit), 0xD0 (write), 0xD1 (read)
+ *
+ * @hardware
+ *   - 芯片型号: ICM-42688-P
+ *   - 接口: I2C1 (PB6=SCL, PB7=SDA)
+ *   - I2C地址: 0x68
+ *   - WHO_AM_I: 0x47
  */
 
 #ifndef ICM42688_H
 #define ICM42688_H
 
 #include "hal_common.h"
-#include "spi.h"
+#include "i2c.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,6 +26,12 @@ extern "C" {
 /* ============================================================================
  * ICM-42688-P 设备常量
  * ============================================================================ */
+
+/**
+ * @brief ICM-42688-P I2C设备地址 (7-bit)
+ * @note AD0=GND -> 0x68, AD0=VCC -> 0x69
+ */
+#define ICM42688_I2C_ADDR           0x68U
 
 #define ICM42688_WHO_AM_I_VALUE     0x47U   /**< WHO_AM_I寄存器预期值 */
 
@@ -52,12 +64,6 @@ extern "C" {
 #define ICM42688_REG_FIFO_COUNTH    0x2EU   /**< FIFO计数高字节 */
 #define ICM42688_REG_FIFO_COUNTL    0x2FU   /**< FIFO计数低字节 */
 #define ICM42688_REG_FIFO_DATA      0x30U   /**< FIFO数据 */
-#define ICM42688_REG_APEX_DATA0     0x31U   /**< APEX数据0 */
-#define ICM42688_REG_APEX_DATA1     0x32U   /**< APEX数据1 */
-#define ICM42688_REG_APEX_DATA2     0x33U   /**< APEX数据2 */
-#define ICM42688_REG_APEX_DATA3     0x34U   /**< APEX数据3 */
-#define ICM42688_REG_APEX_DATA4     0x35U   /**< APEX数据4 */
-#define ICM42688_REG_APEX_DATA5     0x36U   /**< APEX数据5 */
 #define ICM42688_REG_INT_STATUS2    0x37U   /**< 中断状态2 */
 #define ICM42688_REG_INT_STATUS3    0x38U   /**< 中断状态3 */
 
@@ -179,12 +185,14 @@ typedef enum {
  * ============================================================================ */
 
 /**
- * @brief ICM-42688-P 句柄结构体
+ * @brief ICM-42688-P 句柄结构体 (I2C版本)
  */
 typedef struct {
-    spi_handle_t *spi_handle;           /**< SPI句柄指针 */
+    i2c_handle_t *i2c_handle;           /**< I2C句柄指针 */
+    uint16_t dev_addr;                  /**< 设备I2C地址 */
     icm42688_gyro_range_t gyro_range;   /**< 当前陀螺仪量程 */
     icm42688_accel_range_t accel_range; /**< 当前加速度计量程 */
+    uint32_t timeout;                   /**< 超时时间(ms) */
     uint8_t initialized;                /**< 初始化标志 */
 } icm42688_handle_t;
 
@@ -219,13 +227,13 @@ typedef struct {
  * ============================================================================ */
 
 /**
- * @brief 初始化ICM-42688-P传感器
+ * @brief 初始化ICM-42688-P传感器 (I2C版本)
  * @param himu ICM-42688-P句柄指针
- * @param hspi SPI句柄指针 (必须已初始化)
+ * @param hi2c I2C句柄指针 (必须已初始化)
  * @return HAL状态
  * @note 此函数会验证WHO_AM_I并配置默认参数
  */
-hal_status_t icm42688_init(icm42688_handle_t *himu, spi_handle_t *hspi);
+hal_status_t icm42688_init(icm42688_handle_t *himu, i2c_handle_t *hi2c);
 
 /**
  * @brief 反初始化ICM-42688-P传感器
@@ -314,16 +322,27 @@ float icm42688_convert_accel_g(icm42688_handle_t *himu, int16_t raw_value);
  */
 float icm42688_convert_temp_celsius(int16_t raw_value);
 
-/* ============================================================================
- * 测试/调试函数
- * ============================================================================ */
-
 /**
  * @brief 自检函数 - 验证WHO_AM_I并读取一次数据
  * @param himu ICM-42688-P句柄指针
  * @return HAL状态
  */
 hal_status_t icm42688_self_test(icm42688_handle_t *himu);
+
+/* ============================================================================
+ * 测试/调试函数
+ * ============================================================================ */
+
+#ifdef ICM42688_ENABLE_TEST
+
+/**
+ * @brief ICM-42688-P 测试函数
+ * @param hi2c I2C句柄指针
+ * @return HAL状态
+ */
+hal_status_t icm42688_test(i2c_handle_t *hi2c);
+
+#endif /* ICM42688_ENABLE_TEST */
 
 #ifdef __cplusplus
 }

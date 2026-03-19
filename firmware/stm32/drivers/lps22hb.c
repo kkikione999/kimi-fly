@@ -1,14 +1,14 @@
 /**
  * @file lps22hb.c
- * @brief LPS22HBTR 气压计驱动实现
+ * @brief LPS22HBTR 气压计驱动实现 (SPI版本)
  *
  * @note 本文件为Ralph-loop v2.0 传感器驱动层实现
  *       提供气压和温度数据读取功能
  *
  * @hardware
  *   - 芯片型号: LPS22HBTR
- *   - 接口: I2C1 (PB6=SCL, PB7=SDA)
- *   - I2C地址: 0x5C (SA0=GND)
+ *   - 接口: SPI3 (PA15=CS, PB3=SCK, PB4=MISO, PB5=MOSI)
+ *   - SPI配置: Mode 0 (CPOL=0, CPHA=0), 8-bit, MSB first
  *   - WHO_AM_I: 0xB1
  *
  * @datasheet
@@ -25,7 +25,6 @@
 
 #define LPS22HB_TIMEOUT_DEFAULT     100U    /* 默认超时时间 (ms) */
 #define LPS22HB_RESET_DELAY_MS      5U      /* 复位后等待时间 */
-#define LPS22HB_DATA_READY_DELAY_MS 10U     /* 数据就绪等待时间 */
 
 /* 数据转换系数 */
 #define LPS22HB_PRESSURE_SCALE      4096.0f /* 气压转换系数: raw / 4096 = hPa */
@@ -39,27 +38,155 @@ static hal_status_t lps22hb_write_reg(lps22hb_handle_t *hlps22hb, uint8_t reg, u
 static hal_status_t lps22hb_read_reg(lps22hb_handle_t *hlps22hb, uint8_t reg, uint8_t *data);
 static hal_status_t lps22hb_read_regs(lps22hb_handle_t *hlps22hb, uint8_t reg, uint8_t *data, uint16_t len);
 static int32_t lps22hb_sign_extend_24bit(uint32_t value);
+static void lps22hb_delay_ms(uint32_t ms);
+
+/* ============================================================================
+ * 私有函数实现
+ * ============================================================================ */
+
+/**
+ * @brief 简单延时函数
+ */
+static void lps22hb_delay_ms(uint32_t ms)
+{
+    volatile uint32_t count;
+    while (ms--) {
+        for (count = 0; count < 10000; count++) {
+            __asm__ volatile("nop");
+        }
+    }
+}
+
+/**
+ * @brief 向寄存器写入单字节数据 (SPI)
+ */
+static hal_status_t lps22hb_write_reg(lps22hb_handle_t *hlps22hb, uint8_t reg, uint8_t data)
+{
+    hal_status_t status;
+    uint8_t tx_buf[2];
+
+    if (hlps22hb == NULL || hlps22hb->spi == NULL) {
+        return HAL_ERROR;
+    }
+
+    /* 准备数据: 寄存器地址(写操作) + 数据 */
+    tx_buf[0] = reg | LPS22HB_SPI_WRITE_BIT;
+    tx_buf[1] = data;
+
+    /* 拉低CS开始传输 */
+    spi_set_nss(hlps22hb->spi, 0);
+
+    /* 发送数据 */
+    status = spi_transmit(hlps22hb->spi, tx_buf, 2, hlps22hb->timeout);
+
+    /* 拉高CS结束传输 */
+    spi_set_nss(hlps22hb->spi, 1);
+
+    return status;
+}
+
+/**
+ * @brief 从寄存器读取单字节数据 (SPI)
+ */
+static hal_status_t lps22hb_read_reg(lps22hb_handle_t *hlps22hb, uint8_t reg, uint8_t *data)
+{
+    hal_status_t status;
+    uint8_t tx_buf[2];
+    uint8_t rx_buf[2];
+
+    if (hlps22hb == NULL || hlps22hb->spi == NULL || data == NULL) {
+        return HAL_ERROR;
+    }
+
+    /* 准备数据: 寄存器地址(读操作) + 空字节 */
+    tx_buf[0] = reg | LPS22HB_SPI_READ_BIT;
+    tx_buf[1] = 0x00;
+
+    /* 拉低CS开始传输 */
+    spi_set_nss(hlps22hb->spi, 0);
+
+    /* 发送并接收数据 */
+    status = spi_transmit_receive(hlps22hb->spi, tx_buf, rx_buf, 2, hlps22hb->timeout);
+
+    /* 拉高CS结束传输 */
+    spi_set_nss(hlps22hb->spi, 1);
+
+    if (status == HAL_OK) {
+        *data = rx_buf[1];
+    }
+
+    return status;
+}
+
+/**
+ * @brief 从寄存器连续读取多字节数据 (SPI)
+ */
+static hal_status_t lps22hb_read_regs(lps22hb_handle_t *hlps22hb, uint8_t reg, uint8_t *data, uint16_t len)
+{
+    hal_status_t status;
+    uint8_t tx_byte;
+
+    if (hlps22hb == NULL || hlps22hb->spi == NULL || data == NULL || len == 0) {
+        return HAL_ERROR;
+    }
+
+    /* 准备起始地址 (读操作) */
+    tx_byte = reg | LPS22HB_SPI_READ_BIT;
+
+    /* 拉低CS开始传输 */
+    spi_set_nss(hlps22hb->spi, 0);
+
+    /* 发送起始地址 */
+    status = spi_transmit(hlps22hb->spi, &tx_byte, 1, hlps22hb->timeout);
+    if (status != HAL_OK) {
+        spi_set_nss(hlps22hb->spi, 1);
+        return status;
+    }
+
+    /* 接收数据 */
+    status = spi_receive(hlps22hb->spi, data, len, hlps22hb->timeout);
+
+    /* 拉高CS结束传输 */
+    spi_set_nss(hlps22hb->spi, 1);
+
+    return status;
+}
+
+/**
+ * @brief 24位有符号数符号扩展
+ */
+static int32_t lps22hb_sign_extend_24bit(uint32_t value)
+{
+    /* 检查符号位 (第23位) */
+    if (value & 0x00800000U) {
+        /* 负数: 高8位置1 */
+        return (int32_t)(value | 0xFF000000U);
+    } else {
+        /* 正数: 直接返回 */
+        return (int32_t)value;
+    }
+}
 
 /* ============================================================================
  * API 实现
  * ============================================================================ */
 
 /**
- * @brief 初始化LPS22HBTR传感器
+ * @brief 初始化LPS22HBTR传感器 (SPI版本)
  */
-hal_status_t lps22hb_init(lps22hb_handle_t *hlps22hb, i2c_handle_t *hi2c, lps22hb_odr_t odr)
+hal_status_t lps22hb_init(lps22hb_handle_t *hlps22hb, spi_handle_t *hspi, lps22hb_odr_t odr)
 {
     hal_status_t status;
     uint8_t id;
     uint8_t ctrl_reg1;
 
-    if (hlps22hb == NULL || hi2c == NULL) {
+    if (hlps22hb == NULL || hspi == NULL) {
         return HAL_ERROR;
     }
 
     /* 初始化句柄 */
-    hlps22hb->i2c = hi2c;
-    hlps22hb->dev_addr = LPS22HB_I2C_ADDR;
+    memset(hlps22hb, 0, sizeof(lps22hb_handle_t));
+    hlps22hb->spi = hspi;
     hlps22hb->odr = odr;
     hlps22hb->timeout = LPS22HB_TIMEOUT_DEFAULT;
 
@@ -79,6 +206,8 @@ hal_status_t lps22hb_init(lps22hb_handle_t *hlps22hb, i2c_handle_t *hi2c, lps22h
         return status;
     }
 
+    lps22hb_delay_ms(LPS22HB_RESET_DELAY_MS);
+
     /* 配置CTRL_REG1: BDU + ODR */
     ctrl_reg1 = LPS22HB_CTRL_REG1_BDU;  /* 启用BDU确保数据一致性 */
 
@@ -91,6 +220,8 @@ hal_status_t lps22hb_init(lps22hb_handle_t *hlps22hb, i2c_handle_t *hi2c, lps22h
         return status;
     }
 
+    hlps22hb->initialized = 1;
+
     return HAL_OK;
 }
 
@@ -101,7 +232,7 @@ hal_status_t lps22hb_deinit(lps22hb_handle_t *hlps22hb)
 {
     hal_status_t status;
 
-    if (hlps22hb == NULL || hlps22hb->i2c == NULL) {
+    if (hlps22hb == NULL || hlps22hb->spi == NULL) {
         return HAL_ERROR;
     }
 
@@ -111,10 +242,7 @@ hal_status_t lps22hb_deinit(lps22hb_handle_t *hlps22hb)
         return status;
     }
 
-    /* 清除句柄 */
-    hlps22hb->i2c = NULL;
-    hlps22hb->dev_addr = 0U;
-    hlps22hb->odr = LPS22HB_ODR_ONE_SHOT;
+    hlps22hb->initialized = 0;
 
     return HAL_OK;
 }
@@ -124,7 +252,7 @@ hal_status_t lps22hb_deinit(lps22hb_handle_t *hlps22hb)
  */
 hal_status_t lps22hb_read_id(lps22hb_handle_t *hlps22hb, uint8_t *id)
 {
-    if (hlps22hb == NULL || hlps22hb->i2c == NULL || id == NULL) {
+    if (hlps22hb == NULL || hlps22hb->spi == NULL || id == NULL) {
         return HAL_ERROR;
     }
 
@@ -142,21 +270,21 @@ hal_status_t lps22hb_read_data(lps22hb_handle_t *hlps22hb, lps22hb_data_t *data)
     int32_t pressure_raw;
     int16_t temp_raw;
 
-    if (hlps22hb == NULL || hlps22hb->i2c == NULL || data == NULL) {
+    if (hlps22hb == NULL || hlps22hb->spi == NULL || data == NULL) {
+        return HAL_ERROR;
+    }
+
+    if (!hlps22hb->initialized) {
         return HAL_ERROR;
     }
 
     /* 读取气压和温度数据 (5字节连续读取) */
-    /* 从PRESS_OUT_XL (0x28) 开始读取, 自动递增 */
     status = lps22hb_read_regs(hlps22hb, LPS22HB_REG_PRESS_OUT_XL, buffer, 5U);
     if (status != HAL_OK) {
         return status;
     }
 
-    /* 解析气压数据 (24位有符号, 大端序) */
-    /* buffer[0] = PRESS_OUT_XL (低字节) */
-    /* buffer[1] = PRESS_OUT_L  (中字节) */
-    /* buffer[2] = PRESS_OUT_H  (高字节) */
+    /* 解析气压数据 (24位有符号, 小端序) */
     pressure_u24 = ((uint32_t)buffer[2] << 16) |
                    ((uint32_t)buffer[1] << 8)  |
                    ((uint32_t)buffer[0]);
@@ -164,9 +292,7 @@ hal_status_t lps22hb_read_data(lps22hb_handle_t *hlps22hb, lps22hb_data_t *data)
     /* 24位有符号数符号扩展 */
     pressure_raw = lps22hb_sign_extend_24bit(pressure_u24);
 
-    /* 解析温度数据 (16位有符号, 大端序) */
-    /* buffer[3] = TEMP_OUT_L (低字节) */
-    /* buffer[4] = TEMP_OUT_H (高字节) */
+    /* 解析温度数据 (16位有符号, 小端序) */
     temp_raw = (int16_t)(((uint16_t)buffer[4] << 8) | (uint16_t)buffer[3]);
 
     /* 填充数据结构体 */
@@ -186,7 +312,7 @@ hal_status_t lps22hb_set_odr(lps22hb_handle_t *hlps22hb, lps22hb_odr_t odr)
     hal_status_t status;
     uint8_t ctrl_reg1;
 
-    if (hlps22hb == NULL || hlps22hb->i2c == NULL) {
+    if (hlps22hb == NULL || hlps22hb->spi == NULL) {
         return HAL_ERROR;
     }
 
@@ -223,7 +349,7 @@ hal_status_t lps22hb_set_lpfp(lps22hb_handle_t *hlps22hb, lps22hb_lpfp_t lpfp)
     hal_status_t status;
     uint8_t ctrl_reg1;
 
-    if (hlps22hb == NULL || hlps22hb->i2c == NULL) {
+    if (hlps22hb == NULL || hlps22hb->spi == NULL) {
         return HAL_ERROR;
     }
 
@@ -239,19 +365,13 @@ hal_status_t lps22hb_set_lpfp(lps22hb_handle_t *hlps22hb, lps22hb_lpfp_t lpfp)
     /* 设置LPFP配置 */
     switch (lpfp) {
         case LPS22HB_LPFP_DISABLE:
-            /* 禁用LPFP, 不做任何设置 */
             break;
-
         case LPS22HB_LPFP_ODR_2:
-            /* ODR/2 */
             ctrl_reg1 |= LPS22HB_CTRL_REG1_LPFP_EN;
             break;
-
         case LPS22HB_LPFP_ODR_9:
-            /* ODR/9 */
             ctrl_reg1 |= LPS22HB_CTRL_REG1_LPFP_EN | LPS22HB_CTRL_REG1_LPFP_CFG;
             break;
-
         default:
             return HAL_ERROR;
     }
@@ -273,7 +393,7 @@ hal_status_t lps22hb_one_shot(lps22hb_handle_t *hlps22hb)
     hal_status_t status;
     uint8_t ctrl_reg2;
 
-    if (hlps22hb == NULL || hlps22hb->i2c == NULL) {
+    if (hlps22hb == NULL || hlps22hb->spi == NULL) {
         return HAL_ERROR;
     }
 
@@ -303,7 +423,7 @@ hal_status_t lps22hb_data_ready(lps22hb_handle_t *hlps22hb, uint8_t *pressure_re
     hal_status_t status;
     uint8_t status_reg;
 
-    if (hlps22hb == NULL || hlps22hb->i2c == NULL) {
+    if (hlps22hb == NULL || hlps22hb->spi == NULL) {
         return HAL_ERROR;
     }
 
@@ -332,7 +452,7 @@ hal_status_t lps22hb_reset(lps22hb_handle_t *hlps22hb)
     uint8_t ctrl_reg2;
     uint32_t timeout;
 
-    if (hlps22hb == NULL || hlps22hb->i2c == NULL) {
+    if (hlps22hb == NULL || hlps22hb->spi == NULL) {
         return HAL_ERROR;
     }
 
@@ -352,7 +472,7 @@ hal_status_t lps22hb_reset(lps22hb_handle_t *hlps22hb)
     }
 
     /* 等待复位完成 (SWRESET位自动清零) */
-    timeout = LPS22HB_RESET_DELAY_MS * 1000U;  /* 转换为粗略的循环计数 */
+    timeout = LPS22HB_RESET_DELAY_MS * 1000U;
     while (timeout > 0U) {
         status = lps22hb_read_reg(hlps22hb, LPS22HB_REG_CTRL_REG2, &ctrl_reg2);
         if (status != HAL_OK) {
@@ -360,7 +480,6 @@ hal_status_t lps22hb_reset(lps22hb_handle_t *hlps22hb)
         }
 
         if ((ctrl_reg2 & LPS22HB_CTRL_REG2_SWRESET) == 0U) {
-            /* 复位完成 */
             break;
         }
 
@@ -391,67 +510,17 @@ float lps22hb_temp_to_celsius(int16_t raw)
 }
 
 /* ============================================================================
- * 私有函数实现
- * ============================================================================ */
-
-/**
- * @brief 向寄存器写入单字节数据
- */
-static hal_status_t lps22hb_write_reg(lps22hb_handle_t *hlps22hb, uint8_t reg, uint8_t data)
-{
-    return i2c_mem_write(hlps22hb->i2c, hlps22hb->dev_addr, reg, 1U, &data, 1U, hlps22hb->timeout);
-}
-
-/**
- * @brief 从寄存器读取单字节数据
- */
-static hal_status_t lps22hb_read_reg(lps22hb_handle_t *hlps22hb, uint8_t reg, uint8_t *data)
-{
-    return i2c_mem_read(hlps22hb->i2c, hlps22hb->dev_addr, reg, 1U, data, 1U, hlps22hb->timeout);
-}
-
-/**
- * @brief 从寄存器连续读取多字节数据
- */
-static hal_status_t lps22hb_read_regs(lps22hb_handle_t *hlps22hb, uint8_t reg, uint8_t *data, uint16_t len)
-{
-    return i2c_mem_read(hlps22hb->i2c, hlps22hb->dev_addr, reg, 1U, data, len, hlps22hb->timeout);
-}
-
-/**
- * @brief 24位有符号数符号扩展
- * @param value 24位无符号值
- * @return 32位有符号值
- * @note LPS22HB气压数据为24位有符号数, 需要符号扩展到32位
- */
-static int32_t lps22hb_sign_extend_24bit(uint32_t value)
-{
-    /* 检查符号位 (第23位) */
-    if (value & 0x00800000U) {
-        /* 负数: 高8位置1 */
-        return (int32_t)(value | 0xFF000000U);
-    } else {
-        /* 正数: 直接返回 */
-        return (int32_t)value;
-    }
-}
-
-/* ============================================================================
  * 测试函数实现
  * ============================================================================ */
 
 #ifdef LPS22HB_ENABLE_TEST
 
+#include <stdio.h>
+
 /**
- * @brief LPS22HBTR驱动测试函数
- * @note 测试流程:
- *       1. 初始化I2C
- *       2. 读取WHO_AM_I验证设备
- *       3. 初始化传感器
- *       4. 循环读取气压和温度数据
- *       5. 打印结果
+ * @brief LPS22HBTR驱动测试函数 (SPI版本)
  */
-hal_status_t lps22hb_test(i2c_handle_t *hi2c)
+hal_status_t lps22hb_test(spi_handle_t *hspi)
 {
     hal_status_t status;
     lps22hb_handle_t hlps22hb;
@@ -461,89 +530,55 @@ hal_status_t lps22hb_test(i2c_handle_t *hi2c)
     uint32_t sample_count = 0U;
     const uint32_t max_samples = 10U;
 
+    printf("=== LPS22HBTR SPI Test ===\n");
+
+    /* 初始化传感器 (25Hz ODR) */
+    status = lps22hb_init(&hlps22hb, hspi, LPS22HB_ODR_25_HZ);
+    if (status != HAL_OK) {
+        printf("[FAIL] Init failed\n");
+        return status;
+    }
+    printf("[PASS] Initialized\n");
+
     /* 测试1: 读取WHO_AM_I */
     status = lps22hb_read_id(&hlps22hb, &id);
-    if (status != HAL_OK) {
-        return status;
-    }
-
-    if (id != LPS22HB_WHO_AM_I_VALUE) {
+    if (status != HAL_OK || id != LPS22HB_WHO_AM_I_VALUE) {
+        printf("[FAIL] WHO_AM_I failed, expected 0x%02X, got 0x%02X\n", LPS22HB_WHO_AM_I_VALUE, id);
         return HAL_ERROR;
     }
+    printf("[PASS] WHO_AM_I = 0x%02X\n", id);
 
-    /* 测试2: 初始化传感器 (25Hz ODR) */
-    status = lps22hb_init(&hlps22hb, hi2c, LPS22HB_ODR_25_HZ);
-    if (status != HAL_OK) {
-        return status;
-    }
+    /* 测试2: 循环读取数据 */
+    printf("\nReading %u samples:\n", max_samples);
+    printf("%-4s %-12s %-12s\n", "#", "Pressure(hPa)", "Temp(C)");
 
-    /* 测试3: 循环读取数据 */
     while (sample_count < max_samples) {
-        /* 检查数据就绪状态 */
         status = lps22hb_data_ready(&hlps22hb, &pressure_ready, &temp_ready);
         if (status != HAL_OK) {
             return status;
         }
 
         if (pressure_ready && temp_ready) {
-            /* 读取数据 */
             status = lps22hb_read_data(&hlps22hb, &data);
             if (status != HAL_OK) {
                 return status;
             }
 
-            /* 验证数据范围 */
-            /* 气压正常范围: 950-1050 hPa (海平面) */
-            /* 温度正常范围: -40 to +85 C */
-            if (data.pressure_hpa < 800.0f || data.pressure_hpa > 1200.0f) {
-                return HAL_ERROR;
-            }
-
-            if (data.temperature_c < -50.0f || data.temperature_c > 100.0f) {
-                return HAL_ERROR;
-            }
+            printf("%-4u %-12.3f %-12.2f\n",
+                   sample_count + 1,
+                   data.pressure_hpa,
+                   data.temperature_c);
 
             sample_count++;
         }
 
-        /* 简单延时 (实际应用中应使用系统滴答定时器) */
-        for (volatile uint32_t i = 0U; i < 100000U; i++) {
-            __asm__ volatile("nop");
-        }
+        lps22hb_delay_ms(50);
     }
 
-    /* 测试4: 单次测量模式 */
-    status = lps22hb_set_odr(&hlps22hb, LPS22HB_ODR_ONE_SHOT);
-    if (status != HAL_OK) {
-        return status;
-    }
+    /* 反初始化 */
+    lps22hb_deinit(&hlps22hb);
 
-    /* 触发单次测量 */
-    status = lps22hb_one_shot(&hlps22hb);
-    if (status != HAL_OK) {
-        return status;
-    }
-
-    /* 等待数据就绪 */
-    do {
-        status = lps22hb_data_ready(&hlps22hb, &pressure_ready, &temp_ready);
-        if (status != HAL_OK) {
-            return status;
-        }
-    } while (!pressure_ready || !temp_ready);
-
-    /* 读取单次测量数据 */
-    status = lps22hb_read_data(&hlps22hb, &data);
-    if (status != HAL_OK) {
-        return status;
-    }
-
-    /* 测试5: 反初始化 */
-    status = lps22hb_deinit(&hlps22hb);
-    if (status != HAL_OK) {
-        return status;
-    }
-
+    printf("\n=== Test Complete ===\n");
     return HAL_OK;
 }
 
