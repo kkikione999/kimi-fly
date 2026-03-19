@@ -130,8 +130,8 @@ static hal_status_t lps22hb_read_regs(lps22hb_handle_t *hlps22hb, uint8_t reg, u
         return HAL_ERROR;
     }
 
-    /* 准备起始地址 (读操作) */
-    tx_byte = reg | LPS22HB_SPI_READ_BIT;
+    /* 准备起始地址 (多字节读操作: bit7=1读, bit6=1地址自动递增) */
+    tx_byte = reg | LPS22HB_SPI_READ_MULTI;
 
     /* 拉低CS开始传输 */
     spi_set_nss(hlps22hb->spi, 0);
@@ -207,6 +207,21 @@ hal_status_t lps22hb_init(lps22hb_handle_t *hlps22hb, spi_handle_t *hspi, lps22h
     }
 
     lps22hb_delay_ms(LPS22HB_RESET_DELAY_MS);
+
+    /* 重启NVM加载校准参数 (参考代码关键步骤) */
+    status = lps22hb_write_reg(hlps22hb, LPS22HB_REG_CTRL_REG2, LPS22HB_CTRL_REG2_BOOT);
+    if (status != HAL_OK) {
+        return status;
+    }
+    /* 等待BOOT位自清零 (约20ms) */
+    lps22hb_delay_ms(20);
+
+    /* 配置CTRL_REG2: 启用地址自增, 禁用I2C (纯SPI模式) */
+    status = lps22hb_write_reg(hlps22hb, LPS22HB_REG_CTRL_REG2,
+                               LPS22HB_CTRL_REG2_IF_ADD_INC | LPS22HB_CTRL_REG2_I2C_DIS);
+    if (status != HAL_OK) {
+        return status;
+    }
 
     /* 配置CTRL_REG1: BDU + ODR */
     ctrl_reg1 = LPS22HB_CTRL_REG1_BDU;  /* 启用BDU确保数据一致性 */

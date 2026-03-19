@@ -19,7 +19,7 @@
  * ============================================================================ */
 
 #define QMC5883P_TIMEOUT_DEFAULT    100U    /* 默认超时时间 (ms) */
-#define QMC5883P_RESET_DELAY_MS     10U     /* 复位后等待时间 */
+#define QMC5883P_RESET_DELAY_MS     70U     /* 复位后等待时间,参考代码使用70ms */
 
 /* 温度转换系数 */
 #define QMC5883P_TEMP_SCALE         100.0f  /* 温度转换系数 */
@@ -77,16 +77,17 @@ static hal_status_t qmc5883p_read_regs(qmc5883p_handle_t *hqmc, uint8_t reg, uin
 
 /**
  * @brief 配置传感器参数
+ * @note 参考代码结构: CTRL1=ODR+OSR1+OSR2+mode, CTRL2=RNG
  */
-static hal_status_t qmc5883p_config(qmc5883p_handle_t *hqmc, qmc5883p_odr_t odr, qmc5883p_rng_t rng, qmc5883p_osr_t osr)
+static hal_status_t qmc5883p_config(qmc5883p_handle_t *hqmc, qmc5883p_odr_t odr, qmc5883p_osr_t osr)
 {
     hal_status_t status;
     uint8_t ctrl1;
 
-    /* 构建CTRL1寄存器值 */
+    /* 构建CTRL1寄存器值: ODR + OSR + mode */
+    /* 注意: RNG在CTRL2设置, 不在CTRL1 */
     ctrl1 = 0;
     ctrl1 |= (odr << QMC5883P_CTRL1_ODR_Pos) & QMC5883P_CTRL1_ODR_Msk;
-    ctrl1 |= (rng << QMC5883P_CTRL1_RNG_Pos) & QMC5883P_CTRL1_RNG_Msk;
     ctrl1 |= (osr << QMC5883P_CTRL1_OSR_Pos) & QMC5883P_CTRL1_OSR_Msk;
     ctrl1 |= QMC5883P_CTRL1_MODE_CONT;  /* 连续测量模式 */
 
@@ -97,7 +98,6 @@ static hal_status_t qmc5883p_config(qmc5883p_handle_t *hqmc, qmc5883p_odr_t odr,
 
     /* 保存配置 */
     hqmc->odr = odr;
-    hqmc->range = rng;
     hqmc->osr = osr;
 
     return HAL_OK;
@@ -132,12 +132,34 @@ hal_status_t qmc5883p_init(qmc5883p_handle_t *hqmc, i2c_handle_t *hi2c)
 
     qmc5883p_delay_ms(QMC5883P_RESET_DELAY_MS);
 
-    /* 配置默认参数: 100Hz ODR, ±2G量程, 256 OSR */
-    status = qmc5883p_config(hqmc, QMC5883P_ODR_100_HZ, QMC5883P_RNG_2G, QMC5883P_OSR_256);
+    /* 配置CTRL2量程: ±2G (bits[3:2]=0x00) */
+    /* 注意: 参考代码中量程在CTRL2设置, 不是CTRL1 */
+    status = qmc5883p_write_reg(hqmc, QMC5883P_REG_CTRL2, QMC5883P_CTRL2_RNG_2G);
+    if (status != HAL_OK) {
+        return status;
+    }
+    hqmc->range = QMC5883P_RNG_2G;
+
+    /* 使用参考代码配置: 200Hz ODR, ±8G量程, OSR=4/2 */
+    /* 参考代码: mode=0x01, ODR=0x03<<2, OSR1=0x01<<4, OSR2=0x01<<6 = 0x5D */
+    /* CTRL1 = 0x5D (200Hz, normal mode, OSR1=4, OSR2=2) */
+
+    /* 先进入suspend模式 (参考代码第一步) */
+    status = qmc5883p_write_reg(hqmc, QMC5883P_REG_CTRL1, 0x00);
     if (status != HAL_OK) {
         return status;
     }
 
+    /* 配置CTRL1: 参考代码值 0x5D */
+    /* 0x5D = 0b01011101 = mode=01, ODR=11(200Hz), OSR1=01, OSR2=01 */
+    status = qmc5883p_write_reg(hqmc, QMC5883P_REG_CTRL1, 0x5D);
+    if (status != HAL_OK) {
+        return status;
+    }
+    hqmc->odr = QMC5883P_ODR_200_HZ;
+    hqmc->osr = QMC5883P_OSR_256;
+
+    /* 标记初始化完成, 不在init中等待DRDY -- 数据就绪检查在read_data中进行 */
     hqmc->initialized = 1;
 
     return HAL_OK;
@@ -171,23 +193,38 @@ hal_status_t qmc5883p_deinit(qmc5883p_handle_t *hqmc)
 hal_status_t qmc5883p_read_data(qmc5883p_handle_t *hqmc, qmc5883p_data_t *data)
 {
     hal_status_t status;
-    uint8_t buffer[7];  /* X_L, X_H, Y_L, Y_H, Z_L, Z_H, STATUS */
+    uint8_t buffer[6];  /* X_L, X_H, Y_L, Y_H, Z_L, Z_H (参考代码读6字节) */
     int16_t mag_x, mag_y, mag_z;
 
     if (hqmc == NULL || data == NULL || !hqmc->initialized) {
         return HAL_ERROR;
     }
 
-    /* 读取7字节数据 (从XOUT_L开始) */
-    status = qmc5883p_read_regs(hqmc, QMC5883P_REG_XOUT_L, buffer, 7);
-    if (status != HAL_OK) {
-        return status;
+    /* 检查数据就绪状态，未就绪则返回HAL_BUSY让调用者重试 */
+    {
+        uint8_t ready = 0U;
+        status = qmc5883p_data_ready(hqmc, &ready);
+        if (status != HAL_OK) {
+            return status;
+        }
+        if (!ready) {
+            return HAL_BUSY;
+        }
     }
 
-    /* 解析磁力计数据 (小端序) */
-    mag_x = (int16_t)((buffer[1] << 8) | buffer[0]);
-    mag_y = (int16_t)((buffer[3] << 8) | buffer[2]);
-    mag_z = (int16_t)((buffer[5] << 8) | buffer[4]);
+    /* 使用单独寄存器读取测试,参考代码使用6字节burst read */
+    /* 如果burst read有问题,单独读取可以验证 */
+    uint8_t xl, xh, yl, yh, zl, zh;
+    qmc5883p_read_reg(hqmc, QMC5883P_REG_XOUT_L, &xl);
+    qmc5883p_read_reg(hqmc, QMC5883P_REG_XOUT_H, &xh);
+    qmc5883p_read_reg(hqmc, QMC5883P_REG_YOUT_L, &yl);
+    qmc5883p_read_reg(hqmc, QMC5883P_REG_YOUT_H, &yh);
+    qmc5883p_read_reg(hqmc, QMC5883P_REG_ZOUT_L, &zl);
+    qmc5883p_read_reg(hqmc, QMC5883P_REG_ZOUT_H, &zh);
+
+    mag_x = (int16_t)((xh << 8) | xl);
+    mag_y = (int16_t)((yh << 8) | yl);
+    mag_z = (int16_t)((zh << 8) | zl);
 
     /* 填充数据结构体 */
     data->mag_x = mag_x;
@@ -213,7 +250,7 @@ hal_status_t qmc5883p_set_odr(qmc5883p_handle_t *hqmc, qmc5883p_odr_t odr)
         return HAL_ERROR;
     }
 
-    return qmc5883p_config(hqmc, odr, hqmc->range, hqmc->osr);
+    return qmc5883p_config(hqmc, odr, hqmc->osr);
 }
 
 /**
@@ -221,11 +258,22 @@ hal_status_t qmc5883p_set_odr(qmc5883p_handle_t *hqmc, qmc5883p_odr_t odr)
  */
 hal_status_t qmc5883p_set_range(qmc5883p_handle_t *hqmc, qmc5883p_rng_t rng)
 {
+    hal_status_t status;
+    uint8_t ctrl2;
+
     if (hqmc == NULL || !hqmc->initialized) {
         return HAL_ERROR;
     }
 
-    return qmc5883p_config(hqmc, hqmc->odr, rng, hqmc->osr);
+    /* 量程在CTRL2设置, bits[3:2]: 0x00=±2G, 0x02=±8G */
+    ctrl2 = (uint8_t)(rng << QMC5883P_CTRL2_RNG_Pos);
+    status = qmc5883p_write_reg(hqmc, QMC5883P_REG_CTRL2, ctrl2);
+    if (status != HAL_OK) {
+        return status;
+    }
+
+    hqmc->range = rng;
+    return HAL_OK;
 }
 
 /**
@@ -237,7 +285,7 @@ hal_status_t qmc5883p_set_osr(qmc5883p_handle_t *hqmc, qmc5883p_osr_t osr)
         return HAL_ERROR;
     }
 
-    return qmc5883p_config(hqmc, hqmc->odr, hqmc->range, osr);
+    return qmc5883p_config(hqmc, hqmc->odr, osr);
 }
 
 /**
@@ -264,41 +312,24 @@ hal_status_t qmc5883p_data_ready(qmc5883p_handle_t *hqmc, uint8_t *ready)
 
 /**
  * @brief 软件复位
+ * @note 根据参考代码: 写0x80到CTRL2触发软复位, 等待70ms
  */
 hal_status_t qmc5883p_reset(qmc5883p_handle_t *hqmc)
 {
     hal_status_t status;
-    uint32_t timeout;
-    uint8_t ctrl2;
 
     if (hqmc == NULL || hqmc->i2c == NULL) {
         return HAL_ERROR;
     }
 
-    /* 设置软复位位 */
+    /* 设置软复位位 (bit7 = 0x80) */
     status = qmc5883p_write_reg(hqmc, QMC5883P_REG_CTRL2, QMC5883P_CTRL2_SOFTRST);
     if (status != HAL_OK) {
         return status;
     }
 
-    /* 等待复位完成 (等待CTRL2寄存器清零) */
-    timeout = QMC5883P_RESET_DELAY_MS * 1000U;
-    while (timeout > 0U) {
-        status = qmc5883p_read_reg(hqmc, QMC5883P_REG_CTRL2, &ctrl2);
-        if (status != HAL_OK) {
-            return status;
-        }
-
-        if ((ctrl2 & QMC5883P_CTRL2_SOFTRST) == 0U) {
-            break;
-        }
-
-        timeout--;
-    }
-
-    if (timeout == 0U) {
-        return HAL_TIMEOUT;
-    }
+    /* 等待复位完成 - 参考代码使用70ms固定延迟 */
+    qmc5883p_delay_ms(70U);
 
     return HAL_OK;
 }

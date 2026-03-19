@@ -9,7 +9,7 @@
  *   - 芯片型号: LPS22HBTR
  *   - 接口: SPI3 (PA15=CS, PB3=SCK, PB4=MISO, PB5=MOSI)
  *   - SPI配置: Mode 0 (CPOL=0, CPHA=0), 8-bit, MSB first
- *   - WHO_AM_I: 0xB1
+ *   - WHO_AM_I: 0xB3 (LPS22HH variant, confirmed by hardware)
  */
 
 #ifndef LPS22HB_H
@@ -26,7 +26,7 @@ extern "C" {
  * LPS22HBTR 设备常量
  * ============================================================================ */
 
-#define LPS22HB_WHO_AM_I_VALUE      0xB1U   /**< WHO_AM_I预期值 */
+#define LPS22HB_WHO_AM_I_VALUE      0xB3U   /**< WHO_AM_I预期值 (LPS22HH = 0xB3, LPS22HB = 0xB1) */
 
 /* ============================================================================
  * LPS22HBTR 寄存器地址定义
@@ -71,6 +71,8 @@ extern "C" {
 #define LPS22HB_CTRL_REG2_ONE_SHOT  (1U << 0)   /**< 单次测量触发 */
 #define LPS22HB_CTRL_REG2_AUTO_ZERO (1U << 1)   /**< 自动归零 */
 #define LPS22HB_CTRL_REG2_SWRESET   (1U << 2)   /**< 软件复位 */
+#define LPS22HB_CTRL_REG2_IF_ADD_INC (1U << 4)  /**< I2C地址自动递增 */
+#define LPS22HB_CTRL_REG2_I2C_DIS   (1U << 3)   /**< 禁用I2C（SPI模式） */
 #define LPS22HB_CTRL_REG2_FIFO_EN   (1U << 6)   /**< FIFO使能 */
 #define LPS22HB_CTRL_REG2_BOOT      (1U << 7)   /**< 重启内存内容 */
 
@@ -89,6 +91,8 @@ extern "C" {
 
 #define LPS22HB_SPI_READ_BIT        0x80U   /**< 读操作位 (bit7=1) */
 #define LPS22HB_SPI_WRITE_BIT       0x00U   /**< 写操作位 (bit7=0) */
+#define LPS22HB_SPI_AUTO_INC_BIT    0x40U   /**< 地址自动递增位 (bit6=1, multi-byte) */
+#define LPS22HB_SPI_READ_MULTI      (LPS22HB_SPI_READ_BIT | LPS22HB_SPI_AUTO_INC_BIT)   /**< 多字节读: bit7=1, bit6=1 = 0xC0 */
 
 /* ============================================================================
  * 输出数据率 (ODR) 枚举
@@ -159,7 +163,7 @@ hal_status_t lps22hb_deinit(lps22hb_handle_t *hlps22hb);
 /**
  * @brief 读取WHO_AM_I寄存器
  * @param hlps22hb LPS22HB句柄
- * @param id 设备ID输出 (应为0xB1)
+ * @param id 设备ID输出 (应为0xB3)
  * @return HAL状态
  */
 hal_status_t lps22hb_read_id(lps22hb_handle_t *hlps22hb, uint8_t *id);

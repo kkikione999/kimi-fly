@@ -32,23 +32,23 @@ typedef enum {
  * ============================================================================ */
 
 typedef enum {
-    GPIO_PIN_0  = 0x0001U,
-    GPIO_PIN_1  = 0x0002U,
-    GPIO_PIN_2  = 0x0004U,
-    GPIO_PIN_3  = 0x0008U,
-    GPIO_PIN_4  = 0x0010U,
-    GPIO_PIN_5  = 0x0020U,
-    GPIO_PIN_6  = 0x0040U,
-    GPIO_PIN_7  = 0x0080U,
-    GPIO_PIN_8  = 0x0100U,
-    GPIO_PIN_9  = 0x0200U,
-    GPIO_PIN_10 = 0x0400U,
-    GPIO_PIN_11 = 0x0800U,
-    GPIO_PIN_12 = 0x1000U,
-    GPIO_PIN_13 = 0x2000U,
-    GPIO_PIN_14 = 0x4000U,
-    GPIO_PIN_15 = 0x8000U,
-    GPIO_PIN_ALL = 0xFFFFU
+    HAL_GPIO_PIN_0  = 0x0001U,
+    HAL_GPIO_PIN_1  = 0x0002U,
+    HAL_GPIO_PIN_2  = 0x0004U,
+    HAL_GPIO_PIN_3  = 0x0008U,
+    HAL_GPIO_PIN_4  = 0x0010U,
+    HAL_GPIO_PIN_5  = 0x0020U,
+    HAL_GPIO_PIN_6  = 0x0040U,
+    HAL_GPIO_PIN_7  = 0x0080U,
+    HAL_GPIO_PIN_8  = 0x0100U,
+    HAL_GPIO_PIN_9  = 0x0200U,
+    HAL_GPIO_PIN_10 = 0x0400U,
+    HAL_GPIO_PIN_11 = 0x0800U,
+    HAL_GPIO_PIN_12 = 0x1000U,
+    HAL_GPIO_PIN_13 = 0x2000U,
+    HAL_GPIO_PIN_14 = 0x4000U,
+    HAL_GPIO_PIN_15 = 0x8000U,
+    HAL_GPIO_PIN_ALL = 0xFFFFU
 } gpio_pin_t;
 
 /* ============================================================================

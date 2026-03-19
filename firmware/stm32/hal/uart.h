@@ -54,32 +54,32 @@ typedef enum {
 
 /* 停止位定义 */
 typedef enum {
-    UART_STOPBITS_1   = 0,  /*!< 1个停止位 */
-    UART_STOPBITS_0_5 = 1,  /*!< 0.5个停止位 */
-    UART_STOPBITS_2   = 2,  /*!< 2个停止位 */
-    UART_STOPBITS_1_5 = 3   /*!< 1.5个停止位 */
+    HAL_UART_STOPBITS_1   = 0,  /*!< 1个停止位 */
+    HAL_UART_STOPBITS_0_5 = 1,  /*!< 0.5个停止位 */
+    HAL_UART_STOPBITS_2   = 2,  /*!< 2个停止位 */
+    HAL_UART_STOPBITS_1_5 = 3   /*!< 1.5个停止位 */
 } uart_stopbits_t;
 
 /* 校验位定义 */
 typedef enum {
-    UART_PARITY_NONE = 0,   /*!< 无校验 */
-    UART_PARITY_EVEN = 1,   /*!< 偶校验 */
-    UART_PARITY_ODD  = 2    /*!< 奇校验 */
+    HAL_UART_PARITY_NONE = 0,   /*!< 无校验 */
+    HAL_UART_PARITY_EVEN = 1,   /*!< 偶校验 */
+    HAL_UART_PARITY_ODD  = 2    /*!< 奇校验 */
 } uart_parity_t;
 
 /* 硬件流控定义 */
 typedef enum {
-    UART_HWCONTROL_NONE    = 0, /*!< 无硬件流控 */
-    UART_HWCONTROL_RTS     = 1, /*!< RTS使能 */
-    UART_HWCONTROL_CTS     = 2, /*!< CTS使能 */
-    UART_HWCONTROL_RTS_CTS = 3  /*!< RTS和CTS都使能 */
+    HAL_UART_HWCONTROL_NONE    = 0, /*!< 无硬件流控 */
+    HAL_UART_HWCONTROL_RTS     = 1, /*!< RTS使能 */
+    HAL_UART_HWCONTROL_CTS     = 2, /*!< CTS使能 */
+    HAL_UART_HWCONTROL_RTS_CTS = 3  /*!< RTS和CTS都使能 */
 } uart_hwcontrol_t;
 
 /* 模式定义 */
 typedef enum {
-    UART_MODE_RX    = 0x01,     /*!< 接收模式 */
-    UART_MODE_TX    = 0x02,     /*!< 发送模式 */
-    UART_MODE_TX_RX = 0x03      /*!< 收发模式 */
+    HAL_UART_MODE_RX    = 0x01,     /*!< 接收模式 */
+    HAL_UART_MODE_TX    = 0x02,     /*!< 发送模式 */
+    HAL_UART_MODE_TX_RX = 0x03      /*!< 收发模式 */
 } uart_mode_t;
 
 /* ============================================================================

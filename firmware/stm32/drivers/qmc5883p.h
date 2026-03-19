@@ -9,7 +9,7 @@
  *   - 芯片型号: QMC5883P (三轴磁力计)
  *   - 接口: I2C1 (PB6=SCL, PB7=SDA)
  *   - I2C地址: 0x0D
- *   - WHO_AM_I: 0xFF
+ *   - CHIP_ID寄存器: 0x00, 默认值 0x80
  *
  * @datasheet
  *   - 磁场数据: 16位有符号整数, 小端序
@@ -39,33 +39,27 @@ extern "C" {
 #define QMC5883P_I2C_ADDR           0x2CU
 
 /**
- * @brief WHO_AM_I 预期值
- * @note QMC5883P没有标准的WHO_AM_I寄存器，
- *       使用芯片ID寄存器0x0D读取
+ * @brief CHIP_ID 预期值
+ * @note QMC5883P芯片ID寄存器位于0x00，读取值为0x80
  */
-#define QMC5883P_CHIP_ID_VALUE      0xFFU
+#define QMC5883P_CHIP_ID_VALUE      0x80U
 
 /* ============================================================================
  * QMC5883P 寄存器地址定义
  * ============================================================================ */
 
-#define QMC5883P_REG_XOUT_L         0x00U   /**< X轴数据低字节 */
-#define QMC5883P_REG_XOUT_H         0x01U   /**< X轴数据高字节 */
-#define QMC5883P_REG_YOUT_L         0x02U   /**< Y轴数据低字节 */
-#define QMC5883P_REG_YOUT_H         0x03U   /**< Y轴数据高字节 */
-#define QMC5883P_REG_ZOUT_L         0x04U   /**< Z轴数据低字节 */
-#define QMC5883P_REG_ZOUT_H         0x05U   /**< Z轴数据高字节 */
-#define QMC5883P_REG_TOUT_L         0x06U   /**< 温度数据低字节 */
-#define QMC5883P_REG_TOUT_H         0x07U   /**< 温度数据高字节 */
-#define QMC5883P_REG_STATUS         0x08U   /**< 状态寄存器 */
-#define QMC5883P_REG_TEMP_L         0x09U   /**< 温度低字节(备用) */
-#define QMC5883P_REG_TEMP_H         0x0AU   /**< 温度高字节(备用) */
-#define QMC5883P_REG_CTRL1          0x0BU   /**< 控制寄存器1 (模式/ODR/量程/OSR) */
-#define QMC5883P_REG_CTRL2          0x0CU   /**< 控制寄存器2 (软复位/中断) */
-#define QMC5883P_REG_SR_PERIOD      0x0DU   /**< SET/RESET周期寄存器 */
-#define QMC5883P_REG_CHIP_ID        0x0DU   /**< 芯片ID寄存器 (与SR_PERIOD共用) */
-#define QMC5883P_REG_RESERVED1      0x0EU   /**< 保留 */
-#define QMC5883P_REG_RESERVED2      0x0FU   /**< 保留 */
+#define QMC5883P_REG_CHIP_ID        0x00U   /**< 芯片ID寄存器 (默认值0x80) */
+#define QMC5883P_REG_XOUT_L         0x01U   /**< X轴数据低字节 */
+#define QMC5883P_REG_XOUT_H         0x02U   /**< X轴数据高字节 */
+#define QMC5883P_REG_YOUT_L         0x03U   /**< Y轴数据低字节 */
+#define QMC5883P_REG_YOUT_H         0x04U   /**< Y轴数据高字节 */
+#define QMC5883P_REG_ZOUT_L         0x05U   /**< Z轴数据低字节 */
+#define QMC5883P_REG_ZOUT_H         0x06U   /**< Z轴数据高字节 */
+#define QMC5883P_REG_TOUT_L         0x07U   /**< 温度数据低字节 */
+#define QMC5883P_REG_TOUT_H         0x08U   /**< 温度数据高字节 */
+#define QMC5883P_REG_STATUS         0x09U   /**< 状态寄存器 */
+#define QMC5883P_REG_CTRL1          0x0AU   /**< 控制寄存器1 (模式/ODR/量程/OSR) */
+#define QMC5883P_REG_CTRL2          0x0BU   /**< 控制寄存器2 (软复位/中断) */
 
 /* ============================================================================
  * STATUS 寄存器位定义
@@ -97,7 +91,11 @@ extern "C" {
  * CTRL2 寄存器位定义
  * ============================================================================ */
 
-#define QMC5883P_CTRL2_SOFTRST      (1U << 6)   /**< 软复位 */
+#define QMC5883P_CTRL2_SOFTRST      (1U << 7)   /**< 软复位 (bit7=1触发, 自动清零, 参考代码0x80) */
+#define QMC5883P_CTRL2_RNG_Pos      2U
+#define QMC5883P_CTRL2_RNG_Msk      (0x3U << QMC5883P_CTRL2_RNG_Pos)
+#define QMC5883P_CTRL2_RNG_2G       0x00U       /**< ±2G量程 (CTRL2 bits[3:2]=0x00) */
+#define QMC5883P_CTRL2_RNG_8G       0x02U       /**< ±8G量程 (CTRL2 bits[3:2]=0x02) */
 #define QMC5883P_CTRL2_INT_ENB      (1U << 0)   /**< 中断使能 */
 
 /* ============================================================================
@@ -116,8 +114,8 @@ typedef enum {
  * ============================================================================ */
 
 typedef enum {
-    QMC5883P_RNG_2G = 0x00U,        /**< ±2G (默认) */
-    QMC5883P_RNG_8G = 0x01U         /**< ±8G */
+    QMC5883P_RNG_2G = 0x00U,        /**< ±2G (默认, CTRL2 bits[3:2]=0x00) */
+    QMC5883P_RNG_8G = 0x02U         /**< ±8G (CTRL2 bits[3:2]=0x02) */
 } qmc5883p_rng_t;
 
 /* ============================================================================

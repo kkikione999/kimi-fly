@@ -60,15 +60,15 @@
  * PA15 - NSS (软件控制)
  */
 #define SPI3_SCK_PORT       GPIO_PORT_B
-#define SPI3_SCK_PIN        GPIO_PIN_3
+#define SPI3_SCK_PIN        HAL_GPIO_PIN_3
 #define SPI3_MISO_PORT      GPIO_PORT_B
-#define SPI3_MISO_PIN       GPIO_PIN_4
+#define SPI3_MISO_PIN       HAL_GPIO_PIN_4
 #define SPI3_MOSI_PORT      GPIO_PORT_B
-#define SPI3_MOSI_PIN       GPIO_PIN_5
+#define SPI3_MOSI_PIN       HAL_GPIO_PIN_5
 
 /* NSS pin - software controlled (PA15) */
 #define SPI3_NSS_PORT       GPIO_PORT_A
-#define SPI3_NSS_PIN        GPIO_PIN_15
+#define SPI3_NSS_PIN        HAL_GPIO_PIN_15
 
 /* Private function prototypes */
 static void spi_enable_clock(spi_periph_t periph);
@@ -228,12 +228,12 @@ hal_status_t spi_init(spi_handle_t *hspi, const spi_config_t *config)
     cr1 |= ((uint32_t)config->baudrate_prescaler << SPI_CR1_BR_Pos) & SPI_CR1_BR_Msk;
 
     /* Data size */
-    if (config->data_size == SPI_DATASIZE_16BIT) {
+    if (config->data_size == SPI_DATA_SIZE_16BIT) {
         cr1 |= SPI_CR1_DFF;
     }
 
     /* NSS management */
-    if (config->nss_mode == SPI_NSS_SOFT) {
+    if (config->nss_mode == SPI_NSS_MODE_SOFT) {
         cr1 |= SPI_CR1_SSM | SPI_CR1_SSI;  /* Software NSS, internal slave select high */
     }
 
@@ -474,9 +474,9 @@ hal_status_t spi3_init_for_imu(spi_handle_t *hspi)
      */
     config.cpol = SPI_CPOL_LOW;
     config.cpha = SPI_CPHA_1EDGE;
-    config.data_size = SPI_DATASIZE_8BIT;
-    config.nss_mode = SPI_NSS_SOFT;
-    config.baudrate_prescaler = SPI_BAUDRATEPRESCALER_8;  /* 5.25 MHz */
+    config.data_size = SPI_DATA_SIZE_8BIT;
+    config.nss_mode = SPI_NSS_MODE_SOFT;
+    config.baudrate_prescaler = SPI_PRESCALER_8;  /* 5.25 MHz */
     config.msb_first = 1;
 
     return spi_init(hspi, &config);

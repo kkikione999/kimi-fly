@@ -4,12 +4,12 @@
  *
  * @note 基于TDK InvenSense ICM-42688-P数据手册
  *       接口: I2C1 (PB6=SCL, PB7=SDA)
- *       I2C地址: 0x68 (7-bit), 0xD0 (write), 0xD1 (read)
+ *       I2C地址: 0x69 (AD0=VCC) (7-bit), 0xD2 (write), 0xD3 (read)
  *
  * @hardware
  *   - 芯片型号: ICM-42688-P
  *   - 接口: I2C1 (PB6=SCL, PB7=SDA)
- *   - I2C地址: 0x68
+ *   - I2C地址: 0x69
  *   - WHO_AM_I: 0x47
  */
 
@@ -31,7 +31,7 @@ extern "C" {
  * @brief ICM-42688-P I2C设备地址 (7-bit)
  * @note AD0=GND -> 0x68, AD0=VCC -> 0x69
  */
-#define ICM42688_I2C_ADDR           0x68U
+#define ICM42688_I2C_ADDR           0x69U
 
 #define ICM42688_WHO_AM_I_VALUE     0x47U   /**< WHO_AM_I寄存器预期值 */
 

@@ -26,26 +26,26 @@ typedef enum {
 
 /* SPI data size */
 typedef enum {
-    SPI_DATASIZE_8BIT = 0,
-    SPI_DATASIZE_16BIT = 1
+    SPI_DATA_SIZE_8BIT = 0,
+    SPI_DATA_SIZE_16BIT = 1
 } spi_datasize_t;
 
 /* SPI NSS management */
 typedef enum {
-    SPI_NSS_SOFT = 0,   /* Software NSS management */
-    SPI_NSS_HARD = 1    /* Hardware NSS management */
+    SPI_NSS_MODE_SOFT = 0,   /* Software NSS management */
+    SPI_NSS_MODE_HARD = 1    /* Hardware NSS management */
 } spi_nss_mode_t;
 
 /* SPI baud rate prescaler (based on APB1 clock 42MHz) */
 typedef enum {
-    SPI_BAUDRATEPRESCALER_2 = 0,    /* 21 MHz */
-    SPI_BAUDRATEPRESCALER_4 = 1,    /* 10.5 MHz */
-    SPI_BAUDRATEPRESCALER_8 = 2,    /* 5.25 MHz */
-    SPI_BAUDRATEPRESCALER_16 = 3,   /* 2.625 MHz */
-    SPI_BAUDRATEPRESCALER_32 = 4,   /* 1.3125 MHz */
-    SPI_BAUDRATEPRESCALER_64 = 5,   /* 656.25 kHz */
-    SPI_BAUDRATEPRESCALER_128 = 6,  /* 328.125 kHz */
-    SPI_BAUDRATEPRESCALER_256 = 7   /* 164.0625 kHz */
+    SPI_PRESCALER_2 = 0,    /* 21 MHz */
+    SPI_PRESCALER_4 = 1,    /* 10.5 MHz */
+    SPI_PRESCALER_8 = 2,    /* 5.25 MHz */
+    SPI_PRESCALER_16 = 3,   /* 2.625 MHz */
+    SPI_PRESCALER_32 = 4,   /* 1.3125 MHz */
+    SPI_PRESCALER_64 = 5,   /* 656.25 kHz */
+    SPI_PRESCALER_128 = 6,  /* 328.125 kHz */
+    SPI_PRESCALER_256 = 7   /* 164.0625 kHz */
 } spi_baudrate_prescaler_t;
 
 /* SPI configuration structure */

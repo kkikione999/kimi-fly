@@ -12,20 +12,32 @@
  * 寄存器定义
  * ============================================================================ */
 
-/* USART2 基地址 */
-#define USART2_BASE_ADDR    0x40004400UL
+/* USART 基地址 */
+#define USART1_BASE_ADDR    0x40011000UL  /* APB2 */
+#define USART2_BASE_ADDR    0x40004400UL  /* APB1 */
 
 /* RCC 寄存器 */
 #define RCC_BASE_ADDR       0x40023800UL
 #define RCC_APB1ENR_OFFSET  0x40UL
 #define RCC_APB1RSTR_OFFSET 0x20UL
+#define RCC_APB2ENR_OFFSET  0x44UL
+#define RCC_APB2RSTR_OFFSET 0x24UL
 
 #define RCC_APB1ENR     (*(volatile uint32_t *)(RCC_BASE_ADDR + RCC_APB1ENR_OFFSET))
 #define RCC_APB1RSTR    (*(volatile uint32_t *)(RCC_BASE_ADDR + RCC_APB1RSTR_OFFSET))
+#define RCC_APB2ENR     (*(volatile uint32_t *)(RCC_BASE_ADDR + RCC_APB2ENR_OFFSET))
+#define RCC_APB2RSTR    (*(volatile uint32_t *)(RCC_BASE_ADDR + RCC_APB2RSTR_OFFSET))
+
+/* USART1 时钟位 (APB2) */
+#define RCC_APB2ENR_USART1EN    (1UL << 4)
+#define RCC_APB2RSTR_USART1RST  (1UL << 4)
 
 /* USART2时钟使能位 */
 #define RCC_APB1ENR_USART2EN    (1UL << 17)
 #define RCC_APB1RSTR_USART2RST  (1UL << 17)
+
+/* APB2 时钟频率 (USART1 挂在 APB2 上, 84MHz) */
+#define HAL_APB2_CLK_FREQ   84000000UL
 
 /* USART寄存器结构 */
 typedef struct {
@@ -38,8 +50,9 @@ typedef struct {
     volatile uint32_t GTPR;     /* 0x18 - 保护时间和预分频寄存器 */
 } usart_reg_t;
 
-/* USART2寄存器指针 */
-#define USART2  ((usart_reg_t *)USART2_BASE_ADDR)
+/* USART 寄存器指针 */
+#define USART1_REG  ((usart_reg_t *)USART1_BASE_ADDR)
+#define USART2_REG  ((usart_reg_t *)USART2_BASE_ADDR)
 
 /* ============================================================================
  * 寄存器位定义
@@ -139,23 +152,27 @@ static void uart_gpio_init(uart_instance_t instance)
     gpio_handle_t gpio_handle;
     gpio_config_t gpio_cfg;
 
-    if (instance != UART_INSTANCE_2) {
-        return;
-    }
-
-    /* PA2 - USART2_TX: 复用推挽输出 */
-    gpio_handle.port = GPIO_PORT_A;
-    gpio_handle.pin_mask = GPIO_PIN_2;
-    gpio_cfg.mode = HAL_GPIO_MODE_AF;
+    gpio_cfg.mode  = HAL_GPIO_MODE_AF;
     gpio_cfg.otype = HAL_GPIO_OTYPE_PP;
     gpio_cfg.speed = HAL_GPIO_SPEED_HIGH;
-    gpio_cfg.pupd = HAL_GPIO_PUPD_UP;
-    gpio_cfg.af = GPIO_AF_7;   /* AF7 = USART2 */
-    gpio_init(&gpio_handle, &gpio_cfg);
+    gpio_cfg.pupd  = HAL_GPIO_PUPD_UP;
+    gpio_cfg.af    = GPIO_AF_7;   /* AF7 = USART1/USART2 */
 
-    /* PA3 - USART2_RX: 复用输入 */
-    gpio_handle.pin_mask = GPIO_PIN_3;
-    gpio_init(&gpio_handle, &gpio_cfg);
+    if (instance == UART_INSTANCE_1) {
+        /* PA9 - USART1_TX, PA10 - USART1_RX */
+        gpio_handle.port = GPIO_PORT_A;
+        gpio_handle.pin_mask = HAL_GPIO_PIN_9;
+        gpio_init(&gpio_handle, &gpio_cfg);
+        gpio_handle.pin_mask = HAL_GPIO_PIN_10;
+        gpio_init(&gpio_handle, &gpio_cfg);
+    } else if (instance == UART_INSTANCE_2) {
+        /* PA2 - USART2_TX, PA3 - USART2_RX */
+        gpio_handle.port = GPIO_PORT_A;
+        gpio_handle.pin_mask = HAL_GPIO_PIN_2;
+        gpio_init(&gpio_handle, &gpio_cfg);
+        gpio_handle.pin_mask = HAL_GPIO_PIN_3;
+        gpio_init(&gpio_handle, &gpio_cfg);
+    }
 }
 
 /**
@@ -173,7 +190,7 @@ static void uart_gpio_deinit(uart_instance_t instance)
 
     /* PA2 - 恢复为输入模式 */
     gpio_handle.port = GPIO_PORT_A;
-    gpio_handle.pin_mask = GPIO_PIN_2;
+    gpio_handle.pin_mask = HAL_GPIO_PIN_2;
     gpio_cfg.mode = HAL_GPIO_MODE_INPUT;
     gpio_cfg.otype = HAL_GPIO_OTYPE_PP;
     gpio_cfg.speed = HAL_GPIO_SPEED_LOW;
@@ -182,7 +199,7 @@ static void uart_gpio_deinit(uart_instance_t instance)
     gpio_init(&gpio_handle, &gpio_cfg);
 
     /* PA3 - 恢复为输入模式 */
-    gpio_handle.pin_mask = GPIO_PIN_3;
+    gpio_handle.pin_mask = HAL_GPIO_PIN_3;
     gpio_init(&gpio_handle, &gpio_cfg);
 }
 
@@ -198,14 +215,25 @@ static void uart_gpio_deinit(uart_instance_t instance)
 static hal_status_t uart_set_brr(usart_reg_t *usart, uint32_t baudrate)
 {
     uint32_t brr;
+    uint32_t clk_freq;
 
     if (baudrate == 0) {
         return HAL_ERROR;
     }
 
-    /* 计算波特率寄存器值: BRR = APB1_FREQ / baudrate */
+    /* 根据USART实例选择正确的时钟频率
+     * USART1 在 APB2 上 (84MHz)
+     * USART2 在 APB1 上 (42MHz)
+     */
+    if (usart == USART1_REG) {
+        clk_freq = HAL_APB2_CLK_FREQ;
+    } else {
+        clk_freq = HAL_APB1_CLK_FREQ;
+    }
+
+    /* 计算波特率寄存器值: BRR = CLK_FREQ / baudrate */
     /* 使用16倍过采样, 整数部分直接除法 */
-    brr = HAL_APB1_CLK_FREQ / baudrate;
+    brr = clk_freq / baudrate;
 
     /* 检查波特率是否在有效范围内 */
     if (brr == 0 || brr > 0xFFFF) {
@@ -240,8 +268,8 @@ hal_status_t uart_init(uart_handle_t *huart, uart_instance_t instance, const uar
         return HAL_ERROR;
     }
 
-    if (instance != UART_INSTANCE_2) {
-        return HAL_ERROR;   /* 目前只支持USART2 */
+    if (instance != UART_INSTANCE_1 && instance != UART_INSTANCE_2) {
+        return HAL_ERROR;
     }
 
     /* 初始化句柄 */
@@ -252,16 +280,20 @@ hal_status_t uart_init(uart_handle_t *huart, uart_instance_t instance, const uar
     /* 保存配置 */
     huart->config = *config;
 
-    /* 获取USART寄存器指针 */
-    usart = USART2;
-
-    /* 1. 使能USART2时钟 */
-    RCC_APB1ENR |= RCC_APB1ENR_USART2EN;
-
-    /* 2. 复位USART2 */
-    RCC_APB1RSTR |= RCC_APB1RSTR_USART2RST;
-    for (volatile int i = 0; i < 10; i++);  /* 短暂延时 */
-    RCC_APB1RSTR &= ~RCC_APB1RSTR_USART2RST;
+    /* 获取USART寄存器指针 & 使能时钟 */
+    if (instance == UART_INSTANCE_1) {
+        usart = USART1_REG;
+        RCC_APB2ENR  |= RCC_APB2ENR_USART1EN;
+        RCC_APB2RSTR |= RCC_APB2RSTR_USART1RST;
+        for (volatile int i = 0; i < 10; i++);
+        RCC_APB2RSTR &= ~RCC_APB2RSTR_USART1RST;
+    } else {
+        usart = USART2_REG;
+        RCC_APB1ENR  |= RCC_APB1ENR_USART2EN;
+        RCC_APB1RSTR |= RCC_APB1RSTR_USART2RST;
+        for (volatile int i = 0; i < 10; i++);
+        RCC_APB1RSTR &= ~RCC_APB1RSTR_USART2RST;
+    }
 
     /* 3. 配置GPIO */
     uart_gpio_init(instance);
@@ -275,16 +307,16 @@ hal_status_t uart_init(uart_handle_t *huart, uart_instance_t instance, const uar
     /* 5. 配置CR2: 停止位 */
     cr2_val &= ~USART_CR2_STOP_MASK;
     switch (config->stopbits) {
-        case UART_STOPBITS_1:
+        case HAL_UART_STOPBITS_1:
             cr2_val |= USART_CR2_STOP_1;
             break;
-        case UART_STOPBITS_0_5:
+        case HAL_UART_STOPBITS_0_5:
             cr2_val |= USART_CR2_STOP_0_5;
             break;
-        case UART_STOPBITS_2:
+        case HAL_UART_STOPBITS_2:
             cr2_val |= USART_CR2_STOP_2;
             break;
-        case UART_STOPBITS_1_5:
+        case HAL_UART_STOPBITS_1_5:
             cr2_val |= USART_CR2_STOP_1_5;
             break;
         default:
@@ -312,18 +344,18 @@ hal_status_t uart_init(uart_handle_t *huart, uart_instance_t instance, const uar
     }
 
     /* 校验 */
-    if (config->parity != UART_PARITY_NONE) {
+    if (config->parity != HAL_UART_PARITY_NONE) {
         cr1_val |= USART_CR1_PCE;
-        if (config->parity == UART_PARITY_ODD) {
+        if (config->parity == HAL_UART_PARITY_ODD) {
             cr1_val |= USART_CR1_PS;
         }
     }
 
     /* 模式 */
-    if (config->mode & UART_MODE_TX) {
+    if (config->mode & HAL_UART_MODE_TX) {
         cr1_val |= USART_CR1_TE;
     }
-    if (config->mode & UART_MODE_RX) {
+    if (config->mode & HAL_UART_MODE_RX) {
         cr1_val |= USART_CR1_RE;
     }
 
@@ -351,13 +383,13 @@ hal_status_t uart_deinit(uart_handle_t *huart)
         return HAL_ERROR;
     }
 
-    if (huart->instance != UART_INSTANCE_2) {
+    if (huart->instance != UART_INSTANCE_1 && huart->instance != UART_INSTANCE_2) {
         return HAL_ERROR;
     }
 
     huart->state = HAL_STATE_BUSY;
 
-    usart = USART2;
+    usart = (huart->instance == UART_INSTANCE_1) ? USART1_REG : USART2_REG;
 
     /* 1. 禁用USART */
     usart->CR1 = 0;
@@ -368,7 +400,11 @@ hal_status_t uart_deinit(uart_handle_t *huart)
     uart_gpio_deinit(huart->instance);
 
     /* 3. 禁用USART时钟 */
-    RCC_APB1ENR &= ~RCC_APB1ENR_USART2EN;
+    if (huart->instance == UART_INSTANCE_1) {
+        RCC_APB2ENR &= ~RCC_APB2ENR_USART1EN;
+    } else {
+        RCC_APB1ENR &= ~RCC_APB1ENR_USART2EN;
+    }
 
     /* 4. 重置句柄 */
     huart->state = HAL_STATE_RESET;
@@ -399,11 +435,11 @@ hal_status_t uart_send(uart_handle_t *huart, const uint8_t *data, uint16_t size,
         return HAL_BUSY;
     }
 
-    if (huart->instance != UART_INSTANCE_2) {
+    if (huart->instance != UART_INSTANCE_1 && huart->instance != UART_INSTANCE_2) {
         return HAL_ERROR;
     }
 
-    usart = USART2;
+    usart = (huart->instance == UART_INSTANCE_1) ? USART1_REG : USART2_REG;
 
     /* 设置忙状态 */
     huart->state = HAL_STATE_BUSY;
@@ -471,11 +507,11 @@ hal_status_t uart_receive(uart_handle_t *huart, uint8_t *data, uint16_t size, ui
         return HAL_BUSY;
     }
 
-    if (huart->instance != UART_INSTANCE_2) {
+    if (huart->instance != UART_INSTANCE_1 && huart->instance != UART_INSTANCE_2) {
         return HAL_ERROR;
     }
 
-    usart = USART2;
+    usart = (huart->instance == UART_INSTANCE_1) ? USART1_REG : USART2_REG;
 
     /* 设置忙状态 */
     huart->state = HAL_STATE_BUSY;
@@ -543,11 +579,11 @@ hal_status_t uart_set_baudrate(uart_handle_t *huart, uint32_t baudrate)
         return HAL_ERROR;
     }
 
-    if (huart->instance != UART_INSTANCE_2) {
+    if (huart->instance != UART_INSTANCE_1 && huart->instance != UART_INSTANCE_2) {
         return HAL_ERROR;
     }
 
-    usart = USART2;
+    usart = (huart->instance == UART_INSTANCE_1) ? USART1_REG : USART2_REG;
 
     /* 保存当前CR1值 */
     cr1_val = usart->CR1;
@@ -610,11 +646,11 @@ void uart_clear_error(uart_handle_t *huart)
         return;
     }
 
-    if (huart->instance != UART_INSTANCE_2) {
+    if (huart->instance != UART_INSTANCE_1 && huart->instance != UART_INSTANCE_2) {
         return;
     }
 
-    usart = USART2;
+    usart = (huart->instance == UART_INSTANCE_1) ? USART1_REG : USART2_REG;
 
     /* 读取SR然后读取DR来清除错误标志 */
     sr = usart->SR;
