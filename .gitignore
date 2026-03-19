@@ -1,7 +1,47 @@
-.claude/worktrees/
+# macOS
 .DS_Store
+
+# Claude/AI
+.claude/worktrees/
+.claude/agent-memory/
+
+# Build artifacts
+firmware/**/*.bin
+firmware/**/*.elf
+firmware/**/*.hex
+firmware/**/*.map
 stable
 
-# Firmware binaries
-firmware/**/*.bin
-.DS_Store
+# PlatformIO
+.pio/
+.cache/
+
+# ESP-IDF
+firmware/esp32/build/
+firmware/esp32/sdkconfig.old
+firmware/esp32/sdkconfig
+
+# STM32 build
+firmware/stm32/build/
+firmware/stm32/.pio/
+
+# CMake
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Documentation artifacts
+*.pdf
