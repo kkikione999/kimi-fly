@@ -112,10 +112,10 @@ static hal_status_t wifi_uart_init(void)
     uart_config_t config = {
         .baudrate = COMM_UART_BAUDRATE,
         .databits = UART_DATABITS_8,
-        .stopbits = UART_STOPBITS_1_VAL,
-        .parity = UART_PARITY_NONE_VAL,
-        .hwcontrol = UART_HWCONTROL_NONE_VAL,
-        .mode = UART_MODE_TX_RX_VAL
+        .stopbits = HAL_UART_STOPBITS_1,
+        .parity = HAL_UART_PARITY_NONE,
+        .hwcontrol = HAL_UART_HWCONTROL_NONE,
+        .mode = HAL_UART_MODE_TX_RX
     };
 
     hal_status_t status = uart_init(&wifi_uart, UART_INSTANCE_2, &config);

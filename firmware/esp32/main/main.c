@@ -19,6 +19,10 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "esp_system.h"
+#include "nvs_flash.h"
+
+#include "wifi_sta.h"
+#include "tcp_server.h"
 
 /* ============================================================================
  * Configuration
@@ -381,7 +385,20 @@ static void diagnostic_task(void *pvParameters)
         ESP_LOGI(TAG, "=== Communication Statistics ===");
         ESP_LOGI(TAG, "TX total: %lu (+%lu)", tx_counter, tx_counter - last_tx);
         ESP_LOGI(TAG, "RX total: %lu (+%lu)", rx_counter, rx_counter - last_rx);
-        ESP_LOGI(TAG, "Connection: %s", communication_active ? "YES" : "NO");
+        ESP_LOGI(TAG, "UART Connection: %s", communication_active ? "YES" : "NO");
+
+        /* WiFi status */
+        wifi_connection_status_t wifi_status = wifi_get_status();
+        const char* wifi_status_str = "UNKNOWN";
+        switch (wifi_status) {
+            case WIFI_DISCONNECTED: wifi_status_str = "DISCONNECTED"; break;
+            case WIFI_CONNECTING:   wifi_status_str = "CONNECTING"; break;
+            case WIFI_CONNECTED:    wifi_status_str = "CONNECTED"; break;
+        }
+        ESP_LOGI(TAG, "WiFi Status: %s", wifi_status_str);
+        if (wifi_status == WIFI_CONNECTED) {
+            ESP_LOGI(TAG, "WiFi IP: %s", wifi_get_ip_str());
+        }
 
         /* Check receive status */
         if (rx_counter == last_rx) {
@@ -446,6 +463,8 @@ static void main_task(void *pvParameters)
 
 void app_main(void)
 {
+    esp_err_t ret;
+
     ESP_LOGI(TAG, "================================");
     ESP_LOGI(TAG, "Kimi-Fly ESP32-C3 UART Bridge");
     ESP_LOGI(TAG, "Target: STM32F411CEU6");
@@ -453,8 +472,24 @@ void app_main(void)
     ESP_LOGI(TAG, "Baudrate: %d", UART_ST_BAUDRATE);
     ESP_LOGI(TAG, "================================");
 
+    /* Initialize NVS (required for WiFi) */
+    ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
+    /* Initialize WiFi STA */
+    ret = wifi_sta_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "WiFi initialization failed!");
+    } else {
+        ESP_LOGI(TAG, "WiFi STA initialized successfully");
+    }
+
     /* Initialize UART */
-    esp_err_t ret = uart_st_init();
+    ret = uart_st_init();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "UART initialization failed!");
         return;
@@ -469,6 +504,14 @@ void app_main(void)
 
     /* Create diagnostic task */
     xTaskCreate(diagnostic_task, "diag_task", 4096, NULL, 3, NULL);
+
+    /* Start TCP server (will wait for WiFi connection internally) */
+    ret = tcp_server_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "TCP server initialization failed!");
+    } else {
+        ESP_LOGI(TAG, "TCP server task created");
+    }
 
     /* This task is done */
     ESP_LOGI(TAG, "Initialization complete");

@@ -118,9 +118,9 @@ static hal_status_t spi3_init_for_barometer(void)
     /* 配置SPI3用于气压计 */
     config.cpol = SPI_CPOL_LOW;         /* Mode 0: CPOL=0 */
     config.cpha = SPI_CPHA_1EDGE;       /* Mode 0: CPHA=0 */
-    config.data_size = SPI_DATASIZE_8BIT;
-    config.nss_mode = SPI_NSS_SOFT;     /* 软件NSS控制 */
-    config.baudrate_prescaler = SPI_BAUDRATEPRESCALER_8;  /* 5.25MHz */
+    config.data_size = SPI_DATA_SIZE_8BIT;
+    config.nss_mode = SPI_NSS_MODE_SOFT;     /* 软件NSS控制 */
+    config.baudrate_prescaler = SPI_PRESCALER_8;  /* 5.25MHz */
     config.msb_first = 1;               /* MSB在前 */
 
     g_spi3.periph = SPI_PERIPH_3;

@@ -127,7 +127,7 @@ hal_status_t flight_main_init_sensors(flight_main_handle_t *handle)
     }
     platform_debug_print("[SENSOR] IMU init OK\r\n");
 
-    /* 初始化气压计 (LPS22HB, SPI3) */
+    /* 初始化气压计 (LPS22HH, SPI3) */
     status = lps22hb_init(&g_baro, &hspi3, LPS22HB_ODR_25_HZ);
     if (status != HAL_OK) {
         handle->error = ERR_BARO_INIT;

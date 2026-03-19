@@ -135,7 +135,7 @@
 | VDDIO | IO电源 | 3V3_IMU | - |
 | VDD | 电源 | 3V3_IMU | - |
 
-**配置**: I2C1, 100kHz, 7bit 地址 **0x68**
+**配置**: I2C1, 100kHz, 7bit 地址 **0x69** (AD0=VCC)
 
 ### 3.2 气压计 - LPS22HBTR (SPI3 接口)
 
@@ -374,7 +374,7 @@
 
 | 外设 | 接口 | 引脚 | 地址/配置 |
 |------|------|------|-----------|
-| **陀螺仪 ICM-42688-P** | **I2C1** | **PB6-PB7** | **0x68** |
+| **陀螺仪 ICM-42688-P** | **I2C1** | **PB6-PB7** | **0x69** (AD0=VCC) |
 | **磁力计 QMC5883P** | **I2C1** | **PB6-PB7** | **0x2C** |
 | **气压计 LPS22HBTR** | **SPI3** | **PA15/PB3-PB5** | SPI Mode 0 |
 | **电池检测** | **ADC1** | **PB0** | **Channel 8** |
@@ -398,7 +398,7 @@
 
 | 设备 | 地址 | 备注 |
 |------|------|------|
-| ICM-42688-P | 0x68 | 陀螺仪+加速度计 |
+| ICM-42688-P | 0x69 | 陀螺仪+加速度计 (AD0=VCC) |
 | QMC5883P | 0x2C | 磁力计 |
 
 ---
@@ -450,7 +450,7 @@
 | `Core/Src/usart.c` | UART 引脚配置 (PA2-PA3, PA9-PA10) |
 | `Core/Src/tim.c` | PWM 引脚配置 (PA8, PA11, PB1, PB10) |
 | `Core/Src/adc.c` | ADC 引脚配置 (PB0) |
-| `Hardware/ICM42688.c/h` | 陀螺仪 I2C 地址 0x68 |
+| `Hardware/ICM42688.c/h` | 陀螺仪 I2C 地址 0x69 (AD0=VCC，硬件验证确认) |
 | `Hardware/QMC5883P.c` | 磁力计 I2C 地址 0x2C |
 | `Hardware/LPS22HBTR.c` | 气压计 SPI 配置 |
 
@@ -471,7 +471,7 @@
 3. **I2C1 共享总线** (`i2c.c` 第70-79行)
    - PB6: I2C1_SCL (AF4)
    - PB7: I2C1_SDA (AF4)
-   - 两个设备共享: ICM-42688-P (0x68) + QMC5883P (0x2C)
+   - 两个设备共享: ICM-42688-P (0x69, AD0=VCC) + QMC5883P (0x2C)
 
 ### 14.3 文档维护规范
 
