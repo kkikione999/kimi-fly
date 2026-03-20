@@ -4,6 +4,8 @@
 # Claude/AI
 .claude/worktrees/
 .claude/agent-memory/
+.claude/settings.local.json
+.claude/ralph-loop.local.md
 
 # Build artifacts
 firmware/**/*.bin

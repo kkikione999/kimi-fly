@@ -200,6 +200,13 @@ void uart_clear_error(uart_handle_t *huart);
  */
 uint32_t uart_get_error(const uart_handle_t *huart);
 
+/**
+ * @brief 打印UART配置信息 (通过debug printf)
+ * @param huart UART句柄指针
+ * @note 输出波特率、数据位、校验、停止位等配置
+ */
+void uart_print_config(uart_handle_t *huart);
+
 #ifdef __cplusplus
 }
 #endif

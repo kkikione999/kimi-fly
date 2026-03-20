@@ -41,7 +41,7 @@ HAL_SRCS = $(HAL_DIR)/Src/stm32f4xx_hal.c \
            $(HAL_DIR)/Src/stm32f4xx_hal_dma.c
 
 # 应用源文件
-APP_SRCS = src/sensor_test_main.c
+APP_SRCS = src/main.c
 
 # 系统文件
 SYS_SRCS = $(CMSIS_DEVICE)/Source/Templates/system_stm32f4xx.c
