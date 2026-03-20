@@ -11,6 +11,10 @@
 #include "wifi_command.h"
 #include "string.h"
 
+/* 外部平台时间接口由 flight_entry.c 提供 */
+extern uint32_t platform_get_time_ms(void);
+extern void platform_debug_print(const char *fmt, ...);
+
 /* ============================================================================
  * 静态函数声明
  * ============================================================================ */
@@ -24,6 +28,8 @@ static void handle_pid_set_command(wifi_command_handle_t *handle, flight_control
 static void send_ack(wifi_command_handle_t *handle, uint8_t cmd);
 static void send_nack(wifi_command_handle_t *handle, uint8_t cmd, uint8_t error);
 static uint16_t transmit_data(wifi_command_handle_t *handle, const uint8_t *data, uint16_t len);
+static hal_status_t wifi_command_pop_frame(wifi_command_handle_t *handle, protocol_frame_t *frame);
+static void wifi_command_dispatch_frame(wifi_command_handle_t *handle, flight_controller_t *fc, const protocol_frame_t *frame);
 
 /* ============================================================================
  * 遥测配置默认值
@@ -115,154 +121,120 @@ void wifi_command_rx_bytes(wifi_command_handle_t *handle,
     }
 }
 
-hal_status_t wifi_command_process_rx(wifi_command_handle_t *handle)
+static uint16_t wifi_command_available_bytes(const wifi_command_handle_t *handle)
 {
-    if (handle == NULL || !handle->initialized) {
-        return HAL_ERROR;
-    }
-
-    /* 计算缓冲区中可用数据 */
-    uint16_t available;
     if (handle->rx_head >= handle->rx_tail) {
-        available = handle->rx_head - handle->rx_tail;
-    } else {
-        available = WIFI_CMD_BUFFER_SIZE - handle->rx_tail + handle->rx_head;
+        return (uint16_t)(handle->rx_head - handle->rx_tail);
     }
 
-    if (available < 6) {
-        return HAL_OK;  /* 数据不足，等待更多数据 */
-    }
-
-    /* 创建线性缓冲区 */
-    uint8_t temp_buffer[WIFI_CMD_BUFFER_SIZE];
-    uint16_t temp_len = 0;
-
-    for (uint16_t i = 0; i < available; i++) {
-        temp_buffer[i] = handle->rx_buffer[(handle->rx_tail + i) % WIFI_CMD_BUFFER_SIZE];
-        temp_len++;
-    }
-
-    /* 解析帧 */
-    protocol_frame_t frame;
-    uint16_t consumed = 0;
-    hal_status_t status = protocol_decode(temp_buffer, temp_len, &frame, &consumed);
-
-    if (status == HAL_OK) {
-        /* 成功解析一帧 */
-        handle->rx_tail = (handle->rx_tail + consumed) % WIFI_CMD_BUFFER_SIZE;
-        handle->rx_frames++;
-        handle->last_rx_time = 0;  /* 应由调用者设置实际时间 */
-
-        /* 处理命令 */
-        switch (frame.cmd) {
-            case CMD_HEARTBEAT:
-                send_ack(handle, CMD_HEARTBEAT);
-                handle->state = WIFI_STATE_LINK_OK;
-                break;
-
-            case CMD_VERSION:
-                /* 发送版本信息 */
-                {
-                    protocol_frame_t resp;
-                    resp.cmd = CMD_VERSION;
-                    resp.len = 1;
-                    resp.data[0] = PROTOCOL_VERSION;
-                    wifi_command_send_frame(handle, &resp);
-                }
-                break;
-
-            default:
-                /* 保存命令供execute处理 */
-                handle->new_command = true;
-                break;
-        }
-
-        return HAL_OK;
-    } else {
-        /* 解析失败，更新rx_tail */
-        if (consumed > 0) {
-            handle->rx_tail = (handle->rx_tail + consumed) % WIFI_CMD_BUFFER_SIZE;
-        }
-        return HAL_ERROR;
-    }
+    return (uint16_t)(WIFI_CMD_BUFFER_SIZE - handle->rx_tail + handle->rx_head);
 }
 
-/* ============================================================================
- * API实现 - 命令执行
- * ============================================================================ */
-
-hal_status_t wifi_command_execute(wifi_command_handle_t *handle,
-                                   flight_controller_t *fc)
+static hal_status_t wifi_command_pop_frame(wifi_command_handle_t *handle, protocol_frame_t *frame)
 {
-    if (handle == NULL || fc == NULL || !handle->initialized) {
+    if (handle == NULL || frame == NULL || !handle->initialized) {
         return HAL_ERROR;
     }
 
-    /* 计算缓冲区中可用数据 */
-    uint16_t available;
-    if (handle->rx_head >= handle->rx_tail) {
-        available = handle->rx_head - handle->rx_tail;
-    } else {
-        available = WIFI_CMD_BUFFER_SIZE - handle->rx_tail + handle->rx_head;
+    uint16_t available = wifi_command_available_bytes(handle);
+    if (available < 6U) {
+        return HAL_BUSY;
     }
 
-    if (available < 6) {
+    uint8_t temp_buffer[WIFI_CMD_BUFFER_SIZE];
+    for (uint16_t i = 0; i < available; i++) {
+        temp_buffer[i] = handle->rx_buffer[(handle->rx_tail + i) % WIFI_CMD_BUFFER_SIZE];
+    }
+
+    uint16_t consumed = 0;
+    hal_status_t status = protocol_decode(temp_buffer, available, frame, &consumed);
+    if (status == HAL_OK) {
+        handle->rx_tail = (handle->rx_tail + consumed) % WIFI_CMD_BUFFER_SIZE;
+        handle->rx_frames++;
+        handle->last_rx_time = platform_get_time_ms();
+        handle->state = WIFI_STATE_LINK_OK;
+        platform_debug_print("[WIFI_RX] OK cmd=0x%02X len=%u consumed=%u avail=%u\r\n",
+                             frame->cmd, frame->len, consumed, available);
         return HAL_OK;
     }
 
-    /* 创建线性缓冲区 */
-    uint8_t temp_buffer[WIFI_CMD_BUFFER_SIZE];
-    uint16_t temp_len = 0;
-
-    for (uint16_t i = 0; i < available && i < WIFI_CMD_BUFFER_SIZE; i++) {
-        temp_buffer[i] = handle->rx_buffer[(handle->rx_tail + i) % WIFI_CMD_BUFFER_SIZE];
-        temp_len++;
+    if (consumed > 0U) {
+        handle->rx_tail = (handle->rx_tail + consumed) % WIFI_CMD_BUFFER_SIZE;
+        handle->rx_errors++;
+        platform_debug_print("[WIFI_RX] ERR status=%d consumed=%u avail=%u h=%02X %02X %02X %02X\r\n",
+                             (int)status,
+                             consumed,
+                             available,
+                             temp_buffer[0],
+                             (available > 1U) ? temp_buffer[1] : 0U,
+                             (available > 2U) ? temp_buffer[2] : 0U,
+                             (available > 3U) ? temp_buffer[3] : 0U);
     }
 
-    /* 解析帧 */
-    protocol_frame_t frame;
-    uint16_t consumed = 0;
-    hal_status_t status = protocol_decode(temp_buffer, temp_len, &frame, &consumed);
+    return (consumed > 0U) ? HAL_ERROR : HAL_BUSY;
+}
 
-    if (status != HAL_OK) {
-        if (consumed > 0) {
-            handle->rx_tail = (handle->rx_tail + consumed) % WIFI_CMD_BUFFER_SIZE;
-        }
-        return HAL_ERROR;
+static void wifi_command_dispatch_frame(wifi_command_handle_t *handle, flight_controller_t *fc, const protocol_frame_t *frame)
+{
+    if (handle == NULL || frame == NULL) {
+        return;
     }
 
-    /* 成功解析，更新缓冲区 */
-    handle->rx_tail = (handle->rx_tail + consumed) % WIFI_CMD_BUFFER_SIZE;
-    handle->rx_frames++;
-
-    /* 执行命令 */
-    switch (frame.cmd) {
+    switch (frame->cmd) {
         case CMD_ARM:
-            handle_arm_command(handle, fc);
+            if (fc != NULL) {
+                handle_arm_command(handle, fc);
+            } else {
+                send_nack(handle, CMD_ARM, RESP_ERR_INTERNAL);
+            }
             break;
 
         case CMD_DISARM:
-            handle_disarm_command(handle, fc);
+            if (fc != NULL) {
+                handle_disarm_command(handle, fc);
+            } else {
+                send_nack(handle, CMD_DISARM, RESP_ERR_INTERNAL);
+            }
             break;
 
         case CMD_MODE:
-            handle_mode_command(handle, fc, frame.data, frame.len);
+            if (fc != NULL) {
+                handle_mode_command(handle, fc, frame->data, frame->len);
+            } else {
+                send_nack(handle, CMD_MODE, RESP_ERR_INTERNAL);
+            }
             break;
 
         case CMD_RC_INPUT:
-            handle_rc_input_command(handle, frame.data, frame.len);
+            if (fc != NULL) {
+                handle_rc_input_command(handle, frame->data, frame->len);
+            } else {
+                send_nack(handle, CMD_RC_INPUT, RESP_ERR_INTERNAL);
+            }
             break;
 
         case CMD_PID_GET:
-            handle_pid_get_command(handle, fc, frame.data, frame.len);
+            if (fc != NULL) {
+                handle_pid_get_command(handle, fc, frame->data, frame->len);
+            } else {
+                send_nack(handle, CMD_PID_GET, RESP_ERR_INTERNAL);
+            }
             break;
 
         case CMD_PID_SET:
-            handle_pid_set_command(handle, fc, frame.data, frame.len);
+            if (fc != NULL) {
+                handle_pid_set_command(handle, fc, frame->data, frame->len);
+            } else {
+                send_nack(handle, CMD_PID_SET, RESP_ERR_INTERNAL);
+            }
             break;
 
         case CMD_STATUS:
-            wifi_command_send_status(handle, fc);
+            if (fc != NULL) {
+                wifi_command_send_status(handle, fc);
+            } else {
+                send_nack(handle, CMD_STATUS, RESP_ERR_INTERNAL);
+            }
             break;
 
         case CMD_HEARTBEAT:
@@ -281,10 +253,34 @@ hal_status_t wifi_command_execute(wifi_command_handle_t *handle,
             break;
 
         default:
-            send_nack(handle, frame.cmd, RESP_ERR_INVALID_CMD);
+            send_nack(handle, frame->cmd, RESP_ERR_INVALID_CMD);
             break;
     }
+}
 
+hal_status_t wifi_command_process_rx(wifi_command_handle_t *handle)
+{
+    return wifi_command_execute(handle, NULL);
+}
+
+/* ============================================================================
+ * API实现 - 命令执行
+ * ============================================================================ */
+
+hal_status_t wifi_command_execute(wifi_command_handle_t *handle,
+                                   flight_controller_t *fc)
+{
+    if (handle == NULL || !handle->initialized) {
+        return HAL_ERROR;
+    }
+
+    protocol_frame_t frame;
+    hal_status_t status = wifi_command_pop_frame(handle, &frame);
+    if (status != HAL_OK) {
+        return (status == HAL_BUSY) ? HAL_OK : HAL_ERROR;
+    }
+
+    wifi_command_dispatch_frame(handle, fc, &frame);
     return HAL_OK;
 }
 
@@ -462,15 +458,6 @@ uint16_t wifi_command_send_frame(wifi_command_handle_t *handle,
     }
 
     return sent;
-}
-
-/* 弱引用默认实现 */
-__attribute__((weak))
-uint16_t wifi_platform_send(const uint8_t *data, uint16_t len)
-{
-    /* 用户应覆盖此函数以提供实际的发送功能 */
-    (void)data;
-    return len;
 }
 
 /* ============================================================================

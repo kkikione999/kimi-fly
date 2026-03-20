@@ -26,7 +26,7 @@ extern "C" {
  * 配置常量
  * ============================================================================ */
 
-#define WIFI_CMD_BUFFER_SIZE        128     /**< 接收缓冲区大小 */
+#define WIFI_CMD_BUFFER_SIZE        256     /**< 接收缓冲区大小 */
 #define WIFI_TX_BUFFER_SIZE         128     /**< 发送缓冲区大小 */
 #define WIFI_CMD_TIMEOUT_MS         500     /**< 命令超时时间 (ms) */
 #define WIFI_HEARTBEAT_INTERVAL_MS  100     /**< 心跳间隔 (ms) */
@@ -134,7 +134,7 @@ void wifi_command_rx_bytes(wifi_command_handle_t *handle,
                             uint16_t len);
 
 /**
- * @brief 处理接收到的数据 (主循环调用)
+ * @brief 处理接收到的数据 (兼容入口, 复用 execute 的单一解析路径)
  * @param handle WiFi命令处理器句柄
  * @return HAL_OK成功
  */
@@ -242,12 +242,11 @@ uint16_t wifi_command_send_frame(wifi_command_handle_t *handle,
                                   const protocol_frame_t *frame);
 
 /**
- * @brief 平台相关的底层发送函数 (弱引用，用户可覆盖)
+ * @brief 平台相关的底层发送函数
  * @param data 数据指针
  * @param len 数据长度
  * @return 发送的字节数
  */
-__attribute__((weak))
 uint16_t wifi_platform_send(const uint8_t *data, uint16_t len);
 
 #ifdef __cplusplus

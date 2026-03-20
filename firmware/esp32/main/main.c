@@ -1,28 +1,32 @@
 /**
  * @file main.c
- * @brief ESP32-C3 UART Communication with STM32F411
- * @note Hardware: ESP32-C3 connected to STM32 via UART
- *       UART: TX=GPIO5, RX=GPIO4 (default UART1 pins)
- *       Baudrate: 115200
+ * @brief ESP32-C3 UART bridge to STM32 flight controller
+ * @note Default bring-up path:
+ *       - Initialize NVS
+ *       - Initialize WiFi STA
+ *       - Initialize UART1 for STM32 link
+ *       - Run a single UART bridge task
+ *
+ *       Physical map:
+ *       - GPIO0 (TX) -> STM32 PA3 (USART2_RX)
+ *       - GPIO1 (RX) <- STM32 PA2 (USART2_TX)
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/queue.h"
 
-#include "driver/uart.h"
 #include "driver/gpio.h"
+#include "driver/uart.h"
+#include "esp_err.h"
 #include "esp_log.h"
-#include "esp_system.h"
 #include "nvs_flash.h"
 
+#include "protocol_bridge.h"
 #include "wifi_sta.h"
-#include "tcp_server.h"
 
 /* ============================================================================
  * Configuration
@@ -30,131 +34,78 @@
 
 #define TAG "ESP32_UART"
 
-/* UART Configuration for STM32 communication */
-#define UART_ST_PORT            UART_NUM_1
-#define UART_ST_TX_PIN          GPIO_NUM_5
-#define UART_ST_RX_PIN          GPIO_NUM_4
-#define UART_ST_BAUDRATE        115200
-#define UART_ST_BUF_SIZE        256
-#define UART_ST_TASK_STACK_SIZE 4096
-#define UART_ST_TASK_PRIORITY   10
+#define UART_ST_PORT             UART_NUM_1
+#define UART_ST_TX_PIN           GPIO_NUM_0
+#define UART_ST_RX_PIN           GPIO_NUM_1
+#define UART_ST_BAUDRATE         115200
+#define UART_ST_RX_BUFFER_SIZE    512
+#define UART_ST_TX_BUFFER_SIZE    256
+#define UART_ST_TASK_STACK_SIZE   4096
+#define UART_ST_TASK_PRIORITY     10
 
-/* Protocol defines */
-#define PROTOCOL_HEADER         0xAA55
-#define PROTOCOL_MAX_PAYLOAD    64
+#define UART_RX_CHUNK_SIZE        128
+#define UART_HEARTBEAT_PERIOD_MS  2000U
+#define UART_STATUS_PERIOD_MS     5000U
 
 /* ============================================================================
- * Protocol Structures
+ * Protocol payloads
  * ============================================================================ */
 
-/* Message types */
-typedef enum {
-    MSG_TYPE_HEARTBEAT = 0x01,
-    MSG_TYPE_STATUS = 0x02,
-    MSG_TYPE_CONTROL = 0x03,
-    MSG_TYPE_SENSOR = 0x04,
-    MSG_TYPE_DEBUG = 0x05,
-    MSG_TYPE_ACK = 0x06,
-    MSG_TYPE_ERROR = 0x07
-} msg_type_t;
-
-/* Protocol header structure */
 typedef struct __attribute__((packed)) {
-    uint16_t header;        /* 0xAA55 */
-    uint8_t type;           /* Message type */
-    uint8_t length;         /* Payload length */
-} protocol_header_t;
+    uint8_t version;
+} protocol_version_resp_t;
 
-/* Complete message structure */
 typedef struct __attribute__((packed)) {
-    protocol_header_t header;
-    uint8_t payload[PROTOCOL_MAX_PAYLOAD];
-    uint8_t checksum;
-} protocol_message_t;
+    uint8_t cmd;
+} protocol_ack_t;
+
+typedef struct __attribute__((packed)) {
+    uint8_t cmd;
+    uint8_t error;
+} protocol_nack_t;
+
+typedef struct __attribute__((packed)) {
+    uint8_t version;
+    uint8_t armed;
+    uint8_t mode;
+    uint8_t status;
+    uint16_t error_flags;
+} protocol_status_t;
+
+typedef struct __attribute__((packed)) {
+    int16_t roll;
+    int16_t pitch;
+    int16_t yaw;
+    int16_t roll_rate;
+    int16_t pitch_rate;
+    int16_t yaw_rate;
+} protocol_attitude_t;
 
 /* ============================================================================
- * Global Variables
+ * State
  * ============================================================================ */
 
-static QueueHandle_t uart_queue;
-static volatile uint32_t tx_counter = 0;
-static volatile uint32_t rx_counter = 0;
-static volatile bool communication_active = false;
+static uint8_t s_rx_buffer[UART_ST_RX_BUFFER_SIZE];
+static size_t s_rx_len;
+static uint32_t s_tx_frames;
+static uint32_t s_rx_frames;
+static uint32_t s_rx_errors;
+static uint32_t s_last_rx_ms;
+static bool s_link_active;
 
 /* ============================================================================
- * Protocol Functions
+ * Helpers
  * ============================================================================ */
 
-/**
- * @brief Calculate checksum for a message
- */
-static uint8_t calculate_checksum(const protocol_message_t *msg)
-{
-    uint8_t checksum = 0;
-    const uint8_t *data = (const uint8_t *)msg;
-    uint8_t length = sizeof(protocol_header_t) + msg->header.length;
-
-    for (uint8_t i = 0; i < length; i++) {
-        checksum ^= data[i];
-    }
-    return checksum;
-}
-
-/**
- * @brief Verify message checksum
- */
-static bool verify_checksum(const protocol_message_t *msg)
-{
-    return calculate_checksum(msg) == msg->checksum;
-}
-
-/**
- * @brief Build a protocol message
- */
-static int build_message(protocol_message_t *msg, msg_type_t type,
-                         const uint8_t *payload, uint8_t payload_len)
-{
-    if (payload_len > PROTOCOL_MAX_PAYLOAD) {
-        return -1;
-    }
-
-    msg->header.header = PROTOCOL_HEADER;
-    msg->header.type = type;
-    msg->header.length = payload_len;
-
-    if (payload_len > 0 && payload != NULL) {
-        memcpy(msg->payload, payload, payload_len);
-    }
-
-    msg->checksum = calculate_checksum(msg);
-
-    return sizeof(protocol_header_t) + payload_len + 1; /* +1 for checksum */
-}
-
-/* ============================================================================
- * UART Functions
- * ============================================================================ */
-
-/**
- * @brief Log detailed UART configuration for debugging
- */
 static void log_uart_config(void)
 {
-    ESP_LOGI(TAG, "UART1 Configuration:");
-    ESP_LOGI(TAG, "  Baud rate: %d", UART_ST_BAUDRATE);
-    ESP_LOGI(TAG, "  Data bits: 8");
-    ESP_LOGI(TAG, "  Parity: None");
-    ESP_LOGI(TAG, "  Stop bits: 1");
-    ESP_LOGI(TAG, "  Flow control: None");
-    ESP_LOGI(TAG, "  TX Pin: GPIO%d", UART_ST_TX_PIN);
-    ESP_LOGI(TAG, "  RX Pin: GPIO%d", UART_ST_RX_PIN);
-    ESP_LOGI(TAG, "  RX buffer: %d bytes", UART_ST_BUF_SIZE * 2);
-    ESP_LOGI(TAG, "  TX buffer: %d bytes", UART_ST_BUF_SIZE * 2);
+    ESP_LOGI(TAG, "UART1 configuration:");
+    ESP_LOGI(TAG, "  TX pin: GPIO%d", UART_ST_TX_PIN);
+    ESP_LOGI(TAG, "  RX pin: GPIO%d", UART_ST_RX_PIN);
+    ESP_LOGI(TAG, "  Baud: %d", UART_ST_BAUDRATE);
+    ESP_LOGI(TAG, "  Frame: 8N1, no flow control");
 }
 
-/**
- * @brief Initialize UART for STM32 communication
- */
 static esp_err_t uart_st_init(void)
 {
     const uart_config_t uart_config = {
@@ -166,294 +117,248 @@ static esp_err_t uart_st_init(void)
         .source_clk = UART_SCLK_DEFAULT,
     };
 
-    /* Install UART driver */
-    esp_err_t ret = uart_driver_install(UART_ST_PORT, UART_ST_BUF_SIZE * 2,
-                                        UART_ST_BUF_SIZE * 2, 20, &uart_queue,
+    esp_err_t ret = uart_driver_install(UART_ST_PORT,
+                                        UART_ST_RX_BUFFER_SIZE,
+                                        UART_ST_TX_BUFFER_SIZE,
+                                        0,
+                                        NULL,
                                         0);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "UART driver install failed: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "uart_driver_install failed: %s", esp_err_to_name(ret));
         return ret;
     }
 
-    /* Configure UART parameters */
     ret = uart_param_config(UART_ST_PORT, &uart_config);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "UART param config failed: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "uart_param_config failed: %s", esp_err_to_name(ret));
         return ret;
     }
 
-    /* Set pins */
-    ret = uart_set_pin(UART_ST_PORT, UART_ST_TX_PIN, UART_ST_RX_PIN,
-                       UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    ret = uart_set_pin(UART_ST_PORT,
+                       UART_ST_TX_PIN,
+                       UART_ST_RX_PIN,
+                       UART_PIN_NO_CHANGE,
+                       UART_PIN_NO_CHANGE);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "UART set pin failed: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "uart_set_pin failed: %s", esp_err_to_name(ret));
         return ret;
     }
 
-    ESP_LOGI(TAG, "UART initialized: TX=GPIO%d, RX=GPIO%d, Baud=%d",
-             UART_ST_TX_PIN, UART_ST_RX_PIN, UART_ST_BAUDRATE);
+    ret = uart_flush_input(UART_ST_PORT);
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "uart_flush_input failed: %s", esp_err_to_name(ret));
+    }
 
-    /* Log detailed configuration */
     log_uart_config();
-
     return ESP_OK;
 }
 
-/**
- * @brief Send message to STM32
- */
-static esp_err_t uart_st_send_message(const protocol_message_t *msg, size_t len)
+static esp_err_t uart_send_frame(const uart_protocol_frame_t *frame)
 {
-    int tx_bytes = uart_write_bytes(UART_ST_PORT, msg, len);
+    uint8_t wire[UART_ST_TX_BUFFER_SIZE];
+    size_t wire_len = 0;
 
-    if (tx_bytes < 0) {
-        ESP_LOGE(TAG, "UART send failed");
+    esp_err_t ret = uart_protocol_encode(frame, wire, sizeof(wire), &wire_len);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Frame encode failed for cmd 0x%02X", frame ? frame->cmd : 0);
+        s_rx_errors++;
+        return ret;
+    }
+
+    int written = uart_write_bytes(UART_ST_PORT, (const char *)wire, wire_len);
+    if (written != (int)wire_len) {
+        ESP_LOGE(TAG, "uart_write_bytes wrote %d/%u bytes", written, (unsigned)wire_len);
+        s_rx_errors++;
         return ESP_FAIL;
     }
 
-    tx_counter++;
-    ESP_LOGD(TAG, "Sent %d bytes to STM32", tx_bytes);
+    ret = uart_wait_tx_done(UART_ST_PORT, pdMS_TO_TICKS(100));
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "uart_wait_tx_done failed: %s", esp_err_to_name(ret));
+    }
+
+    s_tx_frames++;
+    ESP_LOGI(TAG, "TX cmd=0x%02X (%s) len=%u",
+             frame->cmd,
+             uart_protocol_cmd_name(frame->cmd),
+             (unsigned)frame->len);
     return ESP_OK;
 }
 
-/**
- * @brief Send heartbeat message
- */
-static void send_heartbeat(void)
+static esp_err_t uart_send_simple_cmd(uint8_t cmd)
 {
-    protocol_message_t msg;
-    uint8_t payload[4] = {0x01, 0x02, 0x03, 0x04}; /* Sequence number */
+    uart_protocol_frame_t frame = {
+        .cmd = cmd,
+        .len = 0,
+    };
 
-    int len = build_message(&msg, MSG_TYPE_HEARTBEAT, payload, sizeof(payload));
-    if (len > 0) {
-        uart_st_send_message(&msg, len);
-    }
+    return uart_send_frame(&frame);
 }
 
-/**
- * @brief Send status message
- */
-static void send_status(const char *status_text)
+static void uart_handle_frame(const uart_protocol_frame_t *frame)
 {
-    protocol_message_t msg;
-    uint8_t payload[PROTOCOL_MAX_PAYLOAD];
+    s_rx_frames++;
+    s_link_active = true;
+    s_last_rx_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
 
-    strncpy((char *)payload, status_text, PROTOCOL_MAX_PAYLOAD - 1);
-    payload[PROTOCOL_MAX_PAYLOAD - 1] = '\0';
+    ESP_LOGI(TAG, "RX cmd=0x%02X (%s) len=%u",
+             frame->cmd,
+             uart_protocol_cmd_name(frame->cmd),
+             (unsigned)frame->len);
 
-    int len = build_message(&msg, MSG_TYPE_STATUS, payload, strlen((char *)payload));
-    if (len > 0) {
-        uart_st_send_message(&msg, len);
-    }
-}
-
-/**
- * @brief Send ACK message
- */
-static void send_ack(uint8_t msg_type)
-{
-    protocol_message_t msg;
-    uint8_t payload = msg_type;
-
-    int len = build_message(&msg, MSG_TYPE_ACK, &payload, 1);
-    if (len > 0) {
-        uart_st_send_message(&msg, len);
-    }
-}
-
-/**
- * @brief Process received message
- */
-static void process_received_message(const protocol_message_t *msg)
-{
-    ESP_LOGI(TAG, "[RX] Parsing message: type=0x%02X, len=%d",
-             msg->header.type, msg->header.length);
-
-    if (!verify_checksum(msg)) {
-        ESP_LOGW(TAG, "[RX] Checksum error, ignoring message");
-        return;
-    }
-
-    rx_counter++;
-    communication_active = true;
-    ESP_LOGI(TAG, "[RX] Message valid, RX count: %lu", rx_counter);
-
-    switch (msg->header.type) {
-        case MSG_TYPE_HEARTBEAT:
-            ESP_LOGI(TAG, "Received heartbeat from STM32");
-            send_ack(MSG_TYPE_HEARTBEAT);
+    switch (frame->cmd) {
+        case UART_PROTOCOL_CMD_ACK:
+            if (frame->len == sizeof(protocol_ack_t)) {
+                protocol_ack_t ack;
+                memcpy(&ack, frame->data, sizeof(ack));
+                ESP_LOGI(TAG, "ACK for cmd 0x%02X (%s)",
+                         ack.cmd,
+                         uart_protocol_cmd_name(ack.cmd));
+            }
             break;
 
-        case MSG_TYPE_STATUS:
-            ESP_LOGI(TAG, "STM32 status: %s", msg->payload);
+        case UART_PROTOCOL_CMD_NACK:
+            if (frame->len == sizeof(protocol_nack_t)) {
+                protocol_nack_t nack;
+                memcpy(&nack, frame->data, sizeof(nack));
+                ESP_LOGW(TAG, "NACK for cmd 0x%02X (%s), error=0x%02X",
+                         nack.cmd,
+                         uart_protocol_cmd_name(nack.cmd),
+                         nack.error);
+            }
             break;
 
-        case MSG_TYPE_CONTROL:
-            ESP_LOGI(TAG, "Received control command");
-            /* Process control command */
+        case UART_PROTOCOL_CMD_VERSION:
+            if (frame->len == sizeof(protocol_version_resp_t)) {
+                protocol_version_resp_t version;
+                memcpy(&version, frame->data, sizeof(version));
+                ESP_LOGI(TAG, "STM32 protocol version: %u", version.version);
+            }
             break;
 
-        case MSG_TYPE_SENSOR:
-            ESP_LOGD(TAG, "Received sensor data");
+        case UART_PROTOCOL_CMD_STATUS:
+            if (frame->len == sizeof(protocol_status_t)) {
+                protocol_status_t status;
+                memcpy(&status, frame->data, sizeof(status));
+                ESP_LOGI(TAG,
+                         "Status version=%u armed=%u mode=%u state=%u err=0x%04X",
+                         status.version,
+                         status.armed,
+                         status.mode,
+                         status.status,
+                         status.error_flags);
+            }
             break;
 
-        case MSG_TYPE_DEBUG:
-            ESP_LOGI(TAG, "STM32 debug: %s", msg->payload);
-            break;
-
-        case MSG_TYPE_ACK:
-            ESP_LOGD(TAG, "Received ACK for msg type 0x%02X", msg->payload[0]);
+        case UART_PROTOCOL_CMD_TELEMETRY_ATT:
+            if (frame->len == sizeof(protocol_attitude_t)) {
+                protocol_attitude_t att;
+                memcpy(&att, frame->data, sizeof(att));
+                ESP_LOGI(TAG,
+                         "Attitude roll=%d pitch=%d yaw=%d rrate=%d prate=%d yrate=%d",
+                         att.roll, att.pitch, att.yaw,
+                         att.roll_rate, att.pitch_rate, att.yaw_rate);
+            }
             break;
 
         default:
-            ESP_LOGW(TAG, "Unknown message type: 0x%02X", msg->header.type);
             break;
     }
 }
 
-/* ============================================================================
- * UART Receive Task
- * ============================================================================ */
-
-static void uart_receive_task(void *pvParameters)
+static void uart_process_rx_buffer(void)
 {
-    uint8_t rx_buffer[UART_ST_BUF_SIZE];
-    protocol_message_t rx_msg;
-    int rx_len;
+    while (s_rx_len > 0) {
+        uart_protocol_frame_t frame;
+        size_t consumed = 0;
+        esp_err_t ret = uart_protocol_decode(s_rx_buffer, s_rx_len, &frame, &consumed);
 
-    ESP_LOGI(TAG, "UART receive task started");
+        if (consumed > 0) {
+            memmove(s_rx_buffer, s_rx_buffer + consumed, s_rx_len - consumed);
+            s_rx_len -= consumed;
+        }
+
+        if (ret != ESP_OK) {
+            if (consumed == 0) {
+                break;
+            }
+
+            s_rx_errors++;
+            continue;
+        }
+
+        uart_handle_frame(&frame);
+    }
+}
+
+static void uart_feed_rx_bytes(const uint8_t *data, size_t len)
+{
+    if (len == 0 || data == NULL) {
+        return;
+    }
+
+    if (len > sizeof(s_rx_buffer)) {
+        data += (len - sizeof(s_rx_buffer));
+        len = sizeof(s_rx_buffer);
+    }
+
+    if ((s_rx_len + len) > sizeof(s_rx_buffer)) {
+        ESP_LOGW(TAG, "RX buffer overflow, dropping %u bytes", (unsigned)s_rx_len);
+        s_rx_len = 0;
+        s_rx_errors++;
+    }
+
+    memcpy(&s_rx_buffer[s_rx_len], data, len);
+    s_rx_len += len;
+}
+
+static void uart_bridge_task(void *pvParameters)
+{
+    (void)pvParameters;
+
+    uint8_t rx_chunk[UART_RX_CHUNK_SIZE];
+    TickType_t last_heartbeat = xTaskGetTickCount();
+    TickType_t last_status = last_heartbeat;
+    TickType_t last_stats = last_heartbeat;
+
+    ESP_LOGI(TAG, "UART bridge task started");
+
+    uart_send_simple_cmd(UART_PROTOCOL_CMD_VERSION);
 
     while (1) {
-        /* Read data from UART */
-        rx_len = uart_read_bytes(UART_ST_PORT, rx_buffer,
-                                  sizeof(rx_buffer),
-                                  pdMS_TO_TICKS(100));
-
+        int rx_len = uart_read_bytes(UART_ST_PORT,
+                                     rx_chunk,
+                                     sizeof(rx_chunk),
+                                     pdMS_TO_TICKS(100));
         if (rx_len > 0) {
-            ESP_LOGI(TAG, "[RX] Received %d bytes", rx_len);
-
-            /* Print first few bytes for debugging */
-            if (rx_len >= 4) {
-                ESP_LOGI(TAG, "[RX] Data: %02X %02X %02X %02X ...",
-                         rx_buffer[0], rx_buffer[1], rx_buffer[2], rx_buffer[3]);
-            }
-
-            /* Simple protocol parsing - look for header */
-            for (int i = 0; i < rx_len - sizeof(protocol_header_t); i++) {
-                uint16_t header = rx_buffer[i] | (rx_buffer[i+1] << 8);
-
-                if (header == PROTOCOL_HEADER) {
-                    /* Found header, try to parse message */
-                    uint8_t msg_len = rx_buffer[i+3]; /* payload length */
-                    uint8_t total_len = sizeof(protocol_header_t) + msg_len + 1;
-
-                    ESP_LOGI(TAG, "[RX] Found header at offset %d, msg_len=%d", i, msg_len);
-
-                    if (i + total_len <= rx_len) {
-                        memcpy(&rx_msg, &rx_buffer[i], total_len);
-                        process_received_message(&rx_msg);
-                    } else {
-                        ESP_LOGW(TAG, "[RX] Incomplete message: need %d bytes, have %d",
-                                 total_len, rx_len - i);
-                    }
-                    break;
-                }
-            }
+            uart_feed_rx_bytes(rx_chunk, (size_t)rx_len);
+            uart_process_rx_buffer();
         }
 
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
-}
-
-/* ============================================================================
- * Diagnostic Task
- * ============================================================================ */
-
-static void diagnostic_task(void *pvParameters)
-{
-    uint32_t last_tx = 0;
-    uint32_t last_rx = 0;
-    int no_rx_count = 0;
-
-    /* Wait for initialization */
-    vTaskDelay(pdMS_TO_TICKS(3000));
-
-    while (1) {
-        vTaskDelay(pdMS_TO_TICKS(5000));
-
-        /* Output statistics */
-        ESP_LOGI(TAG, "=== Communication Statistics ===");
-        ESP_LOGI(TAG, "TX total: %lu (+%lu)", tx_counter, tx_counter - last_tx);
-        ESP_LOGI(TAG, "RX total: %lu (+%lu)", rx_counter, rx_counter - last_rx);
-        ESP_LOGI(TAG, "UART Connection: %s", communication_active ? "YES" : "NO");
-
-        /* WiFi status */
-        wifi_connection_status_t wifi_status = wifi_get_status();
-        const char* wifi_status_str = "UNKNOWN";
-        switch (wifi_status) {
-            case WIFI_DISCONNECTED: wifi_status_str = "DISCONNECTED"; break;
-            case WIFI_CONNECTING:   wifi_status_str = "CONNECTING"; break;
-            case WIFI_CONNECTED:    wifi_status_str = "CONNECTED"; break;
-        }
-        ESP_LOGI(TAG, "WiFi Status: %s", wifi_status_str);
-        if (wifi_status == WIFI_CONNECTED) {
-            ESP_LOGI(TAG, "WiFi IP: %s", wifi_get_ip_str());
+        TickType_t now = xTaskGetTickCount();
+        if ((now - last_heartbeat) >= pdMS_TO_TICKS(UART_HEARTBEAT_PERIOD_MS)) {
+            uart_send_simple_cmd(UART_PROTOCOL_CMD_HEARTBEAT);
+            last_heartbeat = now;
         }
 
-        /* Check receive status */
-        if (rx_counter == last_rx) {
-            no_rx_count++;
-            if (no_rx_count >= 2) {
-                ESP_LOGW(TAG, "WARNING: No data received for %d seconds", no_rx_count * 5);
-                ESP_LOGW(TAG, "  Possible causes:");
-                ESP_LOGW(TAG, "  1. STM32 not sending (check Task 002)");
-                ESP_LOGW(TAG, "  2. Hardware connection issue (TX/RX cross, GND)");
-                ESP_LOGW(TAG, "  3. Baud rate mismatch");
-            }
-        } else {
-            no_rx_count = 0;
-            ESP_LOGI(TAG, "STATUS: Receiving data normally");
+        if ((now - last_status) >= pdMS_TO_TICKS(UART_STATUS_PERIOD_MS)) {
+            uart_send_simple_cmd(UART_PROTOCOL_CMD_STATUS);
+            last_status = now;
         }
 
-        last_tx = tx_counter;
-        last_rx = rx_counter;
-    }
-}
-
-/* ============================================================================
- * Main Task
- * ============================================================================ */
-
-static void main_task(void *pvParameters)
-{
-    uint32_t last_heartbeat = 0;
-    uint32_t loop_counter = 0;
-
-    ESP_LOGI(TAG, "Main task started");
-    send_status("ESP32 initialized and ready");
-
-    while (1) {
-        loop_counter++;
-
-        /* Send heartbeat every 2 seconds */
-        if (xTaskGetTickCount() - last_heartbeat > pdMS_TO_TICKS(2000)) {
-            send_heartbeat();
-            last_heartbeat = xTaskGetTickCount();
-
-            /* Log statistics */
-            ESP_LOGI(TAG, "Stats - TX: %lu, RX: %lu, Active: %s",
-                     tx_counter, rx_counter,
-                     communication_active ? "YES" : "NO");
+        if ((now - last_stats) >= pdMS_TO_TICKS(5000U)) {
+            uint32_t age_ms = (s_last_rx_ms == 0U)
+                                  ? 0U
+                                  : ((xTaskGetTickCount() * portTICK_PERIOD_MS) - s_last_rx_ms);
+            ESP_LOGI(TAG,
+                     "Stats tx=%lu rx=%lu rx_err=%lu link=%s rx_age=%lums",
+                     (unsigned long)s_tx_frames,
+                     (unsigned long)s_rx_frames,
+                     (unsigned long)s_rx_errors,
+                     s_link_active ? "up" : "down",
+                     (unsigned long)age_ms);
+            last_stats = now;
         }
-
-        /* Send periodic status */
-        if (loop_counter % 50 == 0) {
-            char status[32];
-            snprintf(status, sizeof(status), "Loop: %lu", loop_counter);
-            send_status(status);
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
@@ -466,13 +371,12 @@ void app_main(void)
     esp_err_t ret;
 
     ESP_LOGI(TAG, "================================");
-    ESP_LOGI(TAG, "Kimi-Fly ESP32-C3 UART Bridge");
+    ESP_LOGI(TAG, "ESP32-C3 UART bridge");
     ESP_LOGI(TAG, "Target: STM32F411CEU6");
-    ESP_LOGI(TAG, "UART: TX=GPIO%d, RX=GPIO%d", UART_ST_TX_PIN, UART_ST_RX_PIN);
-    ESP_LOGI(TAG, "Baudrate: %d", UART_ST_BAUDRATE);
+    ESP_LOGI(TAG, "UART map: GPIO0<->PA3, GPIO1<->PA2");
+    ESP_LOGI(TAG, "Protocol: AA 55 + LEN + CMD + PAYLOAD + CRC16");
     ESP_LOGI(TAG, "================================");
 
-    /* Initialize NVS (required for WiFi) */
     ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -480,41 +384,30 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
-    /* Initialize WiFi STA */
     ret = wifi_sta_init();
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "WiFi initialization failed!");
-    } else {
-        ESP_LOGI(TAG, "WiFi STA initialized successfully");
+        ESP_LOGE(TAG, "WiFi init failed: %s", esp_err_to_name(ret));
     }
 
-    /* Initialize UART */
     ret = uart_st_init();
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "UART initialization failed!");
+        ESP_LOGE(TAG, "UART init failed: %s", esp_err_to_name(ret));
         return;
     }
 
-    /* Create receive task */
-    xTaskCreate(uart_receive_task, "uart_rx", UART_ST_TASK_STACK_SIZE,
-                NULL, UART_ST_TASK_PRIORITY, NULL);
+    s_last_rx_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
+    s_link_active = false;
 
-    /* Create main task */
-    xTaskCreate(main_task, "main_task", 4096, NULL, 5, NULL);
-
-    /* Create diagnostic task */
-    xTaskCreate(diagnostic_task, "diag_task", 4096, NULL, 3, NULL);
-
-    /* Start TCP server (will wait for WiFi connection internally) */
-    ret = tcp_server_init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "TCP server initialization failed!");
-    } else {
-        ESP_LOGI(TAG, "TCP server task created");
+    BaseType_t task_ret = xTaskCreate(uart_bridge_task,
+                                      "uart_bridge",
+                                      UART_ST_TASK_STACK_SIZE,
+                                      NULL,
+                                      UART_ST_TASK_PRIORITY,
+                                      NULL);
+    if (task_ret != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create UART bridge task");
+        return;
     }
-
-    /* This task is done */
-    ESP_LOGI(TAG, "Initialization complete");
 
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(1000));

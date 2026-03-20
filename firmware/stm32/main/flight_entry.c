@@ -43,6 +43,7 @@ spi_handle_t  hspi3;    /**< SPI3 - LPS22HBTR 气压计 */
 #define RCC_CR_FE       (*(volatile uint32_t *)(RCC_BASE_ADDR_FE + 0x00UL))
 #define RCC_PLLCFGR_FE  (*(volatile uint32_t *)(RCC_BASE_ADDR_FE + 0x04UL))
 #define RCC_CFGR_FE     (*(volatile uint32_t *)(RCC_BASE_ADDR_FE + 0x08UL))
+#define RCC_AHB1ENR_FE  (*(volatile uint32_t *)(RCC_BASE_ADDR_FE + 0x30UL))
 #define RCC_APB1ENR_FE  (*(volatile uint32_t *)(RCC_BASE_ADDR_FE + 0x40UL))
 #define RCC_APB2ENR_FE  (*(volatile uint32_t *)(RCC_BASE_ADDR_FE + 0x44UL))
 
@@ -51,6 +52,7 @@ spi_handle_t  hspi3;    /**< SPI3 - LPS22HBTR 气压计 */
 #define RCC_CR_HSIRDY       (1UL << 1)
 #define RCC_CR_PLLON        (1UL << 24)
 #define RCC_CR_PLLRDY       (1UL << 25)
+#define RCC_AHB1ENR_DMA1EN  (1UL << 21)
 
 /* RCC_CFGR bits */
 #define RCC_CFGR_SW_PLL     0x00000002UL  /* SW[1:0] = 10 -> PLL */
@@ -237,6 +239,7 @@ uint16_t wifi_platform_send(const uint8_t *data, uint16_t len)
         return 0;
     }
     hal_status_t st = uart_send(&huart2, data, len, 50U);
+    platform_debug_print("[UART2_TX] len=%u st=%d\r\n", (unsigned)len, (int)st);
     return (st == HAL_OK) ? len : 0U;
 }
 
@@ -244,7 +247,104 @@ uint16_t wifi_platform_send(const uint8_t *data, uint16_t len)
 #define USART2_BASE_ADDR_FE  0x40004400UL
 #define USART2_SR_REG        (*(volatile uint32_t *)(USART2_BASE_ADDR_FE + 0x00UL))
 #define USART2_DR_REG        (*(volatile uint32_t *)(USART2_BASE_ADDR_FE + 0x04UL))
+#define USART2_CR3_REG       (*(volatile uint32_t *)(USART2_BASE_ADDR_FE + 0x14UL))
+#define USART_SR_PE_BIT      (1UL << 0)
+#define USART_SR_FE_BIT      (1UL << 1)
+#define USART_SR_NE_BIT      (1UL << 2)
+#define USART_SR_ORE_BIT     (1UL << 3)
 #define USART_SR_RXNE_BIT    (1UL << 5)
+#define USART_CR3_DMAR_BIT   (1UL << 6)
+
+/* DMA1 Stream5 (USART2_RX) - 参考 /Users/ll/fly/zmgjb/code/411/Core/Src/usart.c */
+#define DMA1_BASE_ADDR_FE        0x40026000UL
+#define DMA1_HISR_REG            (*(volatile uint32_t *)(DMA1_BASE_ADDR_FE + 0x04UL))
+#define DMA1_HIFCR_REG           (*(volatile uint32_t *)(DMA1_BASE_ADDR_FE + 0x0CUL))
+#define DMA1_STREAM5_BASE_ADDR   (DMA1_BASE_ADDR_FE + 0x88UL)
+#define DMA1_S5_CR_REG           (*(volatile uint32_t *)(DMA1_STREAM5_BASE_ADDR + 0x00UL))
+#define DMA1_S5_NDTR_REG         (*(volatile uint32_t *)(DMA1_STREAM5_BASE_ADDR + 0x04UL))
+#define DMA1_S5_PAR_REG          (*(volatile uint32_t *)(DMA1_STREAM5_BASE_ADDR + 0x08UL))
+#define DMA1_S5_M0AR_REG         (*(volatile uint32_t *)(DMA1_STREAM5_BASE_ADDR + 0x0CUL))
+#define DMA1_S5_FCR_REG          (*(volatile uint32_t *)(DMA1_STREAM5_BASE_ADDR + 0x14UL))
+
+#define DMA_SXCR_EN_BIT          (1UL << 0)
+#define DMA_SXCR_MINC_BIT        (1UL << 10)
+#define DMA_SXCR_CIRC_BIT        (1UL << 8)
+#define DMA_SXCR_PL_HIGH         (0x2UL << 16)
+#define DMA_SXCR_CHSEL_4         (0x4UL << 25)
+#define DMA_SXCR_DIR_P2M         (0x0UL << 6)
+#define DMA_HISR_FEIF5_BIT       (1UL << 6)
+#define DMA_HISR_DMEIF5_BIT      (1UL << 8)
+#define DMA_HISR_TEIF5_BIT       (1UL << 9)
+#define DMA_HIFCR_CFEIF5_BIT     (1UL << 6)
+#define DMA_HIFCR_CDMEIF5_BIT    (1UL << 8)
+#define DMA_HIFCR_CTEIF5_BIT     (1UL << 9)
+#define DMA_HIFCR_CHTIF5_BIT     (1UL << 10)
+#define DMA_HIFCR_CTCIF5_BIT     (1UL << 11)
+
+#define UART2_DMA_RX_BUF_SIZE    256U
+
+static uint32_t g_uart2_rx_bytes = 0U;
+static uint32_t g_uart2_ore_count = 0U;
+static uint32_t g_uart2_fe_count = 0U;
+static uint32_t g_uart2_ne_count = 0U;
+static uint32_t g_uart2_pe_count = 0U;
+static uint32_t g_uart2_err_bytes = 0U;
+static uint32_t g_uart2_dma_err_count = 0U;
+static uint8_t g_uart2_dma_rx_buf[UART2_DMA_RX_BUF_SIZE];
+static uint16_t g_uart2_dma_rd = 0U;
+
+static void uart2_dma_rx_init(void)
+{
+    /* 1. 使能 DMA1 时钟 */
+    RCC_AHB1ENR_FE |= RCC_AHB1ENR_DMA1EN;
+
+    /* 2. 关闭 Stream5，等待失能 */
+    DMA1_S5_CR_REG &= ~DMA_SXCR_EN_BIT;
+    for (volatile uint32_t i = 0; i < 100000UL; i++) {
+        if ((DMA1_S5_CR_REG & DMA_SXCR_EN_BIT) == 0U) {
+            break;
+        }
+    }
+
+    /* 3. 清除历史标志 */
+    DMA1_HIFCR_REG = DMA_HIFCR_CFEIF5_BIT |
+                     DMA_HIFCR_CDMEIF5_BIT |
+                     DMA_HIFCR_CTEIF5_BIT |
+                     DMA_HIFCR_CHTIF5_BIT |
+                     DMA_HIFCR_CTCIF5_BIT;
+
+    /* 4. 配置 Stream5: Channel4, 外设到内存, 内存递增, 循环模式, 高优先级 */
+    DMA1_S5_CR_REG = 0U;
+    DMA1_S5_FCR_REG = 0U;
+    DMA1_S5_PAR_REG = (uint32_t)&USART2_DR_REG;
+    DMA1_S5_M0AR_REG = (uint32_t)g_uart2_dma_rx_buf;
+    DMA1_S5_NDTR_REG = UART2_DMA_RX_BUF_SIZE;
+    DMA1_S5_CR_REG = DMA_SXCR_CHSEL_4 |
+                     DMA_SXCR_DIR_P2M |
+                     DMA_SXCR_MINC_BIT |
+                     DMA_SXCR_CIRC_BIT |
+                     DMA_SXCR_PL_HIGH;
+
+    /* 5. 清空可能遗留的 USART2 错误状态并打开 DMA 接收 */
+    if (USART2_SR_REG & (USART_SR_PE_BIT | USART_SR_FE_BIT | USART_SR_NE_BIT | USART_SR_ORE_BIT | USART_SR_RXNE_BIT)) {
+        volatile uint32_t sr = USART2_SR_REG;
+        volatile uint32_t dr = USART2_DR_REG;
+        (void)sr;
+        (void)dr;
+    }
+    USART2_CR3_REG |= USART_CR3_DMAR_BIT;
+    DMA1_S5_CR_REG |= DMA_SXCR_EN_BIT;
+    g_uart2_dma_rd = 0U;
+}
+
+static uint16_t uart2_dma_wr(void)
+{
+    uint32_t ndtr = DMA1_S5_NDTR_REG;
+    if (ndtr > UART2_DMA_RX_BUF_SIZE) {
+        ndtr = UART2_DMA_RX_BUF_SIZE;
+    }
+    return (uint16_t)(UART2_DMA_RX_BUF_SIZE - ndtr);
+}
 
 /**
  * @brief 从 USART2 轮询接收, 将字节送入 wifi_command 接收缓冲区
@@ -258,19 +358,54 @@ static void uart2_poll_rx(void)
         huart2.error_code = 0U;
     }
 
-    /* 直接轮询 RXNE 位，每次最多读 64 字节，完全非阻塞 */
-    int count = 0;
-    for (int i = 0; i < 64; i++) {
-        if (!(USART2_SR_REG & USART_SR_RXNE_BIT)) {
-            break;  /* FIFO 空，退出 */
+    /* DMA 错误标志检查 */
+    if (DMA1_HISR_REG & (DMA_HISR_FEIF5_BIT | DMA_HISR_DMEIF5_BIT | DMA_HISR_TEIF5_BIT)) {
+        g_uart2_dma_err_count++;
+        DMA1_HIFCR_REG = DMA_HIFCR_CFEIF5_BIT |
+                         DMA_HIFCR_CDMEIF5_BIT |
+                         DMA_HIFCR_CTEIF5_BIT |
+                         DMA_HIFCR_CHTIF5_BIT |
+                         DMA_HIFCR_CTCIF5_BIT;
+        platform_debug_print("[UART2_DMA] ERR count=%lu\r\n", (unsigned long)g_uart2_dma_err_count);
+    }
+
+    /* USART2 错误状态检查 */
+    uint32_t sr = USART2_SR_REG;
+    if (sr & (USART_SR_PE_BIT | USART_SR_FE_BIT | USART_SR_NE_BIT | USART_SR_ORE_BIT)) {
+        uint8_t discard = (uint8_t)USART2_DR_REG;
+        (void)discard;
+        if (sr & USART_SR_PE_BIT) g_uart2_pe_count++;
+        if (sr & USART_SR_FE_BIT) g_uart2_fe_count++;
+        if (sr & USART_SR_NE_BIT) g_uart2_ne_count++;
+        if (sr & USART_SR_ORE_BIT) g_uart2_ore_count++;
+        g_uart2_err_bytes++;
+        platform_debug_print("[UART2] ERR PE=%lu FE=%lu NE=%lu ORE=%lu dropped=%lu\r\n",
+                             (unsigned long)g_uart2_pe_count,
+                             (unsigned long)g_uart2_fe_count,
+                             (unsigned long)g_uart2_ne_count,
+                             (unsigned long)g_uart2_ore_count,
+                             (unsigned long)g_uart2_err_bytes);
+    }
+
+    /* 使用 DMA 环形缓冲消费新字节 */
+    uint32_t rx_count = 0U;
+    uint16_t wr = uart2_dma_wr();
+    while (g_uart2_dma_rd != wr) {
+        uint8_t byte = g_uart2_dma_rx_buf[g_uart2_dma_rd++];
+        if (g_uart2_dma_rd >= UART2_DMA_RX_BUF_SIZE) {
+            g_uart2_dma_rd = 0U;
         }
-        uint8_t byte = (uint8_t)(USART2_DR_REG & 0xFFU);
         wifi_command_rx_byte(&g_flight.wifi_cmd, byte);
-        count++;
+        rx_count++;
     }
-    if (count > 0) {
-        platform_debug_print("[UART2] RX %d bytes\r\n", count);
+
+    if (rx_count > 0U) {
+        g_uart2_rx_bytes += rx_count;
+        platform_debug_print("[UART2] RX %lu bytes (total=%lu)\r\n",
+                             (unsigned long)rx_count,
+                             (unsigned long)g_uart2_rx_bytes);
     }
+
 }
 
 /* ============================================================================
@@ -287,6 +422,7 @@ int main(void)
     /* Initialise peripherals */
     uart1_init();   /* 调试串口先初始化，后续 debug_print 才能工作 */
     uart2_init();
+    uart2_dma_rx_init();
     i2c1_init();
     spi3_init();
 

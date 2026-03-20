@@ -31,7 +31,7 @@
 static hal_status_t qmc5883p_write_reg(qmc5883p_handle_t *hqmc, uint8_t reg, uint8_t data);
 static hal_status_t qmc5883p_read_reg(qmc5883p_handle_t *hqmc, uint8_t reg, uint8_t *data);
 static hal_status_t qmc5883p_read_regs(qmc5883p_handle_t *hqmc, uint8_t reg, uint8_t *data, uint16_t len);
-static hal_status_t qmc5883p_config(qmc5883p_handle_t *hqmc, qmc5883p_odr_t odr, qmc5883p_rng_t rng, qmc5883p_osr_t osr);
+static hal_status_t qmc5883p_config(qmc5883p_handle_t *hqmc, qmc5883p_odr_t odr, qmc5883p_osr_t osr);
 static void qmc5883p_delay_ms(uint32_t ms);
 
 /* ============================================================================

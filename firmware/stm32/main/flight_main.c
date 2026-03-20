@@ -260,10 +260,18 @@ void flight_main_wifi_task(flight_main_handle_t *handle)
         return;
     }
 
+    uint32_t now = platform_get_time_ms();
+
     /* 处理WiFi命令 */
     hal_status_t status = wifi_command_execute(&handle->wifi_cmd, &handle->flight_ctrl);
     if (status == HAL_OK) {
         handle->wifi_rx_count++;
+    }
+
+    /* 主动发送链路心跳，便于 ESP32 侧持续确认 STM32->ESP32 TX 通道 */
+    if ((now - handle->wifi_cmd.last_heartbeat) >= WIFI_HEARTBEAT_INTERVAL_MS) {
+        wifi_command_send_heartbeat(&handle->wifi_cmd);
+        handle->wifi_cmd.last_heartbeat = now;
     }
 
     /* 获取RC命令并应用到飞控 */
@@ -273,7 +281,6 @@ void flight_main_wifi_task(flight_main_handle_t *handle)
     }
 
     /* 检查WiFi超时 */
-    uint32_t now = platform_get_time_ms();
     if (wifi_command_is_timeout(&handle->wifi_cmd, now)) {
         /* WiFi超时，切换到安全模式 */
         if (flight_controller_get_mode(&handle->flight_ctrl) != FLIGHT_MODE_DISARMED) {
