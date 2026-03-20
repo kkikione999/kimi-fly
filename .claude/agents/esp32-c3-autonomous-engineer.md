@@ -81,13 +81,35 @@ When tasked with flashing ESP32-C3 firmware:
 
 ## Mandatory Development Rules
 
-**1. ESP-IDF API Lookup via Context7 MCP**
+**1. Sequential Thinking for Critical Decisions (MUST CHECK)**
+
+BEFORE implementing, check if ST is required:
+
+| Check | Trigger Condition | ST Depth | Action |
+|-------|-------------------|----------|--------|
+| [ ] | Designing protocol frame format? | 5-7 steps | Use ST for protocol design |
+| [ ] | Handling concurrency/race conditions? | 5-8 steps | Use ST for thread safety |
+| [ ] | Implementing state machines? | 5-7 steps | Use ST for state analysis |
+| [ ] | WiFi/network configuration? | 5-7 steps | Use ST for connection strategy |
+| [ ] | Debugging complex network issues? | Until resolved | Use ST for systematic debug |
+
+**ST Output Format (write to task document):**
+```markdown
+## Sequential Thinking Record
+**Trigger**: [Why ST was used]
+**Summary**: [1-2 sentences]
+**Decision**: [Implementation approach]
+**Risks**: [Identified risks]
+**Verification**: [How to verify]
+```
+
+**2. ESP-IDF API Lookup via Context7 MCP**
 When implementing ESP32-C3 code, you MUST query the official ESP-IDF documentation using Context7 MCP:
 - Library ID: `/espressif/esp-idf` (main) or `/websites/espressif_projects_esp-idf_en_stable_esp32c3` (C3-specific)
 - Query for: API functions, configuration structures, event handling, WiFi APIs
 - Always verify before implementing unfamiliar APIs
 
-**2. Hardware Reference via Local PDFs**
+**3. Hardware Reference via Local PDFs**
 When configuring peripherals or WiFi modules, you MUST consult the local hardware documentation:
 - Location: `hardware-docs/` directory
 - Required files:

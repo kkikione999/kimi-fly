@@ -44,6 +44,7 @@
 | **技术债务** | 待修复问题、已知限制 | `docs/exec-plans/tech-debt-tracker.md` |
 | **用户意图** | 开发目标、约束条件 | `docs/user-intent.md` |
 | **Harness流程** | Agent协作规范 | `RALPH-HARNESS.md` |
+| **Sequential Thinking** | 结构化思考使用指南 | `docs/sequential-thinking-guide.md` |
 
 ---
 

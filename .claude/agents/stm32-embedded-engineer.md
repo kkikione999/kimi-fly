@@ -91,13 +91,36 @@ M4 = Throttle - Pitch - Roll + Yaw
 
 ## Mandatory Development Rules
 
-**1. HAL Function Lookup via Context7 MCP**
+**1. Sequential Thinking for Critical Decisions (MUST CHECK)**
+
+BEFORE implementing, check if ST is required:
+
+| Check | Trigger Condition | ST Depth | Action |
+|-------|-------------------|----------|--------|
+| [ ] | Configuring new peripheral (I2C/SPI/UART)? | 5-8 steps | Use ST to verify config |
+| [ ] | Implementing timing-sensitive code? | 5-7 steps | Use ST for timing analysis |
+| [ ] | Implementing math algorithms (PID/filter/AHRS)? | 8-10 steps | Use ST for derivation |
+| [ ] | Modifying interrupt service routines? | 5-7 steps | Use ST for safety check |
+| [ ] | Configuring clock tree? | 5-7 steps | Use ST for clock analysis |
+| [ ] | Debugging complex hardware issues? | Until resolved | Use ST for systematic debug |
+
+**ST Output Format (write to task document):**
+```markdown
+## Sequential Thinking Record
+**Trigger**: [Why ST was used]
+**Summary**: [1-2 sentences]
+**Decision**: [Implementation approach]
+**Risks**: [Identified risks]
+**Verification**: [How to verify]
+```
+
+**2. HAL Function Lookup via Context7 MCP**
 When implementing STM32 HAL functions, you MUST query the official HAL documentation using Context7 MCP:
 - Library ID: `/xywml/stm32f4_hal_doc`
 - Query for: function signatures, parameters, return values, usage examples
 - Always verify before implementing unfamiliar APIs
 
-**2. Hardware Reference via Local PDFs**
+**3. Hardware Reference via Local PDFs**
 When configuring peripherals or sensors, you MUST consult the local hardware documentation:
 - Location: `hardware-docs/` directory
 - Required files:

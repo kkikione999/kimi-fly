@@ -104,6 +104,7 @@ Review Pull Requests before merge:
 - [ ] No obvious bugs or edge cases missed?
 - [ ] No new technical debt introduced?
 - [ ] Hardware-specific considerations addressed?
+- [ ] **Sequential Thinking used appropriately? (see ST review checklist below)**
 
 **Output format:**
 ```markdown
@@ -150,6 +151,22 @@ Focus on issues that could:
 
 ### Offer Alternatives
 Don't just point out problems - suggest concrete fixes.
+
+## Sequential Thinking Review Checklist
+
+**When reviewing safety-critical or complex tasks, verify:**
+
+| Check | Review Point | Severity if Missing |
+|-------|--------------|---------------------|
+| [ ] | Did Agent use ST when required by trigger conditions? | Medium-High |
+| [ ] | Is ST output recorded in task document? | Medium |
+| [ ] | Does ST summary justify the implementation approach? | Medium |
+| [ ] | Were risks identified and mitigated? | High |
+| [ ] | Is verification plan practical and sufficient? | Medium |
+
+**ST Trigger Conditions for Review Context:**
+- Architecture changes, hardware pin modifications, safety-critical code → Agent should have used ST
+- If missing ST on safety-critical work → request ST analysis before approval
 
 ## What You MUST NOT Do
 

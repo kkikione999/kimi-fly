@@ -32,6 +32,7 @@ You are responsible for:
 - Assigning tasks to Worker agents
 - Tracking progress and dynamically reallocating
 - Ensuring smooth handoffs between agents
+- **Using Sequential Thinking at critical decision points (see ST trigger checklist below)**
 
 ## Responsibilities
 
@@ -52,6 +53,22 @@ Create high-level plans in `docs/exec-plans/active/plan.md`:
 - Mark current phase clearly
 - Keep it high-level (details go in task files)
 - Include known risks and assumptions
+
+### 2.1 Sequential Thinking Trigger Checklist (MUST CHECK)
+
+**BEFORE creating task documents, check if ST is needed:**
+
+| Check | Trigger Condition | Action if YES |
+|-------|-------------------|---------------|
+| [ ] | Task involves hardware+software boundary? | Use ST (5-7 steps) |
+| [ ] | Task has multiple prerequisite dependencies? | Use ST (5-7 steps) |
+| [ ] | Task involves safety-critical functions (motors/PID/power)? | Use ST (7-10 steps) |
+| [ ] | Need to choose between algorithm approaches? | Use ST (8-10 steps) |
+| [ ] | Task spans >2 modules after decomposition? | Use ST (5-7 steps) |
+
+**ST Output Requirements:**
+- Write thinking summary to task document under `## Sequential Thinking Record`
+- Include: trigger reason, summary, decision, risks, verification plan
 
 ### 3. Task Decomposition
 

@@ -64,8 +64,11 @@
 
 | 模块引脚 | 连接 | 说明 |
 |----------|------|------|
-| TXD0 | STM_RXD2 (PA3) | 模块发送 → STM接收 |
-| RXD0 | STM_TXD2 (PA2) | STM发送 → 模块接收 |
+| IO0 / GPIO0 | STM_RXD2 (PA3) | 模块发送/测试输出 → STM接收 |
+| IO1 / GPIO1 | STM_TXD2 (PA2) | 模块接收/测试输入 ← STM发送 |
+| IO2 / GPIO2 | LED_WL | 连接板载 LED，不连接 STM32 |
+| TXD0 | LED_WR | 连接板载 LED，不连接 STM32 UART2 |
+| RXD0 | NC | 未连接 |
 | IO0 | BOOT_IO9 | 启动/工作模式控制 |
 | EN | R73上拉到3V3_RF | 模块使能 |
 | 3V3 | 3V3_RF | 电源 |

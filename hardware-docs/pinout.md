@@ -41,8 +41,8 @@
 |------|--------|----------|----------|
 | PA0 | WKUP/USART2_CTS/ADC12_IN0/TIM2_CH1_ETR | - | 未使用 |
 | PA1 | USART2_RTS/ADC12_IN1/TIM2_CH2 | - | 未使用 |
-| PA2 | USART2_TX/ADC12_IN2/TIM2_CH3 | AF7 | **ESP32 UART TX** |
-| PA3 | USART2_RX/ADC12_IN3/TIM2_CH4 | AF7 | **ESP32 UART RX** |
+| PA2 | USART2_TX/ADC12_IN2/TIM2_CH3 | AF7 | **ESP32 GPIO1 / UART RX** |
+| PA3 | USART2_RX/ADC12_IN3/TIM2_CH4 | AF7 | **ESP32 GPIO0 / UART TX** |
 | PA4 | SPI1_NSS/USART2_CK/ADC12_IN4 | - | **Gyroscope_SPI_Software_NSS** (代码保留，未实际使用) |
 | PA5 | SPI1_SCK/ADC12_IN5 | - | 未使用 |
 | PA6 | SPI1_MISO/ADC12_IN6/TIM3_CH1 | - | 未使用 |
@@ -173,8 +173,8 @@
 
 | ESP32-C3 引脚 | 功能 | STM32 连接 | 说明 |
 |---------------|------|------------|------|
-| RXD0 | UART接收 | PA2 (USART2_TX) | 来自STM32 |
-| TXD0 | UART发送 | PA3 (USART2_RX) | 发送到STM32 |
+| GPIO1 | UART接收/测试GPIO | PA2 (USART2_TX) | 来自STM32，连接到 U10 引脚13(IO1) |
+| GPIO0 | UART发送/测试GPIO | PA3 (USART2_RX) | 发送到STM32，连接到 U10 引脚12(IO0) |
 | 3V3 | 电源 | 3V3_RF | 3.3V |
 | GND | 地 | GND | - |
 | EN | 使能 | 3V3_RF | 高电平使能 |
