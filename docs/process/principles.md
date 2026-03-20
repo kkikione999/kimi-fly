@@ -119,7 +119,7 @@
 
 1. 停止当前工作
 2. 核对电路图PDF
-3. 记录差异到 `docs/exec-plans/tech-debt-tracker.md`
+3. 记录差异到 `docs/plans/tech-debt-tracker.md`
 4. 更新 `hardware-docs/pinout.md` 以反映真实硬件
 5. 继续开发
 
@@ -148,4 +148,4 @@
 - 主控电路: `hardware-docs/SCH_主控_1-P1_2026-03-11.pdf`
 - 引脚定义: `hardware-docs/pinout.md`
 - 元器件规格: `hardware-docs/components.md`
-- 技术债务: `docs/exec-plans/tech-debt-tracker.md`
+- 技术债务: `docs/plans/tech-debt-tracker.md`

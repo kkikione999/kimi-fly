@@ -79,4 +79,4 @@
   - 电路图: `hardware-docs/schematics.md`
   - 元器件规格: `hardware-docs/components.md`
   - 电路图PDF: `hardware-docs/SCH_*.pdf`
-- 技术债务: `docs/exec-plans/tech-debt-tracker.md`
+- 技术债务: `docs/plans/tech-debt-tracker.md`

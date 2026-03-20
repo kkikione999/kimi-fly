@@ -124,7 +124,7 @@
 
 ## 参考文档
 
-- Task 201: `docs/exec-plans/active/task-201.md`
-- Task 202: `docs/exec-plans/active/task-202.md`
+- Task 201: `docs/plans/active/task-201.md`
+- Task 202: `docs/plans/active/task-202.md`
 - Harness 流程: `RALPH-HARNESS.md`
-- Hook 配置: `docs/hooks-config-v2.0.md`
+- Hook 配置: `docs/process/hooks-config-v2.0.md`

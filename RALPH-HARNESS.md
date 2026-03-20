@@ -45,22 +45,21 @@
 ├── CLAUDE.md                    # 架构地图 (入口文档)
 ├── RALPH-HARNESS.md            # 本文件 - Harness流程规范
 ├── docs/
-│   ├── user-intent.md          # 用户真实意图
-│   ├── hardware-docs/          # 硬件文档目录
-│   │   ├── pinout.md           # 硬件引脚定义
-│   │   ├── schematics.md       # 电路图文本
-│   │   ├── components.md       # 元器件规格
-│   │   └── SCH_*.pdf           # 电路图PDF
-│   └── exec-plans/             # 执行计划目录
-│       ├── active/             # 当前执行计划
-│       │   └── plan.md         # 当前主计划
-│       ├── completed/          # 已完成计划
-│       └── tech-debt-tracker.md # 技术债务跟踪
-├── ralph-loop-session/         # Ralph-loop会话目录
-│   ├── plan.md                 # 本轮计划
-│   ├── progress.md             # 进度记录
-│   ├── tasks/                  # 任务定义
-│   └── worktrees/              # Agent工作区
+│   ├── architecture/           # 架构与技术路径
+│   ├── process/                # Harness/Hook/协作流程文档
+│   ├── plans/                  # 当前计划与技术债务
+│   │   ├── active/             # 当前执行计划
+│   │   │   └── plan.md         # 当前主计划
+│   │   └── tech-debt-tracker.md # 技术债务跟踪
+│   ├── archive/                # 归档的交付与会话记录
+│   └── user-intent/            # 用户真实意图
+├── hardware-docs/              # 硬件文档目录
+│   ├── pinout.md               # 硬件引脚定义
+│   ├── schematics.md           # 电路图文本
+│   ├── components.md           # 元器件规格
+│   └── SCH_*.pdf               # 电路图PDF
+├── .harness/                   # Harness运行态与审查状态
+│   └── pr-review-status.md     # PR审批状态
 └── .claude/
     └── agents/                 # Agent定义
 ```
@@ -195,7 +194,7 @@ Hook机制在关键节点拦截操作，验证是否符合Harness规范。
 **Harness-Architect检测到偏离:**
 
 1. 分析根本原因
-2. 文档化到 `docs/harness-deviation.md`
+2. 文档化到 `docs/process/harness-deviation.md`
 3. 通知相关Agent纠正
 4. 更新Harness文档防止复发
 5. 严重偏离时暂停本轮循环
@@ -206,7 +205,7 @@ Hook机制在关键节点拦截操作，验证是否符合Harness规范。
 
 ### 3.1 任务文档模板 (v2.0)
 
-每个任务必须写入 `docs/exec-plans/active/task-{序号}-{描述}.md`：
+每个任务必须写入 `docs/plans/active/task-{序号}-{描述}.md`：
 
 ```markdown
 # Task {NNN}: {任务名称}
@@ -283,7 +282,7 @@ Hook机制在关键节点拦截操作，验证是否符合Harness规范。
 
 ### 4.1 记录规则
 
-**任何失败、警告、无法立即解决的问题都应记录到 `docs/exec-plans/tech-debt-tracker.md`**
+**任何失败、警告、无法立即解决的问题都应记录到 `docs/plans/tech-debt-tracker.md`**
 
 格式：
 ```markdown
@@ -376,7 +375,7 @@ Hook机制在关键节点拦截操作，验证是否符合Harness规范。
 6. 监控整个流程执行 (通过Hook拦截点)
 7. 发现偏差时:
    - 分析根本原因
-   - 文档化到 docs/harness-deviation.md
+   - 文档化到 docs/process/harness-deviation.md
    - 制定纠正措施
    - 更新harness文档防止复发
    - 严重偏离时暂停本轮循环
@@ -448,9 +447,9 @@ Harness-Architect应定期审查：
 
 | 需求 | 操作 |
 |------|------|
-| 查看当前计划 | `cat docs/exec-plans/active/plan.md` |
-| 查看技术债务 | `cat docs/exec-plans/tech-debt-tracker.md` |
-| 查看用户意图 | `cat docs/user-intent.md` |
+| 查看当前计划 | `cat docs/plans/active/plan.md` |
+| 查看技术债务 | `cat docs/plans/tech-debt-tracker.md` |
+| 查看用户意图 | `cat docs/user-intent/user-intent.md` |
 | 查看硬件信息 | `cat hardware-docs/pinout.md` |
 | 启动Ralph-loop | `/ralph-loop` |
 
@@ -627,6 +626,6 @@ Harness-Architect应定期审查：
 - 安全关键任务 → 要求补充ST分析，重新审查
 
 **Harness-Architect发现模式**:
-- 记录到`docs/harness-deviation.md`
+- 记录到`docs/process/harness-deviation.md`
 - 分析是触发条件不清晰还是Agent未遵守
 - 必要时更新触发条件清单

@@ -1,6 +1,6 @@
 # Tech Debt Ledger
 
-> Sync of `docs/exec-plans/tech-debt-tracker.md` — 2026-03-19
+> Sync of `docs/plans/tech-debt-tracker.md` — 2026-03-19
 
 ---
 

@@ -1,5 +1,6 @@
 # macOS
 .DS_Store
+**/.DS_Store
 
 # Claude/AI
 .claude/worktrees/
@@ -12,6 +13,9 @@ firmware/**/*.bin
 firmware/**/*.elf
 firmware/**/*.hex
 firmware/**/*.map
+firmware/**/build/
+firmware/**/.pio/
+firmware/**/.cache/
 stable
 
 # PlatformIO
@@ -19,19 +23,16 @@ stable
 .cache/
 
 # ESP-IDF
-firmware/esp32/build/
-firmware/esp32/sdkconfig.old
 firmware/esp32/sdkconfig
+firmware/esp32/sdkconfig.old
 
 # STM32 build
-firmware/stm32/build/
-firmware/stm32/.pio/
-
 # CMake
 CMakeLists.txt.user
 CMakeCache.txt
 CMakeFiles/
 cmake-build-*/
+compile_commands.json
 
 # IDE
 .vscode/

@@ -38,13 +38,13 @@
 
 | 文档 | 内容 | 路径 |
 |------|------|------|
-| **架构设计** | 系统架构、模块职责 | `docs/Architecture.md` |
+| **架构设计** | 系统架构、模块职责 | `docs/architecture/Architecture.md` |
 | **硬件信息** | 引脚定义(SSOT)、电路图、元器件规格 | `hardware-docs/pinout.md` |
-| **执行计划** | 当前任务、已完成任务 | `docs/exec-plans/` |
-| **技术债务** | 待修复问题、已知限制 | `docs/exec-plans/tech-debt-tracker.md` |
-| **用户意图** | 开发目标、约束条件 | `docs/user-intent.md` |
+| **执行计划** | 当前任务、已完成任务 | `docs/plans/` |
+| **技术债务** | 待修复问题、已知限制 | `docs/plans/tech-debt-tracker.md` |
+| **用户意图** | 开发目标、约束条件 | `docs/user-intent/user-intent.md` |
 | **Harness流程** | Agent协作规范 | `RALPH-HARNESS.md` |
-| **Sequential Thinking** | 结构化思考使用指南 | `docs/sequential-thinking-guide.md` |
+| **Sequential Thinking** | 结构化思考使用指南 | `docs/process/sequential-thinking-guide.md` |
 
 ---
 
@@ -63,10 +63,10 @@
 
 ```bash
 # 查看当前计划
-cat docs/exec-plans/active/plan.md
+cat docs/plans/active/plan.md
 
 # 查看技术债务
-cat docs/exec-plans/tech-debt-tracker.md
+cat docs/plans/tech-debt-tracker.md
 
 # 查看硬件引脚定义 (唯一真源)
 cat hardware-docs/pinout.md

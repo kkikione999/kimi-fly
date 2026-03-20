@@ -479,7 +479,7 @@ Reviewer使用以下清单验证ST使用:
 
 - [RALPH-HARNESS.md](../RALPH-HARNESS.md) - 完整流程规范
 - [hardware-docs/pinout.md](../hardware-docs/pinout.md) - 硬件引脚定义
-- [docs/exec-plans/tech-debt-tracker.md](./exec-plans/tech-debt-tracker.md) - 技术债务跟踪
+- [docs/plans/tech-debt-tracker.md](../plans/tech-debt-tracker.md) - 技术债务跟踪
 
 ---
 

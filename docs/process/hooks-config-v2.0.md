@@ -87,7 +87,7 @@ prohibited_patterns = [
     "CLAUDE.md",
     "docs/hooks-config*.md",
     "hardware-docs/pinout.md",
-    "docs/exec-plans/active/task-*.md"  # 其他任务文档
+    "docs/plans/active/task-*.md"  # 其他任务文档
 ]
 
 def validate_edit(file_path, task_id):
@@ -154,7 +154,7 @@ PR准备合并到 `main` 分支前触发。
 
 - [ ] 技术债务记录
   - 新债务: [有/无]
-  - 已记录到: `docs/exec-plans/tech-debt-tracker.md`
+  - 已记录到: `docs/plans/tech-debt-tracker.md`
 
 - [ ] 代码规范
   - 符合STM32 HAL风格
@@ -188,7 +188,7 @@ PR准备合并到 `main` 分支前触发。
 当Hook检测到违规时:
 
 1. **立即拦截**操作
-2. **记录偏差**到 `docs/harness-deviation.md`
+2. **记录偏差**到 `docs/process/harness-deviation.md`
 3. **通知相关Agent**:
    - Worker: 告知违规原因和正确做法
    - Leader: 如需要任务调整
@@ -255,5 +255,5 @@ PR准备合并到 `main` 分支前触发。
 
 - Harness流程: `RALPH-HARNESS.md`
 - 架构地图: `CLAUDE.md`
-- 技术债务: `docs/exec-plans/tech-debt-tracker.md`
-- 偏差记录: `docs/harness-deviation.md`
+- 技术债务: `docs/plans/tech-debt-tracker.md`
+- 偏差记录: `docs/process/harness-deviation.md`
