@@ -49,6 +49,7 @@
 static volatile bool server_running = false;
 static volatile int client_count = 0;
 static int listen_sock = -1;
+static int g_client_sock = -1;  /* Single client socket for TX */
 static SemaphoreHandle_t client_mutex = NULL;
 
 /* ============================================================================
@@ -173,9 +174,10 @@ static void handle_client(int client_sock, struct sockaddr_in *client_addr)
 
     ESP_LOGI(TAG, "Client connected from %s:%d", client_ip, ntohs(client_addr->sin_port));
 
-    /* Update client count */
+    /* Update client count and store socket */
     if (xSemaphoreTake(client_mutex, portMAX_DELAY) == pdTRUE) {
         client_count++;
+        g_client_sock = client_sock;
         xSemaphoreGive(client_mutex);
     }
 
@@ -242,10 +244,11 @@ static void handle_client(int client_sock, struct sockaddr_in *client_addr)
     /* Close client socket */
     close(client_sock);
 
-    /* Update client count */
+    /* Update client count and clear global socket */
     if (xSemaphoreTake(client_mutex, portMAX_DELAY) == pdTRUE) {
         client_count--;
         if (client_count < 0) client_count = 0;
+        g_client_sock = -1;
         xSemaphoreGive(client_mutex);
     }
 
@@ -388,8 +391,21 @@ int tcp_server_get_client_count(void)
 
 int tcp_server_broadcast(const uint8_t *data, size_t len)
 {
-    /* Note: This is a placeholder for future multi-client support */
-    /* Currently only single client is supported */
-    ESP_LOGW(TAG, "Broadcast not implemented for single-client mode");
-    return 0;
+    if (data == NULL || len == 0) {
+        return -1;
+    }
+
+    if (g_client_sock < 0) {
+        ESP_LOGD(TAG, "Broadcast: no client connected");
+        return -1;
+    }
+
+    int sent = send(g_client_sock, data, len, 0);
+    if (sent < 0) {
+        ESP_LOGE(TAG, "Broadcast send failed: errno=%d", errno);
+        return -1;
+    }
+
+    ESP_LOGD(TAG, "Broadcast sent %d bytes to client", sent);
+    return sent;
 }

@@ -231,7 +231,7 @@ static void process_message(const protocol_message_t *msg)
     comm_stats.last_rx_time = HAL_GetTick();
     comm_stats.connected = true;
 
-    switch (msg->header.type) {
+    switch (msg->header.cmd) {
         case MSG_TYPE_HEARTBEAT:
             debug_puts("[RX] Heartbeat from ESP32\r\n");
             esp32_send_ack(MSG_TYPE_HEARTBEAT);

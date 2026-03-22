@@ -12,6 +12,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include <math.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -58,9 +59,87 @@ static bool s_link_active;
 
 static uint8_t s_tx_buffer[UART_ST_TX_BUFFER_SIZE];
 
+/* Attitude state for TCP forwarding */
+static float s_last_roll = 0.0f;
+static float s_last_pitch = 0.0f;
+static float s_last_yaw = 0.0f;
+static uint32_t s_last_attitude_ms = 0;
+static uint32_t s_last_test_attitude_ms = 0;
+#define TEST_ATTITUDE_PERIOD_MS  500U
+
 /* ============================================================================
  * Helpers
  * ============================================================================ */
+
+/**
+ * @brief Convert quaternion to Euler angles (roll, pitch, yaw in degrees)
+ */
+static void quaternion_to_euler(float q0, float q1, float q2, float q3,
+                                float *roll, float *pitch, float *yaw)
+{
+    // Roll (x-axis rotation)
+    float sinr_cosp = 2.0f * (q0 * q1 + q2 * q3);
+    float cosr_cosp = 1.0f - 2.0f * (q1 * q1 + q2 * q2);
+    *roll = atan2f(sinr_cosp, cosr_cosp) * 180.0f / M_PI;
+
+    // Pitch (y-axis rotation)
+    float sinp = 2.0f * (q0 * q2 - q3 * q1);
+    if (fabsf(sinp) >= 1.0f) {
+        *pitch = copysignf(90.0f, sinp);  // Use 90 degrees if out of range
+    } else {
+        *pitch = asinf(sinp) * 180.0f / M_PI;
+    }
+
+    // Yaw (z-axis rotation)
+    float siny_cosp = 2.0f * (q0 * q3 + q1 * q2);
+    float cosy_cosp = 1.0f - 2.0f * (q2 * q2 + q3 * q3);
+    *yaw = atan2f(siny_cosp, cosy_cosp) * 180.0f / M_PI;
+}
+
+/**
+ * @brief Format and send attitude data to TCP viewer
+ * @note Protocol: [AA][CMD=01][LEN=13][roll(2)][pitch(2)][yaw(2)][roll_rate(2)][pitch_rate(2)][yaw_rate(2)][SUM]
+ */
+static void send_attitude_to_tcp(float roll, float pitch, float yaw,
+                                  float roll_rate, float pitch_rate, float yaw_rate)
+{
+    if (!tcp_server_is_running() || tcp_server_get_client_count() == 0) {
+        return;
+    }
+
+    // Convert to int16_t * 100 for roll/pitch/yaw (0.01 degree resolution)
+    // Convert to int16_t * 10 for rates (0.1 deg/s resolution)
+    int16_t roll_i16 = (int16_t)(roundf(roll * 100.0f));
+    int16_t pitch_i16 = (int16_t)(roundf(pitch * 100.0f));
+    int16_t yaw_i16 = (int16_t)(roundf(yaw * 100.0f));
+    int16_t roll_rate_i16 = (int16_t)(roundf(roll_rate * 10.0f));
+    int16_t pitch_rate_i16 = (int16_t)(roundf(pitch_rate * 10.0f));
+    int16_t yaw_rate_i16 = (int16_t)(roundf(yaw_rate * 10.0f));
+
+    uint8_t frame[4 + 12 + 1];  // [AA][CMD][LEN][DATA...][SUM]
+    uint8_t pos = 0;
+    frame[pos++] = 0xAA;        // HEADER
+    frame[pos++] = 0x01;        // CMD_ATTITUDE
+    frame[pos++] = 12;          // LEN = 12 (roll+pitch+yaw+rates = 6*2=12 bytes)
+
+    // DATA (13 bytes)
+    memcpy(&frame[pos], &roll_i16, 2);      pos += 2;
+    memcpy(&frame[pos], &pitch_i16, 2);     pos += 2;
+    memcpy(&frame[pos], &yaw_i16, 2);       pos += 2;
+    memcpy(&frame[pos], &roll_rate_i16, 2);  pos += 2;
+    memcpy(&frame[pos], &pitch_rate_i16, 2); pos += 2;
+    memcpy(&frame[pos], &yaw_rate_i16, 2);   pos += 2;
+
+    // CHECKSUM = sum of CMD + LEN + DATA
+    uint8_t sum = frame[1] + frame[2];
+    for (int i = 3; i < pos; i++) {
+        sum += frame[i];
+    }
+    frame[pos++] = sum;
+
+    // Broadcast to all TCP clients
+    tcp_server_broadcast(frame, pos);
+}
 
 static void log_uart_config(void)
 {
@@ -177,7 +256,30 @@ static void uart_handle_frame(const uart_protocol_frame_t *frame)
                 float *q = (float *)frame->data;
                 ESP_LOGI(TAG, "Quaternion: %.3f, %.3f, %.3f, %.3f",
                          q[0], q[1], q[2], q[3]);
-                // 可以发送到TCP或VOFA
+
+                // 转换为欧拉角
+                float roll, pitch, yaw;
+                quaternion_to_euler(q[0], q[1], q[2], q[3], &roll, &pitch, &yaw);
+
+                // 计算角速率 (deg/s)
+                uint32_t now_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
+                float dt = (s_last_attitude_ms > 0) ?
+                           (now_ms - s_last_attitude_ms) / 1000.0f : 0.0f;
+                float roll_rate = (dt > 0.0f) ? (roll - s_last_roll) / dt : 0.0f;
+                float pitch_rate = (dt > 0.0f) ? (pitch - s_last_pitch) / dt : 0.0f;
+                float yaw_rate = (dt > 0.0f) ? (yaw - s_last_yaw) / dt : 0.0f;
+
+                // 更新历史值
+                s_last_roll = roll;
+                s_last_pitch = pitch;
+                s_last_yaw = yaw;
+                s_last_attitude_ms = now_ms;
+
+                ESP_LOGI(TAG, "Euler: roll=%.1f pitch=%.1f yaw=%.1f rates=%.1f/%.1f/%.1f",
+                         roll, pitch, yaw, roll_rate, pitch_rate, yaw_rate);
+
+                // 发送到TCP查看器
+                send_attitude_to_tcp(roll, pitch, yaw, roll_rate, pitch_rate, yaw_rate);
             }
             break;
 
@@ -187,6 +289,18 @@ static void uart_handle_frame(const uart_protocol_frame_t *frame)
                 float *rc = (float *)frame->data;
                 ESP_LOGI(TAG, "RC Lx=%.2f Ly=%.2f Rx=%.2f Ry=%.2f",
                          rc[0], rc[1], rc[2], rc[3]);
+            }
+            // Fall-through: also send test attitude data for TCP forwarding test
+            // (STM32 test code doesn't send QUATERNION, so we simulate it)
+            {
+                static float test_roll = 0.0f, test_pitch = 5.0f, test_yaw = 0.0f;
+                static uint32_t test_count = 0;
+                test_count++;
+                // Simulate slow rotation
+                test_yaw += 1.0f;
+                if (test_yaw > 360.0f) test_yaw -= 360.0f;
+                send_attitude_to_tcp(test_roll, test_pitch, test_yaw,
+                                     0.0f, 0.0f, 30.0f);  // Simulated rates
             }
             break;
 
@@ -281,16 +395,27 @@ static void uart_bridge_task(void *pvParameters)
             last_heartbeat = now;
         }
 
+        // 定期发送测试姿态数据 (用于TCP转发测试)
+        if ((now - s_last_test_attitude_ms) >= pdMS_TO_TICKS(TEST_ATTITUDE_PERIOD_MS)) {
+            static float test_roll = 0.0f, test_pitch = 5.0f, test_yaw = 0.0f;
+            test_yaw += 1.0f;
+            if (test_yaw > 360.0f) test_yaw -= 360.0f;
+            send_attitude_to_tcp(test_roll, test_pitch, test_yaw, 0.0f, 0.0f, 30.0f);
+            s_last_test_attitude_ms = now;
+        }
+
         if ((now - last_stats) >= pdMS_TO_TICKS(5000U)) {
             uint32_t age_ms = (s_last_rx_ms == 0U)
                                   ? 0U
                                   : ((xTaskGetTickCount() * portTICK_PERIOD_MS) - s_last_rx_ms);
+            const char *ip_str = wifi_get_ip_str();
             ESP_LOGI(TAG,
-                     "Stats tx=%lu rx=%lu rx_err=%lu link=%s rx_age=%lums",
+                     "Stats tx=%lu rx=%lu rx_err=%lu link=%s ip=%s rx_age=%lums",
                      (unsigned long)s_tx_frames,
                      (unsigned long)s_rx_frames,
                      (unsigned long)s_rx_errors,
                      s_link_active ? "up" : "down",
+                     ip_str ? ip_str : "none",
                      (unsigned long)age_ms);
             last_stats = now;
         }

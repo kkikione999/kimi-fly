@@ -149,7 +149,7 @@ hal_status_t ahrs_update_6axis(ahrs_handle_t *ahrs,
         ahrs->q.w += -q.x * gx - q.y * gy - q.z * gz;
         ahrs->q.x +=  q.w * gx + q.y * gz - q.z * gy;
         ahrs->q.y +=  q.w * gy - q.x * gz + q.z * gx;
-        ahrs->q.z +=  q.w * gy + q.x * gy - q.y * gx;
+        ahrs->q.z +=  q.w * gz + q.x * gy - q.y * gx;
 
         quat_normalize(&ahrs->q);
     } else {

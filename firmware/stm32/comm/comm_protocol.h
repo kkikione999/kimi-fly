@@ -1,10 +1,11 @@
 /**
  * @file comm_protocol.h
- * @brief 简化的通信协议定义 (用于uart_comm_test.c)
- * @note 与ESP32-C3协议兼容
+ * @brief STM32与ESP32-C3通信协议定义
+ * @note 协议格式: [0x55][CMD][LEN][DATA...][SUM8][0xAA]
+ *       与参考代码 /Users/ll/fly/zmgjb/code 一致
  *
  * @author Drone Control System
- * @version 1.0
+ * @version 3.0
  */
 
 #ifndef COMM_PROTOCOL_H
@@ -19,42 +20,40 @@ extern "C" {
 #endif
 
 /* ============================================================================
- * 协议常量定义
+ * 协议常量定义 (与参考代码一致)
  * ============================================================================ */
 
-#define PROTOCOL_HEADER         0xAA55  /**< 帧头 (2字节，小端序在ESP32端) */
+#define PROTOCOL_HEADER         0x55U   /**< 帧头 (参考代码) */
+#define PROTOCOL_TAIL           0xAAU   /**< 帧尾 (参考代码) */
 #define PROTOCOL_MAX_PAYLOAD    64      /**< 最大负载字节数 */
 
 /* ============================================================================
- * 消息类型定义 (与ESP32 main.c 兼容)
+ * 消息类型定义 (与参考代码C3/src/myserial.h一致)
  * ============================================================================ */
 
 typedef enum {
-    MSG_TYPE_HEARTBEAT = 0x01,
-    MSG_TYPE_STATUS = 0x02,
-    MSG_TYPE_CONTROL = 0x03,
-    MSG_TYPE_SENSOR = 0x04,
-    MSG_TYPE_DEBUG = 0x05,
-    MSG_TYPE_ACK = 0x06,
-    MSG_TYPE_ERROR = 0x07
+    MSG_TYPE_PAUSE = 0x00,             /**< 暂停命令 */
+    MSG_TYPE_QUATERNION = 0x01,         /**< 四元数 */
+    MSG_TYPE_JOYSTICK = 0x02,           /**< 摇杆数据 */
+    MSG_TYPE_SET_PITCH_PID = 0x03,      /**< 设置Pitch PID */
+    MSG_TYPE_SET_ROLL_PID = 0x04,       /**< 设置Roll PID */
+    MSG_TYPE_SET_YAW_PID = 0x05,        /**< 设置Yaw PID */
+    MSG_TYPE_SOFTWARE_RESTART = 0x06,   /**< 软件重启 */
+    MSG_TYPE_PID_CHECK = 0x07           /**< PID检查 */
 } msg_type_t;
 
 /* ============================================================================
- * 协议帧结构 (与ESP32兼容)
+ * 协议帧结构 (与参考代码格式一致)
  * ============================================================================ */
 
-/* 协议头部结构 */
+/* 协议帧: [0x55][CMD][LEN][DATA:N][SUM8][0xAA] */
 typedef struct __attribute__((packed)) {
-    uint16_t header;        /* 0xAA55 */
-    uint8_t type;           /* 消息类型 */
-    uint8_t length;         /* 负载长度 */
-} protocol_header_t;
-
-/* 完整消息结构 */
-typedef struct __attribute__((packed)) {
-    protocol_header_t header;
+    uint8_t header;        /* 0x55 */
+    uint8_t cmd;           /* 命令码 */
+    uint8_t length;       /* 负载长度 */
     uint8_t payload[PROTOCOL_MAX_PAYLOAD];
-    uint8_t checksum;
+    uint8_t sum8;         /* SUM8校验和 */
+    uint8_t tail;          /* 0xAA */
 } protocol_message_t;
 
 /* 通信统计 */
@@ -71,58 +70,49 @@ typedef struct {
  * ============================================================================ */
 
 /**
- * @brief 计算校验和
- * @param msg 消息指针
- * @return 校验和
+ * @brief 计算SUM8校验码 (与参考代码一致)
+ * @param cmd 命令码
+ * @param len 负载长度
+ * @param data 负载数据
+ * @return SUM8校验码
  */
-static inline uint8_t comm_calc_checksum(const protocol_message_t *msg)
+static inline uint8_t comm_calc_sum8(uint8_t cmd, uint8_t len, const uint8_t *data)
 {
-    uint8_t checksum = 0;
-    const uint8_t *data = (const uint8_t *)msg;
-    uint8_t length = sizeof(protocol_header_t) + msg->header.length;
-
-    for (uint8_t i = 0; i < length; i++) {
-        checksum ^= data[i];
+    uint8_t sum = cmd + len;
+    for (uint8_t i = 0; i < len; i++) {
+        sum += data[i];
     }
-    return checksum;
+    return sum & 0xFF;
 }
 
 /**
- * @brief 验证校验和
- * @param msg 消息指针
- * @return true=校验通过
- */
-static inline bool comm_verify_checksum(const protocol_message_t *msg)
-{
-    return comm_calc_checksum(msg) == msg->checksum;
-}
-
-/**
- * @brief 构建消息
+ * @brief 构建消息 (与参考代码格式一致)
  * @param msg 消息结构指针
- * @param type 消息类型
+ * @param cmd 命令码
  * @param payload 负载数据
  * @param payload_len 负载长度
  * @return 消息总长度
  */
-static inline int comm_build_message(protocol_message_t *msg, msg_type_t type,
+static inline int comm_build_message(protocol_message_t *msg, msg_type_t cmd,
                                       const uint8_t *payload, uint8_t payload_len)
 {
     if (payload_len > PROTOCOL_MAX_PAYLOAD) {
         return -1;
     }
 
-    msg->header.header = PROTOCOL_HEADER;
-    msg->header.type = type;
-    msg->header.length = payload_len;
+    msg->header = PROTOCOL_HEADER;
+    msg->cmd = cmd;
+    msg->length = payload_len;
 
     if (payload_len > 0 && payload != NULL) {
         memcpy(msg->payload, payload, payload_len);
     }
 
-    msg->checksum = comm_calc_checksum(msg);
+    /* 计算SUM8: CMD + LEN + DATA */
+    msg->sum8 = comm_calc_sum8(cmd, payload_len, payload);
+    msg->tail = PROTOCOL_TAIL;
 
-    return sizeof(protocol_header_t) + payload_len + 1; /* +1 for checksum */
+    return 1 + 1 + 1 + payload_len + 1 + 1; /* header + cmd + len + payload + sum + tail */
 }
 
 /**
@@ -135,34 +125,41 @@ static inline int comm_build_message(protocol_message_t *msg, msg_type_t type,
 static inline int comm_parse_message(const uint8_t *buffer, uint16_t len,
                                       protocol_message_t *msg)
 {
-    if (len < sizeof(protocol_header_t)) {
+    if (len < 6) {
         return 0;
     }
 
     /* 查找帧头 */
-    for (uint16_t i = 0; i <= len - sizeof(protocol_header_t); i++) {
-        uint16_t header = buffer[i] | (buffer[i+1] << 8);
-
-        if (header == PROTOCOL_HEADER) {
-            /* 找到帧头 */
-            uint8_t payload_len = buffer[i + 3];
-            uint8_t total_len = sizeof(protocol_header_t) + payload_len + 1;
+    for (uint16_t i = 0; i <= len - 6; i++) {
+        if (buffer[i] == PROTOCOL_HEADER) {
+            /* 可能找到帧头 */
+            uint8_t cmd = buffer[i + 1];
+            uint8_t payload_len = buffer[i + 2];
+            uint8_t total_len = 1 + 1 + 1 + payload_len + 1 + 1; /* 完整帧长度 */
 
             if (i + total_len > len) {
                 /* 数据不足，等待更多数据 */
-                return 0;
+                continue;
+            }
+
+            /* 检查帧尾 */
+            if (buffer[i + total_len - 1] != PROTOCOL_TAIL) {
+                continue;
+            }
+
+            /* 验证SUM8 */
+            uint8_t calc_sum = comm_calc_sum8(cmd, payload_len,
+                                              payload_len > 0 ? &buffer[i + 3] : NULL);
+            uint8_t rx_sum = buffer[i + 3 + payload_len];
+
+            if (calc_sum != rx_sum) {
+                /* 校验失败，跳过这个帧头 */
+                continue;
             }
 
             /* 复制消息 */
             memcpy(msg, &buffer[i], total_len);
-
-            /* 验证校验和 */
-            if (comm_verify_checksum(msg)) {
-                return total_len;
-            } else {
-                /* 校验失败，跳过这个帧头继续查找 */
-                continue;
-            }
+            return total_len;
         }
     }
 
