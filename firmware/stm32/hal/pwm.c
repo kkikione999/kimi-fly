@@ -82,16 +82,16 @@ static pwm_state_t pwm_states[4][4] = {{{0}}};
 static void tim_clock_enable(tim_t tim)
 {
     switch (tim) {
-        case TIM1:
+        case PWM_TIM1:
             RCC_APB2ENR |= RCC_APB2ENR_TIM1EN;
             break;
-        case TIM2:
+        case PWM_TIM2:
             RCC_APB1ENR |= RCC_APB1ENR_TIM2EN;
             break;
-        case TIM3:
+        case PWM_TIM3:
             RCC_APB1ENR |= RCC_APB1ENR_TIM3EN;
             break;
-        case TIM4:
+        case PWM_TIM4:
             RCC_APB1ENR |= RCC_APB1ENR_TIM4EN;
             break;
     }
@@ -100,7 +100,7 @@ static void tim_clock_enable(tim_t tim)
 /* Get TIM clock frequency */
 static uint32_t tim_get_clock_freq(tim_t tim)
 {
-    if (tim == TIM1) {
+    if (tim == PWM_TIM1) {
         return APB2_CLOCK_HZ;
     }
     return APB1_CLOCK_HZ;
@@ -201,7 +201,7 @@ hal_status_t pwm_init(const pwm_init_t *init)
         return HAL_ERROR;
     }
 
-    if (init->tim > TIM4 || init->channel > TIM_CH4) {
+    if (init->tim > PWM_TIM4 || init->channel > TIM_CH4) {
         return HAL_ERROR;
     }
 
@@ -261,7 +261,7 @@ hal_status_t pwm_set_duty(tim_t tim, tim_channel_t channel, uint16_t duty_1000)
     uint32_t ccr_value;
     uint32_t arr;
 
-    if (tim > TIM4 || channel > TIM_CH4) {
+    if (tim > PWM_TIM4 || channel > TIM_CH4) {
         return HAL_ERROR;
     }
 
@@ -293,7 +293,7 @@ hal_status_t pwm_set_frequency(tim_t tim, uint32_t frequency_hz)
     uint32_t new_ccr;
     int i;
 
-    if (tim > TIM4) {
+    if (tim > PWM_TIM4) {
         return HAL_ERROR;
     }
 
@@ -349,7 +349,7 @@ hal_status_t pwm_start(tim_t tim, tim_channel_t channel)
     tim_reg_t *tim_reg;
     uint16_t ccer_bit;
 
-    if (tim > TIM4 || channel > TIM_CH4) {
+    if (tim > PWM_TIM4 || channel > TIM_CH4) {
         return HAL_ERROR;
     }
 
@@ -360,7 +360,7 @@ hal_status_t pwm_start(tim_t tim, tim_channel_t channel)
     tim_reg->CCER |= ccer_bit;
 
     /* For TIM1, enable main output */
-    if (tim == TIM1) {
+    if (tim == PWM_TIM1) {
         tim_reg->BDTR |= TIM_BDTR_MOE;
     }
 
@@ -380,7 +380,7 @@ hal_status_t pwm_stop(tim_t tim, tim_channel_t channel)
     int i;
     int any_running = 0;
 
-    if (tim > TIM4 || channel > TIM_CH4) {
+    if (tim > PWM_TIM4 || channel > TIM_CH4) {
         return HAL_ERROR;
     }
 
@@ -406,7 +406,7 @@ hal_status_t pwm_stop(tim_t tim, tim_channel_t channel)
         tim_reg->CR1 &= ~TIM_CR1_CEN;
 
         /* For TIM1, disable main output */
-        if (tim == TIM1) {
+        if (tim == PWM_TIM1) {
             tim_reg->BDTR &= ~TIM_BDTR_MOE;
         }
     }
@@ -424,10 +424,10 @@ typedef struct {
 } motor_mapping_t;
 
 static const motor_mapping_t motor_map[4] = {
-    {TIM1, TIM_CH1},   /* MOTOR_1 - PA8 */
-    {TIM1, TIM_CH4},   /* MOTOR_2 - PA11 */
-    {TIM3, TIM_CH4},   /* MOTOR_3 - PB1 */
-    {TIM2, TIM_CH3}    /* MOTOR_4 - PB10 */
+    {PWM_TIM1, TIM_CH1},   /* MOTOR_1 - PA8 */
+    {PWM_TIM1, TIM_CH4},   /* MOTOR_2 - PA11 */
+    {PWM_TIM3, TIM_CH4},   /* MOTOR_3 - PB1 */
+    {PWM_TIM2, TIM_CH3}    /* MOTOR_4 - PB10 */
 };
 
 hal_status_t motor_init_all(uint32_t frequency_hz)

@@ -108,7 +108,7 @@ typedef struct {
  * @brief 传感器原始数据输入
  */
 typedef struct {
-    vec3f_t accel;  /**< 加速度 (m/s^2) */
+    vec3f_t accel;  /**< 加速度 (g) */
     vec3f_t gyro;   /**< 角速度 (rad/s) */
     vec3f_t mag;    /**< 磁场 (可选, 归一化值) */
     bool mag_valid; /**< 磁力计数据有效标志 */
@@ -165,7 +165,7 @@ void ahrs_set_mag_reference(ahrs_handle_t *ahrs, float mag_north, float mag_down
  * @brief AHRS姿态更新 (仅加速度计+陀螺仪)
  * @param ahrs AHRS句柄指针
  * @param gyro 角速度 (rad/s), 已校准
- * @param accel 加速度 (m/s^2), 已校准
+ * @param accel 加速度 (g), 已校准
  * @return HAL_OK成功
  * @note 6轴模式，无偏航参考，会漂移
  */
@@ -177,7 +177,7 @@ hal_status_t ahrs_update_6axis(ahrs_handle_t *ahrs,
  * @brief AHRS姿态更新 (9轴：加速度计+陀螺仪+磁力计)
  * @param ahrs AHRS句柄指针
  * @param gyro 角速度 (rad/s), 已校准
- * @param accel 加速度 (m/s^2), 已校准
+ * @param accel 加速度 (g), 已校准
  * @param mag 磁场强度 (归一化值), 已校准
  * @return HAL_OK成功
  * @note 9轴模式，使用磁力计提供偏航参考

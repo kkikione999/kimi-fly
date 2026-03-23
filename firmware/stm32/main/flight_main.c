@@ -16,6 +16,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <math.h>
 
 /* ============================================================================
  * 静态函数声明
@@ -27,6 +28,10 @@ static void update_telemetry(flight_main_handle_t *handle);
 static void send_status_report(flight_main_handle_t *handle);
 static void handle_errors(flight_main_handle_t *handle);
 static void update_leds(flight_main_handle_t *handle);
+static void log_attitude_sample(const flight_main_handle_t *handle);
+static void log_i2c_devices(void);
+static void reset_mag_runtime_calibration(void);
+static vec3f_t apply_mag_runtime_calibration(const qmc5883p_data_t *mag_data);
 
 /* ============================================================================
  * 外部变量 (传感器句柄，在驱动中定义)
@@ -39,6 +44,15 @@ extern spi_handle_t hspi3;      /**< SPI3句柄 */
 static icm42688_handle_t g_imu;
 static lps22hb_handle_t g_baro;
 static qmc5883p_handle_t g_mag;
+static qmc5883p_data_t g_last_mag_sample;
+static bool g_last_mag_valid = false;
+static bool g_mag_filter_ready = false;
+static vec3f_t g_mag_filtered = {0.0f, 0.0f, 0.0f};
+static bool g_mag_cal_ready = false;
+static vec3f_t g_mag_min = {0.0f, 0.0f, 0.0f};
+static vec3f_t g_mag_max = {0.0f, 0.0f, 0.0f};
+
+#define MAG_RUNTIME_CAL_MIN_SPAN_G  0.08f
 
 /* ============================================================================
  * API实现 - 初始化和反初始化
@@ -85,6 +99,9 @@ hal_status_t flight_main_init(flight_main_handle_t *handle)
     } else {
         handle->sensors_ok = true;
         platform_debug_print("[FLIGHT] All sensors init OK\r\n");
+        if (flight_main_calibrate_sensors(handle) != HAL_OK) {
+            platform_debug_print("[FLIGHT] Sensor calibration FAILED!\r\n");
+        }
     }
 
     handle->initialized = true;
@@ -118,6 +135,8 @@ hal_status_t flight_main_init_sensors(flight_main_handle_t *handle)
 {
     hal_status_t status;
 
+    log_i2c_devices();
+
     /* 初始化IMU (ICM-42688-P, I2C1 @ 0x68) */
     status = icm42688_init(&g_imu, &hi2c1);
     if (status != HAL_OK) {
@@ -137,14 +156,19 @@ hal_status_t flight_main_init_sensors(flight_main_handle_t *handle)
         platform_debug_print("[SENSOR] Barometer init OK\r\n");
     }
 
-    /* 初始化磁力计 (QMC5883P, I2C1 @ 0x2C) */
+    /* 初始化磁力计 (QMC5883P, I2C1, 自动探测地址/寄存器布局) */
     status = qmc5883p_init(&g_mag, &hi2c1);
     if (status != HAL_OK) {
         handle->error = ERR_MAG_INIT;
         platform_debug_print("[SENSOR] Magnetometer init failed!\r\n");
         /* 磁力计非关键，继续 */
     } else {
-        platform_debug_print("[SENSOR] Magnetometer init OK\r\n");
+        platform_debug_print("[SENSOR] Magnetometer init OK addr=0x%02X layout=%u chip=0x%02X ctrl1=0x%02X ctrl2=0x%02X\r\n",
+                             g_mag.dev_addr,
+                             (unsigned)g_mag.layout,
+                             g_mag.chip_id,
+                             g_mag.reg_ctrl1,
+                             g_mag.reg_ctrl2);
     }
 
     return HAL_OK;
@@ -152,7 +176,7 @@ hal_status_t flight_main_init_sensors(flight_main_handle_t *handle)
 
 hal_status_t flight_main_calibrate_sensors(flight_main_handle_t *handle)
 {
-    if (handle == NULL || !handle->initialized) {
+    if (handle == NULL || !handle->sensors_ok) {
         return HAL_ERROR;
     }
 
@@ -178,14 +202,13 @@ hal_status_t flight_main_calibrate_sensors(flight_main_handle_t *handle)
         platform_delay_us(1000); /* 1ms延时 */
     }
 
-    /* 计算并应用零偏 */
-    vec3f_t gyro_bias;
-    gyro_bias.x = gyro_sum.x / CALIBRATION_SAMPLES;
-    gyro_bias.y = gyro_sum.y / CALIBRATION_SAMPLES;
-    gyro_bias.z = gyro_sum.z / CALIBRATION_SAMPLES;
+    /* 计算并应用零偏，统一保存为 rad/s，避免与控制链路中的角速度单位不一致。 */
+    handle->gyro_bias.x = (gyro_sum.x / CALIBRATION_SAMPLES) * 3.14159f / 180.0f;
+    handle->gyro_bias.y = (gyro_sum.y / CALIBRATION_SAMPLES) * 3.14159f / 180.0f;
+    handle->gyro_bias.z = (gyro_sum.z / CALIBRATION_SAMPLES) * 3.14159f / 180.0f;
 
     platform_debug_print("[CAL] Gyro bias: %.3f, %.3f, %.3f\r\n",
-                         gyro_bias.x, gyro_bias.y, gyro_bias.z);
+                         handle->gyro_bias.x, handle->gyro_bias.y, handle->gyro_bias.z);
 
     handle->state = SYS_STATE_STANDBY;
     platform_debug_print("[CAL] Calibration complete!\r\n");
@@ -243,6 +266,9 @@ void flight_main_control_loop(flight_main_handle_t *handle)
         update_telemetry(handle);
         handle->last_telemetry = now;
     }
+
+    /* 额外输出 10Hz 整数姿态日志，便于真机稳定性验证。 */
+    log_attitude_sample(handle);
 
     /* 6. 状态报告 (1Hz) */
     if ((now - handle->last_status) >= STATUS_INTERVAL_MS) {
@@ -364,6 +390,86 @@ static hal_status_t init_sensor_drivers(void)
     return HAL_OK;
 }
 
+static void log_i2c_devices(void)
+{
+    uint8_t found_addr[8];
+    uint8_t found_count = 0U;
+
+    if (i2c_scan(&hi2c1, found_addr, (uint8_t)(sizeof(found_addr) / sizeof(found_addr[0])), &found_count) != HAL_OK) {
+        platform_debug_print("[I2C] scan failed\r\n");
+        return;
+    }
+
+    platform_debug_print("[I2C] found=%u", found_count);
+    for (uint8_t i = 0; i < found_count && i < (uint8_t)(sizeof(found_addr) / sizeof(found_addr[0])); i++) {
+        platform_debug_print(" 0x%02X", found_addr[i]);
+    }
+    platform_debug_print("\r\n");
+}
+
+static void reset_mag_runtime_calibration(void)
+{
+    g_mag_cal_ready = false;
+    g_mag_filter_ready = false;
+    g_mag_filtered.x = 0.0f;
+    g_mag_filtered.y = 0.0f;
+    g_mag_filtered.z = 0.0f;
+    g_mag_min.x = g_mag_min.y = g_mag_min.z = 0.0f;
+    g_mag_max.x = g_mag_max.y = g_mag_max.z = 0.0f;
+}
+
+static vec3f_t apply_mag_runtime_calibration(const qmc5883p_data_t *mag_data)
+{
+    vec3f_t corrected = {
+        mag_data->mag_x_gauss,
+        mag_data->mag_y_gauss,
+        mag_data->mag_z_gauss
+    };
+    float span_x;
+    float span_y;
+    float center_x;
+    float center_y;
+    float avg_span;
+    float scale_x = 1.0f;
+    float scale_y = 1.0f;
+
+    if (!g_mag_cal_ready) {
+        g_mag_min = corrected;
+        g_mag_max = corrected;
+        g_mag_cal_ready = true;
+        return corrected;
+    }
+
+    if (corrected.x < g_mag_min.x) g_mag_min.x = corrected.x;
+    if (corrected.y < g_mag_min.y) g_mag_min.y = corrected.y;
+    if (corrected.z < g_mag_min.z) g_mag_min.z = corrected.z;
+    if (corrected.x > g_mag_max.x) g_mag_max.x = corrected.x;
+    if (corrected.y > g_mag_max.y) g_mag_max.y = corrected.y;
+    if (corrected.z > g_mag_max.z) g_mag_max.z = corrected.z;
+
+    span_x = g_mag_max.x - g_mag_min.x;
+    span_y = g_mag_max.y - g_mag_min.y;
+
+    if (span_x < MAG_RUNTIME_CAL_MIN_SPAN_G || span_y < MAG_RUNTIME_CAL_MIN_SPAN_G) {
+        return corrected;
+    }
+
+    center_x = 0.5f * (g_mag_max.x + g_mag_min.x);
+    center_y = 0.5f * (g_mag_max.y + g_mag_min.y);
+    avg_span = 0.5f * (span_x + span_y);
+
+    if (span_x > 1e-4f) {
+        scale_x = avg_span / span_x;
+    }
+    if (span_y > 1e-4f) {
+        scale_y = avg_span / span_y;
+    }
+
+    corrected.x = (corrected.x - center_x) * scale_x;
+    corrected.y = (corrected.y - center_y) * scale_y;
+    return corrected;
+}
+
 static void read_all_sensors(flight_main_handle_t *handle)
 {
     /* 读取IMU */
@@ -372,9 +478,9 @@ static void read_all_sensors(flight_main_handle_t *handle)
         handle->accel.x = imu_data.accel_x;
         handle->accel.y = imu_data.accel_y;
         handle->accel.z = imu_data.accel_z;
-        handle->gyro.x = imu_data.gyro_x * 3.14159f / 180.0f;  /* dps to rad/s */
-        handle->gyro.y = imu_data.gyro_y * 3.14159f / 180.0f;
-        handle->gyro.z = imu_data.gyro_z * 3.14159f / 180.0f;
+        handle->gyro.x = imu_data.gyro_x * 3.14159f / 180.0f - handle->gyro_bias.x;  /* dps to rad/s */
+        handle->gyro.y = imu_data.gyro_y * 3.14159f / 180.0f - handle->gyro_bias.y;
+        handle->gyro.z = imu_data.gyro_z * 3.14159f / 180.0f - handle->gyro_bias.z;
         handle->sensors_ok = true;
     } else {
         handle->sensors_ok = false;
@@ -383,12 +489,25 @@ static void read_all_sensors(flight_main_handle_t *handle)
     /* 读取磁力计 (可选) */
     qmc5883p_data_t mag_data;
     if (qmc5883p_read_data(&g_mag, &mag_data) == HAL_OK) {
-        handle->mag.x = mag_data.mag_x_gauss;
-        handle->mag.y = mag_data.mag_y_gauss;
-        handle->mag.z = mag_data.mag_z_gauss;
+        vec3f_t calibrated_mag = apply_mag_runtime_calibration(&mag_data);
+        if (!g_mag_filter_ready) {
+            g_mag_filtered = calibrated_mag;
+            g_mag_filter_ready = true;
+        } else {
+            const float alpha = 0.02f;
+            g_mag_filtered.x += alpha * (calibrated_mag.x - g_mag_filtered.x);
+            g_mag_filtered.y += alpha * (calibrated_mag.y - g_mag_filtered.y);
+            g_mag_filtered.z += alpha * (calibrated_mag.z - g_mag_filtered.z);
+        }
+
+        handle->mag = g_mag_filtered;
         handle->mag_valid = true;
+        g_last_mag_sample = mag_data;
+        g_last_mag_valid = true;
     } else {
         handle->mag_valid = false;
+        g_last_mag_valid = false;
+        reset_mag_runtime_calibration();
     }
 }
 
@@ -416,6 +535,56 @@ static void update_leds(flight_main_handle_t *handle)
 {
     (void)handle;
     /* LED状态指示 */
+}
+
+static void log_attitude_sample(const flight_main_handle_t *handle)
+{
+    static uint32_t last_log_ms = 0U;
+    static uint32_t last_mag_log_ms = 0U;
+    uint32_t now;
+    euler_angle_t attitude;
+    int32_t roll_cdeg;
+    int32_t pitch_cdeg;
+    int32_t yaw_cdeg;
+
+    if (handle == NULL || !handle->initialized) {
+        return;
+    }
+
+    now = platform_get_time_ms();
+    if ((now - last_log_ms) < 100U) {
+        return;
+    }
+    last_log_ms = now;
+
+    if (!flight_controller_get_attitude(&handle->flight_ctrl, &attitude)) {
+        return;
+    }
+
+    roll_cdeg = (int32_t)(attitude.roll * 100.0f);
+    pitch_cdeg = (int32_t)(attitude.pitch * 100.0f);
+    yaw_cdeg = (int32_t)(attitude.yaw * 100.0f);
+
+    platform_debug_print("[ATT_CDEG] t=%lu r=%ld p=%ld y=%ld m=%d\r\n",
+                         (unsigned long)now,
+                         (long)roll_cdeg,
+                         (long)pitch_cdeg,
+                         (long)yaw_cdeg,
+                         handle->mag_valid ? 1 : 0);
+
+    if (handle->mag_valid && g_last_mag_valid && (now - last_mag_log_ms) >= 1000U) {
+        float heading_deg = atan2f(-handle->mag.y, handle->mag.x) * 57.2957795f;
+        int32_t heading_cdeg = (int32_t)(heading_deg * 100.0f);
+        last_mag_log_ms = now;
+        platform_debug_print("[MAG_DBG] t=%lu addr=0x%02X lay=%u mx=%d my=%d mz=%d hx=%ld\r\n",
+                             (unsigned long)now,
+                             g_mag.dev_addr,
+                             (unsigned)g_mag.layout,
+                             (int)g_last_mag_sample.mag_x,
+                             (int)g_last_mag_sample.mag_y,
+                             (int)g_last_mag_sample.mag_z,
+                             (long)heading_cdeg);
+    }
 }
 
 /* ============================================================================

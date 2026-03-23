@@ -113,6 +113,7 @@ typedef struct {
     flight_state_t      state;          /**< 当前飞行状态 */
     bool                initialized;    /**< 初始化标志 */
     bool                motors_armed;   /**< 电机解锁标志 */
+    bool                use_mag;        /**< 是否允许使用磁力计融合 */
 
     /* 输入 */
     rc_command_t        rc_input;       /**< 遥控器输入 */
@@ -123,13 +124,15 @@ typedef struct {
 
     /* 传感器数据 */
     vec3f_t             gyro;           /**< 角速度 (rad/s) */
-    vec3f_t             accel;          /**< 加速度 (m/s^2) */
+    vec3f_t             accel;          /**< 加速度 (g) */
     vec3f_t             mag;            /**< 磁力计 */
     bool                mag_valid;      /**< 磁力计数据有效 */
 
     /* 姿态反馈 */
     euler_angle_t       attitude;       /**< 当前姿态 (度) */
     vec3f_t             attitude_rad;   /**< 当前姿态 (rad) */
+    float               yaw_zero_deg;   /**< 输出偏航零点 (度, 用于相对航向显示) */
+    bool                yaw_zero_valid; /**< 偏航零点是否已锁定 */
 
     /* 运行统计 */
     uint32_t            update_count;   /**< 更新计数 */
@@ -224,7 +227,7 @@ void flight_controller_set_setpoint(flight_controller_t *fc,
 /**
  * @brief 更新IMU数据 (加速度和陀螺仪)
  * @param fc 飞行控制器句柄
- * @param accel 加速度 (m/s^2)
+ * @param accel 加速度 (g)
  * @param gyro 角速度 (rad/s)
  */
 void flight_controller_update_imu(flight_controller_t *fc,

@@ -26,6 +26,15 @@ static void update_imu(ahrs_handle_t *ahrs, float gx, float gy, float gz,
 static void update_marg(ahrs_handle_t *ahrs, float gx, float gy, float gz,
                         float ax, float ay, float az,
                         float mx, float my, float mz);
+static float clampf(float value, float min_value, float max_value);
+static float wrap_pi(float angle_rad);
+
+/* ============================================================================
+ * 私有常量
+ * ============================================================================ */
+
+#define AHRS_INTEGRAL_LIMIT         0.2f
+#define AHRS_MAG_YAW_CORR_MAX_RAD   0.05f
 
 /* ============================================================================
  * 初始化与配置
@@ -241,9 +250,9 @@ static void update_imu(ahrs_handle_t *ahrs, float gx, float gy, float gz,
     float ez = ax * vy - ay * vx;
 
     /* 积分误差 */
-    eInt->x += ex * ahrs->ki * ahrs->dt;
-    eInt->y += ey * ahrs->ki * ahrs->dt;
-    eInt->z += ez * ahrs->ki * ahrs->dt;
+    eInt->x = clampf(eInt->x + ex * ahrs->ki * ahrs->dt, -AHRS_INTEGRAL_LIMIT, AHRS_INTEGRAL_LIMIT);
+    eInt->y = clampf(eInt->y + ey * ahrs->ki * ahrs->dt, -AHRS_INTEGRAL_LIMIT, AHRS_INTEGRAL_LIMIT);
+    eInt->z = clampf(eInt->z + ez * ahrs->ki * ahrs->dt, -AHRS_INTEGRAL_LIMIT, AHRS_INTEGRAL_LIMIT);
 
     /* PI控制器校正陀螺仪零偏 */
     gx += ahrs->kp * ex + eInt->x;
@@ -275,14 +284,18 @@ static void update_marg(ahrs_handle_t *ahrs, float gx, float gy, float gz,
                         float ax, float ay, float az,
                         float mx, float my, float mz)
 {
-    quaternion_t *q = &ahrs->q;
-    vec3f_t *eInt = &ahrs->integral_error;
-
-    float q0 = q->w, q1 = q->x, q2 = q->y, q3 = q->z;
+    euler_angle_t euler;
+    float mag_xh;
+    float mag_yh;
+    float yaw_mag;
+    float yaw_error;
+    float yaw_correction;
 
     /* 归一化加速度计 */
     float norm = sqrtf(ax * ax + ay * ay + az * az);
-    if (norm < 1e-6f) return;
+    if (norm < 1e-6f) {
+        return;
+    }
     norm = 1.0f / norm;
     ax *= norm;
     ay *= norm;
@@ -290,70 +303,64 @@ static void update_marg(ahrs_handle_t *ahrs, float gx, float gy, float gz,
 
     /* 归一化磁力计 */
     norm = sqrtf(mx * mx + my * my + mz * mz);
-    if (norm < 1e-6f) return;
+    if (norm < 1e-6f) {
+        update_imu(ahrs, gx, gy, gz, ax, ay, az);
+        return;
+    }
     norm = 1.0f / norm;
     mx *= norm;
     my *= norm;
     mz *= norm;
 
-    /* 将磁力计旋转到地球坐标系 (参考系) */
-    /* h = q * m * q^-1 */
-    float hx = 2.0f * (mx * (0.5f - q2 * q2 - q3 * q3) + my * (q1 * q2 - q0 * q3) + mz * (q1 * q3 + q0 * q2));
-    float hy = 2.0f * (mx * (q1 * q2 + q0 * q3) + my * (0.5f - q1 * q1 - q3 * q3) + mz * (q2 * q3 - q0 * q1));
-    float hz = 2.0f * (mx * (q1 * q3 - q0 * q2) + my * (q2 * q3 + q0 * q1) + mz * (0.5f - q1 * q1 - q2 * q2));
+    /* 先用 6 轴更新稳定 roll/pitch 与短时 yaw。 */
+    update_imu(ahrs, gx, gy, gz, ax, ay, az);
+    quaternion_to_euler(&euler, &ahrs->q);
 
-    /* 计算参考磁场方向 (在水平面内) */
-    float bx = sqrtf(hx * hx + hy * hy);
-    float bz = hz;
+    /* 倾斜补偿磁航向，仅直接修正 yaw。 */
+    mag_xh = mx * cosf(euler.pitch) +
+             my * sinf(euler.roll) * sinf(euler.pitch) +
+             mz * cosf(euler.roll) * sinf(euler.pitch);
+    mag_yh = my * cosf(euler.roll) - mz * sinf(euler.roll);
+    if (fabsf(mag_xh) < 1e-6f && fabsf(mag_yh) < 1e-6f) {
+        return;
+    }
 
-    /* 从四元数估计地球坐标系的磁场方向 */
-    float wx = bx * (0.5f - q2 * q2 - q3 * q3) + bz * (q1 * q3 - q0 * q2);
-    float wy = bx * (q1 * q2 - q0 * q3) + bz * (q0 * q1 + q2 * q3);
-    float wz = bx * (q0 * q2 + q1 * q3) + bz * (0.5f - q1 * q1 - q2 * q2);
+    yaw_mag = atan2f(-mag_yh, mag_xh);
+    yaw_error = wrap_pi(yaw_mag - euler.yaw);
 
-    /* 估计重力方向 */
-    float vx = 2.0f * (q1 * q3 - q0 * q2);
-    float vy = 2.0f * (q0 * q1 + q2 * q3);
-    float vz = q0 * q0 - q1 * q1 - q2 * q2 + q3 * q3;
+    /* 磁力计只做缓慢偏航校正，避免畸变磁航向在动态时直接把yaw拉偏。 */
+    yaw_correction = clampf(ahrs->kp_mag * yaw_error * ahrs->dt,
+                            -AHRS_MAG_YAW_CORR_MAX_RAD,
+                            AHRS_MAG_YAW_CORR_MAX_RAD);
+    euler.yaw = wrap_pi(euler.yaw + yaw_correction);
 
-    /* 误差计算 (叉积) */
-    /* 加速度误差 */
-    float ex1 = ay * vz - az * vy;
-    float ey1 = az * vx - ax * vz;
-    float ez1 = ax * vy - ay * vx;
+    euler_to_quaternion(&ahrs->q, &euler);
+    quat_normalize(&ahrs->q);
+}
 
-    /* 磁力计误差 */
-    float ex2 = my * wz - mz * wy;
-    float ey2 = mz * wx - mx * wz;
-    float ez2 = mx * wy - my * wx;
+static float clampf(float value, float min_value, float max_value)
+{
+    if (value < min_value) {
+        return min_value;
+    }
+    if (value > max_value) {
+        return max_value;
+    }
+    return value;
+}
 
-    /* 合并误差 (加权平均) */
-    float ex = ex1 + ex2;
-    float ey = ey1 + ey2;
-    float ez = ez1 + ez2;
+static float wrap_pi(float angle_rad)
+{
+    const float pi = 3.14159265358979323846f;
+    const float two_pi = 2.0f * pi;
 
-    /* 积分误差 */
-    eInt->x += ex * ahrs->ki_mag * ahrs->dt;
-    eInt->y += ey * ahrs->ki_mag * ahrs->dt;
-    eInt->z += ez * ahrs->ki_mag * ahrs->dt;
-
-    /* PI控制器校正 */
-    gx += ahrs->kp_mag * ex + eInt->x;
-    gy += ahrs->kp_mag * ey + eInt->y;
-    gz += ahrs->kp_mag * ez + eInt->z;
-
-    /* 四元数积分 */
-    float qDot0 = 0.5f * (-q1 * gx - q2 * gy - q3 * gz);
-    float qDot1 = 0.5f * ( q0 * gx + q2 * gz - q3 * gy);
-    float qDot2 = 0.5f * ( q0 * gy - q1 * gz + q3 * gx);
-    float qDot3 = 0.5f * ( q0 * gz + q1 * gy - q2 * gx);
-
-    q->w += qDot0 * ahrs->dt;
-    q->x += qDot1 * ahrs->dt;
-    q->y += qDot2 * ahrs->dt;
-    q->z += qDot3 * ahrs->dt;
-
-    quat_normalize(q);
+    while (angle_rad > pi) {
+        angle_rad -= two_pi;
+    }
+    while (angle_rad < -pi) {
+        angle_rad += two_pi;
+    }
+    return angle_rad;
 }
 
 /* ============================================================================
@@ -564,7 +571,6 @@ bool ahrs_accel_valid(const vec3f_t *accel)
     if (accel == NULL) return false;
 
     float norm = sqrtf(accel->x * accel->x + accel->y * accel->y + accel->z * accel->z);
-    norm /= GRAVITY_STANDARD;  /* 转换为g单位 */
 
     return (norm >= AHRS_ACCEL_NORM_MIN && norm <= AHRS_ACCEL_NORM_MAX);
 }

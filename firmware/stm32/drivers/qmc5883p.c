@@ -8,7 +8,7 @@
  * @hardware
  *   - 芯片型号: QMC5883P
  *   - 接口: I2C1 (PB6=SCL, PB7=SDA)
- *   - I2C地址: 0x0D
+ *   - I2C地址: 运行时自动探测
  */
 
 #include "qmc5883p.h"
@@ -19,7 +19,9 @@
  * ============================================================================ */
 
 #define QMC5883P_TIMEOUT_DEFAULT    100U    /* 默认超时时间 (ms) */
-#define QMC5883P_RESET_DELAY_MS     70U     /* 复位后等待时间,参考代码使用70ms */
+#define QMC5883P_RESET_DELAY_MS     10U     /* 与已验证 sensor_test_main.c 保持一致 */
+#define QMC5883P_STARTUP_DELAY_MS   20U     /* 连续模式启动等待 */
+#define QMC5883P_AXIS_SIGN_VALUE    0x06U   /* Rev.C 推荐值 */
 
 /* 温度转换系数 */
 #define QMC5883P_TEMP_SCALE         100.0f  /* 温度转换系数 */
@@ -32,6 +34,7 @@ static hal_status_t qmc5883p_write_reg(qmc5883p_handle_t *hqmc, uint8_t reg, uin
 static hal_status_t qmc5883p_read_reg(qmc5883p_handle_t *hqmc, uint8_t reg, uint8_t *data);
 static hal_status_t qmc5883p_read_regs(qmc5883p_handle_t *hqmc, uint8_t reg, uint8_t *data, uint16_t len);
 static hal_status_t qmc5883p_config(qmc5883p_handle_t *hqmc, qmc5883p_odr_t odr, qmc5883p_osr_t osr);
+static hal_status_t qmc5883p_try_probe(qmc5883p_handle_t *hqmc, uint16_t addr, qmc5883p_layout_t layout);
 static void qmc5883p_delay_ms(uint32_t ms);
 
 /* ============================================================================
@@ -84,14 +87,25 @@ static hal_status_t qmc5883p_config(qmc5883p_handle_t *hqmc, qmc5883p_odr_t odr,
     hal_status_t status;
     uint8_t ctrl1;
 
-    /* 构建CTRL1寄存器值: ODR + OSR + mode */
-    /* 注意: RNG在CTRL2设置, 不在CTRL1 */
-    ctrl1 = 0;
-    ctrl1 |= (odr << QMC5883P_CTRL1_ODR_Pos) & QMC5883P_CTRL1_ODR_Msk;
-    ctrl1 |= (osr << QMC5883P_CTRL1_OSR_Pos) & QMC5883P_CTRL1_OSR_Msk;
-    ctrl1 |= QMC5883P_CTRL1_MODE_CONT;  /* 连续测量模式 */
+    if (hqmc->layout == QMC5883P_LAYOUT_OFFICIAL) {
+        if (hqmc->reg_axis_sign != 0xFFU) {
+            status = qmc5883p_write_reg(hqmc, hqmc->reg_axis_sign, QMC5883P_AXIS_SIGN_VALUE);
+            if (status != HAL_OK) {
+                return status;
+            }
+        }
 
-    status = qmc5883p_write_reg(hqmc, QMC5883P_REG_CTRL1, ctrl1);
+        status = qmc5883p_write_reg(hqmc, hqmc->reg_ctrl2, 0x08U);
+        if (status != HAL_OK) {
+            return status;
+        }
+
+        ctrl1 = 0xC3U;
+    } else {
+        ctrl1 = 0x79U;
+    }
+
+    status = qmc5883p_write_reg(hqmc, hqmc->reg_ctrl1, ctrl1);
     if (status != HAL_OK) {
         return status;
     }
@@ -99,6 +113,73 @@ static hal_status_t qmc5883p_config(qmc5883p_handle_t *hqmc, qmc5883p_odr_t odr,
     /* 保存配置 */
     hqmc->odr = odr;
     hqmc->osr = osr;
+
+    return HAL_OK;
+}
+
+static hal_status_t qmc5883p_try_probe(qmc5883p_handle_t *hqmc, uint16_t addr, qmc5883p_layout_t layout)
+{
+    hal_status_t status;
+    uint8_t chip_id = 0U;
+    uint8_t sample[6];
+
+    hqmc->dev_addr = addr;
+    hqmc->layout = layout;
+    hqmc->reg_set_reset = 0xFFU;
+    hqmc->reg_axis_sign = 0xFFU;
+
+    if (layout == QMC5883P_LAYOUT_OFFICIAL) {
+        hqmc->reg_ctrl1 = QMC5883P_REG_CTRL1;
+        hqmc->reg_ctrl2 = QMC5883P_REG_CTRL2;
+        hqmc->reg_status = QMC5883P_REG_STATUS;
+        hqmc->reg_data_start = QMC5883P_REG_XOUT_L;
+        hqmc->reg_axis_sign = QMC5883P_REG_AXIS_SIGN;
+        status = qmc5883p_read_reg(hqmc, QMC5883P_REG_CHIP_ID, &chip_id);
+        if (status != HAL_OK || chip_id != QMC5883P_CHIP_ID_VALUE) {
+            return HAL_ERROR;
+        }
+    } else {
+        hqmc->reg_ctrl1 = QMC5883L_REG_CTRL1;
+        hqmc->reg_ctrl2 = QMC5883L_REG_CTRL2;
+        hqmc->reg_status = QMC5883L_REG_STATUS;
+        hqmc->reg_data_start = QMC5883L_REG_XOUT_L;
+        hqmc->reg_set_reset = QMC5883L_REG_SET_RESET;
+        status = qmc5883p_read_reg(hqmc, QMC5883L_REG_CHIP_ID, &chip_id);
+        if (status != HAL_OK || chip_id != QMC5883L_CHIP_ID_VALUE) {
+            return HAL_ERROR;
+        }
+    }
+
+    hqmc->chip_id = chip_id;
+
+    status = qmc5883p_reset(hqmc);
+    if (status != HAL_OK) {
+        return status;
+    }
+
+    qmc5883p_delay_ms(QMC5883P_RESET_DELAY_MS);
+
+    if (hqmc->reg_set_reset != 0xFFU) {
+        status = qmc5883p_write_reg(hqmc, hqmc->reg_set_reset, 0x01U);
+        if (status != HAL_OK) {
+            return status;
+        }
+    }
+
+    hqmc->range = QMC5883P_RNG_8G;
+    hqmc->odr = QMC5883P_ODR_200_HZ;
+    hqmc->osr = QMC5883P_OSR_512;
+    status = qmc5883p_config(hqmc, hqmc->odr, hqmc->osr);
+    if (status != HAL_OK) {
+        return status;
+    }
+
+    qmc5883p_delay_ms(QMC5883P_STARTUP_DELAY_MS);
+
+    status = qmc5883p_read_regs(hqmc, hqmc->reg_data_start, sample, sizeof(sample));
+    if (status != HAL_OK) {
+        return status;
+    }
 
     return HAL_OK;
 }
@@ -121,45 +202,17 @@ hal_status_t qmc5883p_init(qmc5883p_handle_t *hqmc, i2c_handle_t *hi2c)
     /* 初始化句柄 */
     memset(hqmc, 0, sizeof(qmc5883p_handle_t));
     hqmc->i2c = hi2c;
-    hqmc->dev_addr = QMC5883P_I2C_ADDR;
     hqmc->timeout = QMC5883P_TIMEOUT_DEFAULT;
+    hqmc->reg_set_reset = 0xFFU;
 
-    /* 软件复位 */
-    status = qmc5883p_reset(hqmc);
+    status = qmc5883p_try_probe(hqmc, QMC5883P_I2C_ADDR, QMC5883P_LAYOUT_OFFICIAL);
     if (status != HAL_OK) {
-        return status;
+        status = qmc5883p_try_probe(hqmc, QMC5883P_I2C_ADDR_LEGACY, QMC5883P_LAYOUT_LEGACY);
+        if (status != HAL_OK) {
+            return status;
+        }
     }
 
-    qmc5883p_delay_ms(QMC5883P_RESET_DELAY_MS);
-
-    /* 配置CTRL2量程: ±2G (bits[3:2]=0x00) */
-    /* 注意: 参考代码中量程在CTRL2设置, 不是CTRL1 */
-    status = qmc5883p_write_reg(hqmc, QMC5883P_REG_CTRL2, QMC5883P_CTRL2_RNG_2G);
-    if (status != HAL_OK) {
-        return status;
-    }
-    hqmc->range = QMC5883P_RNG_2G;
-
-    /* 使用参考代码配置: 200Hz ODR, ±8G量程, OSR=4/2 */
-    /* 参考代码: mode=0x01, ODR=0x03<<2, OSR1=0x01<<4, OSR2=0x01<<6 = 0x5D */
-    /* CTRL1 = 0x5D (200Hz, normal mode, OSR1=4, OSR2=2) */
-
-    /* 先进入suspend模式 (参考代码第一步) */
-    status = qmc5883p_write_reg(hqmc, QMC5883P_REG_CTRL1, 0x00);
-    if (status != HAL_OK) {
-        return status;
-    }
-
-    /* 配置CTRL1: 参考代码值 0x5D */
-    /* 0x5D = 0b01011101 = mode=01, ODR=11(200Hz), OSR1=01, OSR2=01 */
-    status = qmc5883p_write_reg(hqmc, QMC5883P_REG_CTRL1, 0x5D);
-    if (status != HAL_OK) {
-        return status;
-    }
-    hqmc->odr = QMC5883P_ODR_200_HZ;
-    hqmc->osr = QMC5883P_OSR_256;
-
-    /* 标记初始化完成, 不在init中等待DRDY -- 数据就绪检查在read_data中进行 */
     hqmc->initialized = 1;
 
     return HAL_OK;
@@ -177,7 +230,7 @@ hal_status_t qmc5883p_deinit(qmc5883p_handle_t *hqmc)
     }
 
     /* 进入待机模式 */
-    status = qmc5883p_write_reg(hqmc, QMC5883P_REG_CTRL1, 0x00);
+    status = qmc5883p_write_reg(hqmc, hqmc->reg_ctrl1, 0x00);
     if (status != HAL_OK) {
         return status;
     }
@@ -193,38 +246,23 @@ hal_status_t qmc5883p_deinit(qmc5883p_handle_t *hqmc)
 hal_status_t qmc5883p_read_data(qmc5883p_handle_t *hqmc, qmc5883p_data_t *data)
 {
     hal_status_t status;
-    uint8_t buffer[6];  /* X_L, X_H, Y_L, Y_H, Z_L, Z_H (参考代码读6字节) */
+    uint8_t buffer[6];
     int16_t mag_x, mag_y, mag_z;
 
     if (hqmc == NULL || data == NULL || !hqmc->initialized) {
         return HAL_ERROR;
     }
 
-    /* 检查数据就绪状态，未就绪则返回HAL_BUSY让调用者重试 */
-    {
-        uint8_t ready = 0U;
-        status = qmc5883p_data_ready(hqmc, &ready);
-        if (status != HAL_OK) {
-            return status;
-        }
-        if (!ready) {
-            return HAL_BUSY;
-        }
+    /* 真机上 STATUS/DRDY 不稳定，直接读取最新转换结果。 */
+
+    status = qmc5883p_read_regs(hqmc, hqmc->reg_data_start, buffer, sizeof(buffer));
+    if (status != HAL_OK) {
+        return status;
     }
 
-    /* 使用单独寄存器读取测试,参考代码使用6字节burst read */
-    /* 如果burst read有问题,单独读取可以验证 */
-    uint8_t xl, xh, yl, yh, zl, zh;
-    qmc5883p_read_reg(hqmc, QMC5883P_REG_XOUT_L, &xl);
-    qmc5883p_read_reg(hqmc, QMC5883P_REG_XOUT_H, &xh);
-    qmc5883p_read_reg(hqmc, QMC5883P_REG_YOUT_L, &yl);
-    qmc5883p_read_reg(hqmc, QMC5883P_REG_YOUT_H, &yh);
-    qmc5883p_read_reg(hqmc, QMC5883P_REG_ZOUT_L, &zl);
-    qmc5883p_read_reg(hqmc, QMC5883P_REG_ZOUT_H, &zh);
-
-    mag_x = (int16_t)((xh << 8) | xl);
-    mag_y = (int16_t)((yh << 8) | yl);
-    mag_z = (int16_t)((zh << 8) | zl);
+    mag_x = (int16_t)((buffer[1] << 8) | buffer[0]);
+    mag_y = (int16_t)((buffer[3] << 8) | buffer[2]);
+    mag_z = (int16_t)((buffer[5] << 8) | buffer[4]);
 
     /* 填充数据结构体 */
     data->mag_x = mag_x;
@@ -267,12 +305,16 @@ hal_status_t qmc5883p_set_range(qmc5883p_handle_t *hqmc, qmc5883p_rng_t rng)
 
     /* 量程在CTRL2设置, bits[3:2]: 0x00=±2G, 0x02=±8G */
     ctrl2 = (uint8_t)(rng << QMC5883P_CTRL2_RNG_Pos);
-    status = qmc5883p_write_reg(hqmc, QMC5883P_REG_CTRL2, ctrl2);
+    hqmc->range = rng;
+    if (hqmc->layout == QMC5883P_LAYOUT_OFFICIAL) {
+        return qmc5883p_config(hqmc, hqmc->odr, hqmc->osr);
+    }
+
+    status = qmc5883p_write_reg(hqmc, hqmc->reg_ctrl2, ctrl2);
     if (status != HAL_OK) {
         return status;
     }
 
-    hqmc->range = rng;
     return HAL_OK;
 }
 
@@ -300,7 +342,7 @@ hal_status_t qmc5883p_data_ready(qmc5883p_handle_t *hqmc, uint8_t *ready)
         return HAL_ERROR;
     }
 
-    status = qmc5883p_read_reg(hqmc, QMC5883P_REG_STATUS, &status_reg);
+    status = qmc5883p_read_reg(hqmc, hqmc->reg_status, &status_reg);
     if (status != HAL_OK) {
         return status;
     }
@@ -323,13 +365,12 @@ hal_status_t qmc5883p_reset(qmc5883p_handle_t *hqmc)
     }
 
     /* 设置软复位位 (bit7 = 0x80) */
-    status = qmc5883p_write_reg(hqmc, QMC5883P_REG_CTRL2, QMC5883P_CTRL2_SOFTRST);
+    status = qmc5883p_write_reg(hqmc, hqmc->reg_ctrl2, QMC5883P_CTRL2_SOFTRST);
     if (status != HAL_OK) {
         return status;
     }
 
-    /* 等待复位完成 - 参考代码使用70ms固定延迟 */
-    qmc5883p_delay_ms(70U);
+    qmc5883p_delay_ms(QMC5883P_RESET_DELAY_MS);
 
     return HAL_OK;
 }

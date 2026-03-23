@@ -8,8 +8,8 @@
  * @hardware
  *   - 芯片型号: QMC5883P (三轴磁力计)
  *   - 接口: I2C1 (PB6=SCL, PB7=SDA)
- *   - I2C地址: 0x0D
- *   - CHIP_ID寄存器: 0x00, 默认值 0x80
+ *   - I2C地址: 官方 QMC5883P 为 0x2C
+ *   - 兼容历史工程中误用的 QMC5883L 风格寄存器表
  *
  * @datasheet
  *   - 磁场数据: 16位有符号整数, 小端序
@@ -32,34 +32,51 @@ extern "C" {
  * ============================================================================ */
 
 /**
- * @brief QMC5883P I2C设备地址
- * @note 固定地址 0x2C (7-bit)
- *       0x2C = 0x16 << 1 (与pinout.md一致)
+ * @brief QMC5883P 官方 I2C 设备地址
+ * @note QST QMC5883P Datasheet Rev.C 给出的 7-bit 地址为 0x2C
  */
 #define QMC5883P_I2C_ADDR           0x2CU
 
 /**
+ * @brief 兼容旧版 QMC5883L 风格地址
+ */
+#define QMC5883P_I2C_ADDR_LEGACY    0x0DU
+
+/**
  * @brief CHIP_ID 预期值
- * @note QMC5883P芯片ID寄存器位于0x00，读取值为0x80
+ * @note 当前正式驱动未使用 CHIP_ID 校验，此值保留仅供参考
  */
 #define QMC5883P_CHIP_ID_VALUE      0x80U
+#define QMC5883L_CHIP_ID_VALUE      0xFFU
 
 /* ============================================================================
  * QMC5883P 寄存器地址定义
  * ============================================================================ */
 
-#define QMC5883P_REG_CHIP_ID        0x00U   /**< 芯片ID寄存器 (默认值0x80) */
+#define QMC5883P_REG_CHIP_ID        0x00U   /**< 官方手册 CHIP_ID */
 #define QMC5883P_REG_XOUT_L         0x01U   /**< X轴数据低字节 */
 #define QMC5883P_REG_XOUT_H         0x02U   /**< X轴数据高字节 */
 #define QMC5883P_REG_YOUT_L         0x03U   /**< Y轴数据低字节 */
 #define QMC5883P_REG_YOUT_H         0x04U   /**< Y轴数据高字节 */
 #define QMC5883P_REG_ZOUT_L         0x05U   /**< Z轴数据低字节 */
 #define QMC5883P_REG_ZOUT_H         0x06U   /**< Z轴数据高字节 */
-#define QMC5883P_REG_TOUT_L         0x07U   /**< 温度数据低字节 */
-#define QMC5883P_REG_TOUT_H         0x08U   /**< 温度数据高字节 */
-#define QMC5883P_REG_STATUS         0x09U   /**< 状态寄存器 */
-#define QMC5883P_REG_CTRL1          0x0AU   /**< 控制寄存器1 (模式/ODR/量程/OSR) */
-#define QMC5883P_REG_CTRL2          0x0BU   /**< 控制寄存器2 (软复位/中断) */
+#define QMC5883P_REG_STATUS         0x09U   /**< 官方手册状态寄存器 */
+#define QMC5883P_REG_CTRL1          0x0AU   /**< 官方手册控制寄存器1 */
+#define QMC5883P_REG_CTRL2          0x0BU   /**< 官方手册控制寄存器2 */
+#define QMC5883P_REG_AXIS_SIGN      0x29U   /**< 官方手册轴极性寄存器 */
+
+#define QMC5883L_REG_CHIP_ID        0x0DU   /**< QMC5883L 风格 CHIP_ID */
+#define QMC5883L_REG_XOUT_L         0x00U   /**< QMC5883L 风格 X轴数据低字节 */
+#define QMC5883L_REG_STATUS         0x06U   /**< QMC5883L 风格状态寄存器 */
+#define QMC5883L_REG_CTRL1          0x09U   /**< QMC5883L 风格控制寄存器1 */
+#define QMC5883L_REG_CTRL2          0x0AU   /**< QMC5883L 风格控制寄存器2 */
+#define QMC5883L_REG_SET_RESET      0x0BU   /**< QMC5883L 风格 SET/RESET 周期寄存器 */
+
+typedef enum {
+    QMC5883P_LAYOUT_UNKNOWN = 0,
+    QMC5883P_LAYOUT_OFFICIAL,
+    QMC5883P_LAYOUT_LEGACY
+} qmc5883p_layout_t;
 
 /* ============================================================================
  * STATUS 寄存器位定义
@@ -133,8 +150,8 @@ typedef enum {
  * 灵敏度系数定义
  * ============================================================================ */
 
-#define QMC5883P_SENSITIVITY_2G     12000.0f    /**< ±2G量程灵敏度: 12000 LSB/G */
-#define QMC5883P_SENSITIVITY_8G     3000.0f     /**< ±8G量程灵敏度: 3000 LSB/G */
+#define QMC5883P_SENSITIVITY_2G     15000.0f    /**< Rev.C ±2G量程灵敏度: 15000 LSB/G */
+#define QMC5883P_SENSITIVITY_8G     3750.0f     /**< Rev.C ±8G量程灵敏度: 3750 LSB/G */
 
 /* ============================================================================
  * QMC5883P 句柄结构体
@@ -148,6 +165,14 @@ typedef struct {
     qmc5883p_osr_t  osr;            /**< 当前过采样率 */
     uint32_t        timeout;        /**< 默认超时时间 (ms) */
     uint8_t         initialized;    /**< 初始化标志 */
+    qmc5883p_layout_t layout;       /**< 探测到的寄存器布局 */
+    uint8_t         chip_id;        /**< 启动时读到的 CHIP_ID */
+    uint8_t         reg_data_start; /**< 当前数据起始寄存器地址 */
+    uint8_t         reg_status;     /**< 当前状态寄存器地址 */
+    uint8_t         reg_ctrl1;      /**< 当前控制寄存器1地址 */
+    uint8_t         reg_ctrl2;      /**< 当前控制寄存器2地址 */
+    uint8_t         reg_set_reset;  /**< 当前 SET/RESET 寄存器地址, 0xFF 表示无 */
+    uint8_t         reg_axis_sign;  /**< 当前轴符号寄存器地址, 0xFF 表示无 */
 } qmc5883p_handle_t;
 
 /* ============================================================================

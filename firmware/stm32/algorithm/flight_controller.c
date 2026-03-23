@@ -39,6 +39,7 @@ static void run_attitude_controller(flight_controller_t *fc, float *roll_rate_sp
 static void run_rate_controller(flight_controller_t *fc, float roll_rate_sp, float pitch_rate_sp, float *roll_out, float *pitch_out, float *yaw_out);
 static void update_motors_with_outputs(flight_controller_t *fc, float roll_out, float pitch_out, float yaw_out);
 static void reset_controllers(flight_controller_t *fc);
+static float wrap_degrees(float angle_deg);
 
 /* ============================================================================
  * API实现 - 初始化和配置
@@ -72,8 +73,11 @@ hal_status_t flight_controller_init(flight_controller_t *fc, const flight_contro
     /* 初始状态 */
     fc->mode = FLIGHT_MODE_DISARMED;
     fc->state = FLIGHT_STATE_IDLE;
+    fc->use_mag = params->use_mag;
     fc->initialized = true;
     fc->motors_armed = false;
+    fc->yaw_zero_deg = 0.0f;
+    fc->yaw_zero_valid = false;
 
     return HAL_OK;
 }
@@ -398,7 +402,9 @@ void mixer_quad_x(float throttle, float roll, float pitch, float yaw, motor_outp
  */
 static void update_attitude(flight_controller_t *fc)
 {
-    if (fc->mag_valid) {
+    euler_angle_t absolute_attitude;
+
+    if (fc->use_mag && fc->mag_valid) {
         /* 9轴更新 */
         ahrs_update_9axis(&fc->ahrs, &fc->gyro, &fc->accel, &fc->mag);
     } else {
@@ -406,8 +412,20 @@ static void update_attitude(flight_controller_t *fc)
         ahrs_update_6axis(&fc->ahrs, &fc->gyro, &fc->accel);
     }
 
-    /* 获取欧拉角 (度) */
-    ahrs_get_euler_deg(&fc->ahrs, &fc->attitude);
+    /* 获取欧拉角 (度)。AHRS内部保持磁北参考，输出层再转成以上电朝向为零点的相对yaw。 */
+    ahrs_get_euler_deg(&fc->ahrs, &absolute_attitude);
+
+    if (fc->use_mag && fc->mag_valid) {
+        if (!fc->yaw_zero_valid) {
+            fc->yaw_zero_deg = absolute_attitude.yaw;
+            fc->yaw_zero_valid = true;
+        }
+        absolute_attitude.yaw = wrap_degrees(absolute_attitude.yaw - fc->yaw_zero_deg);
+    } else {
+        fc->yaw_zero_valid = false;
+    }
+
+    fc->attitude = absolute_attitude;
 
     /* 转换为弧度供PID使用 */
     fc->attitude_rad.x = fc->attitude.roll * (float)M_PI / 180.0f;
@@ -499,4 +517,15 @@ static void update_motors_with_outputs(flight_controller_t *fc, float roll_out, 
 static void reset_controllers(flight_controller_t *fc)
 {
     flight_pid_reset_all(&fc->pid_set);
+}
+
+static float wrap_degrees(float angle_deg)
+{
+    while (angle_deg > 180.0f) {
+        angle_deg -= 360.0f;
+    }
+    while (angle_deg < -180.0f) {
+        angle_deg += 360.0f;
+    }
+    return angle_deg;
 }

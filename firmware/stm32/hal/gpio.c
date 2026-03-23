@@ -25,6 +25,7 @@
 #define RCC_AHB1ENR_GPIOEEN (1U << 4)
 #define RCC_AHB1ENR_GPIOHEN (1U << 7)
 
+#ifndef FLIGHT_COMPAT_HAVE_GPIO_TYPEDEF
 typedef struct {
     volatile uint32_t MODER;
     volatile uint32_t OTYPER;
@@ -37,6 +38,14 @@ typedef struct {
     volatile uint32_t AFRL;
     volatile uint32_t AFRH;
 } GPIO_TypeDef;
+#else
+#ifndef AFRL
+#define AFRL AFR[0]
+#endif
+#ifndef AFRH
+#define AFRH AFR[1]
+#endif
+#endif
 
 static GPIO_TypeDef *const GPIO_PORTS[] = {
     (GPIO_TypeDef *)GPIOA_BASE,

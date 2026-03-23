@@ -88,6 +88,7 @@ typedef struct {
     vec3f_t accel;                          /**< 加速度计数据 */
     vec3f_t gyro;                           /**< 陀螺仪数据 */
     vec3f_t mag;                            /**< 磁力计数据 */
+    vec3f_t gyro_bias;                      /**< 静止校准得到的陀螺仪零偏 */
     bool mag_valid;                         /**< 磁力计数据有效 */
 
     /* 时间跟踪 */
