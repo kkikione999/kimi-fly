@@ -43,6 +43,17 @@ typedef struct {
     const char *name;
 } auto_tether_stage_t;
 
+typedef struct {
+    float roll_min;
+    float roll_max;
+    float pitch_min;
+    float pitch_max;
+    float last_roll;
+    float last_pitch;
+    uint32_t start_ms;
+    bool valid;
+} auto_tether_stage_stats_t;
+
 #define AUTO_TETHER_ABORT_ROLL_DEG          8.0f
 #define AUTO_TETHER_ABORT_PITCH_DEG         8.0f
 #define AUTO_TETHER_ABORT_HOLD_MS           120U
@@ -54,9 +65,10 @@ static const auto_tether_stage_t k_auto_tether_stages[] = {
     {3000U, 0.00f, 0.00f, false, FLIGHT_MODE_DISARMED, "PREP"},
     {1500U, 0.00f, 0.00f, true,  FLIGHT_MODE_ARMED,    "ARM_CAPTURE"},
     {3000U, 0.09f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_09"},
-    {3000U, 0.12f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_12"},
-    {3000U, 0.15f, AUTO_TETHER_STAB_15_ROLL_TRIM, true, FLIGHT_MODE_STABILIZE, "STAB_15"},
-    {3000U, 0.18f, AUTO_TETHER_STAB_18_ROLL_TRIM, true, FLIGHT_MODE_STABILIZE, "STAB_18"},
+    {2500U, 0.12f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_12"},
+    {2000U, 0.15f, AUTO_TETHER_STAB_15_ROLL_TRIM, true, FLIGHT_MODE_STABILIZE, "STAB_15"},
+    {1500U, 0.12f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"RECOVER_12_PRE18"},
+    {1500U, 0.18f, AUTO_TETHER_STAB_18_ROLL_TRIM, true, FLIGHT_MODE_STABILIZE, "STAB_18_PROBE"},
     {2000U, 0.12f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_12_COOLDOWN"},
     {1000U, 0.00f, 0.00f, false, FLIGHT_MODE_DISARMED, "DISARM"},
 };
@@ -79,6 +91,12 @@ static const auto_tether_stage_t k_auto_tether_stages[] = {
 #define AUTO_TETHER_DISARM_STAGE_INDEX      (sizeof(k_auto_tether_stages) / sizeof(k_auto_tether_stages[0]) - 1U)
 
 static void auto_tether_balance_test_update(flight_main_handle_t *flight);
+static void auto_tether_stage_stats_reset(auto_tether_stage_stats_t *stats, uint32_t start_ms);
+static void auto_tether_stage_stats_update(auto_tether_stage_stats_t *stats, const euler_angle_t *attitude);
+static void auto_tether_stage_stats_report(size_t stage_index,
+                                           const auto_tether_stage_t *stage,
+                                           const auto_tether_stage_stats_t *stats,
+                                           uint32_t elapsed_ms);
 #endif
 
 /* ============================================================================
@@ -523,13 +541,17 @@ static void auto_tether_balance_test_update(flight_main_handle_t *flight)
     static bool abort_logged = false;
     static uint32_t sequence_start_ms = 0U;
     static uint32_t tilt_exceed_since_ms = 0U;
+    static uint32_t stage_start_elapsed_ms = 0U;
     static size_t announced_stage_index = (size_t)-1;
+    static size_t active_stage_index = (size_t)-1;
     static size_t stage_index = 0U;
+    static auto_tether_stage_stats_t stage_stats = {0};
     uint32_t elapsed_ms = 0U;
     uint32_t accumulated_ms = 0U;
     rc_command_t cmd = {0};
     const auto_tether_stage_t *stage = NULL;
     euler_angle_t attitude = {0.0f, 0.0f, 0.0f};
+    bool attitude_valid = false;
 
     if (flight == NULL || !flight->initialized || !flight->sensors_ok) {
         return;
@@ -540,8 +562,11 @@ static void auto_tether_balance_test_update(flight_main_handle_t *flight)
         sequence_start_ms = platform_get_time_ms();
         stage_index = 0U;
         announced_stage_index = (size_t)-1;
+        active_stage_index = (size_t)-1;
         abort_logged = false;
         tilt_exceed_since_ms = 0U;
+        stage_start_elapsed_ms = 0U;
+        auto_tether_stage_stats_reset(&stage_stats, 0U);
         platform_debug_print("[AUTO_TEST] Enabled on %s, stages=%u\r\n",
                              __DATE__,
                              (unsigned)(sizeof(k_auto_tether_stages) / sizeof(k_auto_tether_stages[0])));
@@ -561,8 +586,9 @@ static void auto_tether_balance_test_update(flight_main_handle_t *flight)
     }
 
     elapsed_ms = platform_get_time_ms() - sequence_start_ms;
+    attitude_valid = flight_controller_get_attitude(&flight->flight_ctrl, &attitude);
 
-    if (flight_controller_get_attitude(&flight->flight_ctrl, &attitude) &&
+    if (attitude_valid &&
         flight_controller_is_armed(&flight->flight_ctrl) &&
         stage_index >= 2U &&
         !finished) {
@@ -606,9 +632,28 @@ static void auto_tether_balance_test_update(flight_main_handle_t *flight)
     }
 
     if (stage == NULL) {
+        if (active_stage_index < (sizeof(k_auto_tether_stages) / sizeof(k_auto_tether_stages[0]))) {
+            auto_tether_stage_stats_report(active_stage_index,
+                                           &k_auto_tether_stages[active_stage_index],
+                                           &stage_stats,
+                                           elapsed_ms);
+            active_stage_index = (size_t)-1;
+        }
         finished = true;
         platform_debug_print("[AUTO_TEST] COMPLETE total=%lu ms\r\n", (unsigned long)elapsed_ms);
         return;
+    }
+
+    if (active_stage_index != stage_index) {
+        if (active_stage_index < (sizeof(k_auto_tether_stages) / sizeof(k_auto_tether_stages[0]))) {
+            auto_tether_stage_stats_report(active_stage_index,
+                                           &k_auto_tether_stages[active_stage_index],
+                                           &stage_stats,
+                                           elapsed_ms);
+        }
+        active_stage_index = stage_index;
+        stage_start_elapsed_ms = elapsed_ms;
+        auto_tether_stage_stats_reset(&stage_stats, stage_start_elapsed_ms);
     }
 
     if (announced_stage_index != stage_index) {
@@ -621,6 +666,10 @@ static void auto_tether_balance_test_update(flight_main_handle_t *flight)
                              (unsigned)stage->mode,
                              (unsigned long)elapsed_ms);
         announced_stage_index = stage_index;
+    }
+
+    if (attitude_valid) {
+        auto_tether_stage_stats_update(&stage_stats, &attitude);
     }
 
     cmd.throttle = stage->throttle;
@@ -642,6 +691,82 @@ static void auto_tether_balance_test_update(flight_main_handle_t *flight)
 
     /* 没有 WiFi 遥控链路时，自动系绳测试本身就是“本地控制源”。 */
     flight->wifi_cmd.last_rx_time = platform_get_time_ms();
+}
+
+static void auto_tether_stage_stats_reset(auto_tether_stage_stats_t *stats, uint32_t start_ms)
+{
+    if (stats == NULL) {
+        return;
+    }
+
+    stats->roll_min = 0.0f;
+    stats->roll_max = 0.0f;
+    stats->pitch_min = 0.0f;
+    stats->pitch_max = 0.0f;
+    stats->last_roll = 0.0f;
+    stats->last_pitch = 0.0f;
+    stats->start_ms = start_ms;
+    stats->valid = false;
+}
+
+static void auto_tether_stage_stats_update(auto_tether_stage_stats_t *stats, const euler_angle_t *attitude)
+{
+    if (stats == NULL || attitude == NULL) {
+        return;
+    }
+
+    if (!stats->valid) {
+        stats->roll_min = attitude->roll;
+        stats->roll_max = attitude->roll;
+        stats->pitch_min = attitude->pitch;
+        stats->pitch_max = attitude->pitch;
+        stats->valid = true;
+    } else {
+        if (attitude->roll < stats->roll_min) {
+            stats->roll_min = attitude->roll;
+        }
+        if (attitude->roll > stats->roll_max) {
+            stats->roll_max = attitude->roll;
+        }
+        if (attitude->pitch < stats->pitch_min) {
+            stats->pitch_min = attitude->pitch;
+        }
+        if (attitude->pitch > stats->pitch_max) {
+            stats->pitch_max = attitude->pitch;
+        }
+    }
+
+    stats->last_roll = attitude->roll;
+    stats->last_pitch = attitude->pitch;
+}
+
+static void auto_tether_stage_stats_report(size_t stage_index,
+                                           const auto_tether_stage_t *stage,
+                                           const auto_tether_stage_stats_t *stats,
+                                           uint32_t elapsed_ms)
+{
+    if (stage == NULL || stats == NULL) {
+        return;
+    }
+
+    if (!stats->valid) {
+        platform_debug_print("[AUTO_TEST] result stage=%u name=%s dt=%lu no_att=1\r\n",
+                             (unsigned)stage_index,
+                             stage->name,
+                             (unsigned long)(elapsed_ms - stats->start_ms));
+        return;
+    }
+
+    platform_debug_print("[AUTO_TEST] result stage=%u name=%s dt=%lu roll_min=%.2f roll_max=%.2f pitch_min=%.2f pitch_max=%.2f final_r=%.2f final_p=%.2f\r\n",
+                         (unsigned)stage_index,
+                         stage->name,
+                         (unsigned long)(elapsed_ms - stats->start_ms),
+                         (double)stats->roll_min,
+                         (double)stats->roll_max,
+                         (double)stats->pitch_min,
+                         (double)stats->pitch_max,
+                         (double)stats->last_roll,
+                         (double)stats->last_pitch);
 }
 #endif
 
