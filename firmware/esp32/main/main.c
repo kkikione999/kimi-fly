@@ -45,6 +45,15 @@
 #define UART_HEARTBEAT_PERIOD_MS  2000U
 #define UART_STATUS_PERIOD_MS     5000U
 
+/*
+ * The current STM32 flight controller already speaks the AA55 CRC16 protocol
+ * over UART, and tcp_server.c acts as the raw TCP<->UART bridge. Keeping this
+ * legacy bridge task enabled creates a second consumer on UART1, injects old
+ * PAUSE heartbeat frames, and mixes a viewer-only TCP stream into port 8888.
+ * Disable it by default so the TCP bridge is the single source of truth.
+ */
+#define LEGACY_UART_VIEWER_BRIDGE 0
+
 /* ============================================================================
  * State
  * ============================================================================ */
@@ -56,16 +65,14 @@ static uint32_t s_rx_frames;
 static uint32_t s_rx_errors;
 static uint32_t s_last_rx_ms;
 static bool s_link_active;
-
 static uint8_t s_tx_buffer[UART_ST_TX_BUFFER_SIZE];
-
-/* Attitude state for TCP forwarding */
 static float s_last_roll = 0.0f;
 static float s_last_pitch = 0.0f;
 static float s_last_yaw = 0.0f;
 static uint32_t s_last_attitude_ms = 0;
 static uint32_t s_last_test_attitude_ms = 0;
-#define TEST_ATTITUDE_PERIOD_MS  500U
+
+#define TEST_ATTITUDE_PERIOD_MS 500U
 
 /* ============================================================================
  * Helpers
@@ -459,9 +466,7 @@ void app_main(void)
         return;
     }
 
-    s_last_rx_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
-    s_link_active = false;
-
+#if LEGACY_UART_VIEWER_BRIDGE
     BaseType_t task_ret = xTaskCreate(uart_bridge_task,
                                       "uart_bridge",
                                       UART_ST_TASK_STACK_SIZE,
@@ -472,6 +477,9 @@ void app_main(void)
         ESP_LOGE(TAG, "Failed to create UART bridge task");
         return;
     }
+#else
+    ESP_LOGI(TAG, "Legacy UART viewer bridge disabled; tcp_server owns UART1 traffic");
+#endif
 
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
