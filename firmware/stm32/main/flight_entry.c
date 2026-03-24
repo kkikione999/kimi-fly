@@ -33,10 +33,11 @@ spi_handle_t  hspi3;    /**< SPI3 - LPS22HBTR 气压计 */
 
 #define MOTOR_PWM_FREQ_HZ 42000U
 
-#ifdef AUTO_TETHER_BALANCE_TEST
+#if defined(AUTO_TETHER_BALANCE_TEST) || defined(AUTO_TETHER_ROLL_ID_TEST)
 typedef struct {
     uint16_t duration_ms;
     float throttle;
+    float roll;
     bool armed;
     flight_mode_t mode;
     const char *name;
@@ -45,18 +46,37 @@ typedef struct {
 #define AUTO_TETHER_ABORT_ROLL_DEG          8.0f
 #define AUTO_TETHER_ABORT_PITCH_DEG         8.0f
 #define AUTO_TETHER_ABORT_HOLD_MS           120U
-#define AUTO_TETHER_DISARM_STAGE_INDEX      (sizeof(k_auto_tether_stages) / sizeof(k_auto_tether_stages[0]) - 1U)
 
+#ifdef AUTO_TETHER_BALANCE_TEST
+#define AUTO_TETHER_STAB_15_ROLL_TRIM       0.00f
+#define AUTO_TETHER_STAB_18_ROLL_TRIM       0.00f
 static const auto_tether_stage_t k_auto_tether_stages[] = {
-    {3000U, 0.00f, false, FLIGHT_MODE_DISARMED, "PREP"},
-    {1500U, 0.00f, true,  FLIGHT_MODE_ARMED,    "ARM_CAPTURE"},
-    {3000U, 0.09f, true,  FLIGHT_MODE_STABILIZE,"STAB_09"},
-    {3000U, 0.12f, true,  FLIGHT_MODE_STABILIZE,"STAB_12"},
-    {3000U, 0.15f, true,  FLIGHT_MODE_STABILIZE,"STAB_15"},
-    {3000U, 0.18f, true,  FLIGHT_MODE_STABILIZE,"STAB_18"},
-    {2000U, 0.12f, true,  FLIGHT_MODE_STABILIZE,"STAB_12_COOLDOWN"},
-    {1000U, 0.00f, false, FLIGHT_MODE_DISARMED, "DISARM"},
+    {3000U, 0.00f, 0.00f, false, FLIGHT_MODE_DISARMED, "PREP"},
+    {1500U, 0.00f, 0.00f, true,  FLIGHT_MODE_ARMED,    "ARM_CAPTURE"},
+    {3000U, 0.09f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_09"},
+    {3000U, 0.12f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_12"},
+    {3000U, 0.15f, AUTO_TETHER_STAB_15_ROLL_TRIM, true, FLIGHT_MODE_STABILIZE, "STAB_15"},
+    {3000U, 0.18f, AUTO_TETHER_STAB_18_ROLL_TRIM, true, FLIGHT_MODE_STABILIZE, "STAB_18"},
+    {2000U, 0.12f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_12_COOLDOWN"},
+    {1000U, 0.00f, 0.00f, false, FLIGHT_MODE_DISARMED, "DISARM"},
 };
+#elif defined(AUTO_TETHER_ROLL_ID_TEST)
+#define AUTO_TETHER_ROLL_ID_CMD             0.10f
+static const auto_tether_stage_t k_auto_tether_stages[] = {
+    {3000U, 0.00f, 0.00f, false, FLIGHT_MODE_DISARMED, "PREP"},
+    {1500U, 0.00f, 0.00f, true,  FLIGHT_MODE_ARMED,    "ARM_CAPTURE"},
+    {2500U, 0.09f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_09"},
+    {2500U, 0.12f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_12"},
+    {2000U, 0.15f, AUTO_TETHER_ROLL_ID_CMD, true, FLIGHT_MODE_STABILIZE, "ROLL_POS_15"},
+    {1500U, 0.12f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"RECOVER_12_A"},
+    {2000U, 0.15f, -AUTO_TETHER_ROLL_ID_CMD, true, FLIGHT_MODE_STABILIZE, "ROLL_NEG_15"},
+    {1500U, 0.12f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"RECOVER_12_B"},
+    {2000U, 0.15f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_15_HOLD"},
+    {1000U, 0.00f, 0.00f, false, FLIGHT_MODE_DISARMED, "DISARM"},
+};
+#endif
+
+#define AUTO_TETHER_DISARM_STAGE_INDEX      (sizeof(k_auto_tether_stages) / sizeof(k_auto_tether_stages[0]) - 1U)
 
 static void auto_tether_balance_test_update(flight_main_handle_t *flight);
 #endif
@@ -495,7 +515,7 @@ static void uart2_poll_rx(void)
 
 }
 
-#ifdef AUTO_TETHER_BALANCE_TEST
+#if defined(AUTO_TETHER_BALANCE_TEST) || defined(AUTO_TETHER_ROLL_ID_TEST)
 static void auto_tether_balance_test_update(flight_main_handle_t *flight)
 {
     static bool started = false;
@@ -592,10 +612,11 @@ static void auto_tether_balance_test_update(flight_main_handle_t *flight)
     }
 
     if (announced_stage_index != stage_index) {
-        platform_debug_print("[AUTO_TEST] stage=%u name=%s throttle=%.2f armed=%u mode=%u t=%lu\r\n",
+        platform_debug_print("[AUTO_TEST] stage=%u name=%s throttle=%.2f roll=%.2f armed=%u mode=%u t=%lu\r\n",
                              (unsigned)stage_index,
                              stage->name,
                              (double)stage->throttle,
+                             (double)stage->roll,
                              stage->armed ? 1U : 0U,
                              (unsigned)stage->mode,
                              (unsigned long)elapsed_ms);
@@ -603,7 +624,7 @@ static void auto_tether_balance_test_update(flight_main_handle_t *flight)
     }
 
     cmd.throttle = stage->throttle;
-    cmd.roll = 0.0f;
+    cmd.roll = stage->roll;
     cmd.pitch = 0.0f;
     cmd.yaw = 0.0f;
     cmd.armed = stage->armed;
@@ -672,7 +693,7 @@ int main(void)
 
         while ((uint32_t)(now - last_control_ms) >= 1U) {
             last_control_ms += 1U;
-#ifdef AUTO_TETHER_BALANCE_TEST
+#if defined(AUTO_TETHER_BALANCE_TEST) || defined(AUTO_TETHER_ROLL_ID_TEST)
             auto_tether_balance_test_update(&g_flight);
 #endif
             flight_main_control_loop(&g_flight);
