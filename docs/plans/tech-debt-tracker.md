@@ -26,6 +26,11 @@
   - 原因: 双向 RX=0，疑似 TX/RX 未交叉连接
   - 修复: Task 304 (软件诊断工具) + 人工检查硬件连接
 
+- [x] 2026-03-24 - STM32 偏航抖动由主循环节拍与磁力计读取时序共同触发 - 来源: 真机调试 - 解决: 2026-03-24
+  - 原因: 控制循环未按真实 1kHz 节拍执行；QMC5883P 未按 `DRDY` 新样本读取；外层重复调度 WiFi task
+  - 方案: `flight_entry.c` 增加 1ms 节拍门控并去除重复 WiFi task；`qmc5883p.c` 恢复 `DRDY` 新样本门控；`flight_main.c` 按 200Hz 保持磁样本
+  - 修复: Task 305
+
 - [x] 2026-03-19 - STM32 HAL层头文件常量命名冲突 - 来源: Ralph-loop Round 1 - 解决: 2026-03-19
   - 方案: 将gpio.h中GPIO_MODE_*/GPIO_OTYPE_*/GPIO_SPEED_*/GPIO_PUPD_*重命名为HAL_GPIO_*前缀
   - 修改文件: `firmware/stm32/hal/gpio.h`, `firmware/stm32/hal/gpio.c`
@@ -43,12 +48,6 @@
 - [x] 2026-03-18 - STM32 HAL头文件enum冲突(spi.h/uart.h/pwm.h) - 来源: Ralph-loop Iteration 9 - 解决: 2026-03-18
   - 方案: 使用#ifndef USE_HAL_DRIVER包裹自定义enum，STM32Cube模式下使用HAL类型定义
   - 修改文件: `firmware/stm32/hal/spi.h`, `uart.h`, `pwm.h`
-
----
-
-## 已解决 (Resolved)
-
-*暂无已解决记录*
 
 ---
 

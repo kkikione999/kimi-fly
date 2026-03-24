@@ -18,6 +18,9 @@
 #include <stdio.h>
 #include <math.h>
 
+/* 磁力计按 200 Hz 节奏轮询，避免在 1 kHz 控制循环中反复读取同一转换结果。 */
+#define MAG_POLL_INTERVAL_MS 5U
+
 /* ============================================================================
  * 静态函数声明
  * ============================================================================ */
@@ -48,11 +51,7 @@ static qmc5883p_data_t g_last_mag_sample;
 static bool g_last_mag_valid = false;
 static bool g_mag_filter_ready = false;
 static vec3f_t g_mag_filtered = {0.0f, 0.0f, 0.0f};
-static bool g_mag_cal_ready = false;
-static vec3f_t g_mag_min = {0.0f, 0.0f, 0.0f};
-static vec3f_t g_mag_max = {0.0f, 0.0f, 0.0f};
-
-#define MAG_RUNTIME_CAL_MIN_SPAN_G  0.08f
+static uint32_t g_last_mag_poll_ms = 0U;
 
 /* ============================================================================
  * API实现 - 初始化和反初始化
@@ -409,13 +408,11 @@ static void log_i2c_devices(void)
 
 static void reset_mag_runtime_calibration(void)
 {
-    g_mag_cal_ready = false;
     g_mag_filter_ready = false;
     g_mag_filtered.x = 0.0f;
     g_mag_filtered.y = 0.0f;
     g_mag_filtered.z = 0.0f;
-    g_mag_min.x = g_mag_min.y = g_mag_min.z = 0.0f;
-    g_mag_max.x = g_mag_max.y = g_mag_max.z = 0.0f;
+    g_last_mag_poll_ms = 0U;
 }
 
 static vec3f_t apply_mag_runtime_calibration(const qmc5883p_data_t *mag_data)
@@ -425,53 +422,19 @@ static vec3f_t apply_mag_runtime_calibration(const qmc5883p_data_t *mag_data)
         mag_data->mag_y_gauss,
         mag_data->mag_z_gauss
     };
-    float span_x;
-    float span_y;
-    float center_x;
-    float center_y;
-    float avg_span;
-    float scale_x = 1.0f;
-    float scale_y = 1.0f;
 
-    if (!g_mag_cal_ready) {
-        g_mag_min = corrected;
-        g_mag_max = corrected;
-        g_mag_cal_ready = true;
-        return corrected;
-    }
-
-    if (corrected.x < g_mag_min.x) g_mag_min.x = corrected.x;
-    if (corrected.y < g_mag_min.y) g_mag_min.y = corrected.y;
-    if (corrected.z < g_mag_min.z) g_mag_min.z = corrected.z;
-    if (corrected.x > g_mag_max.x) g_mag_max.x = corrected.x;
-    if (corrected.y > g_mag_max.y) g_mag_max.y = corrected.y;
-    if (corrected.z > g_mag_max.z) g_mag_max.z = corrected.z;
-
-    span_x = g_mag_max.x - g_mag_min.x;
-    span_y = g_mag_max.y - g_mag_min.y;
-
-    if (span_x < MAG_RUNTIME_CAL_MIN_SPAN_G || span_y < MAG_RUNTIME_CAL_MIN_SPAN_G) {
-        return corrected;
-    }
-
-    center_x = 0.5f * (g_mag_max.x + g_mag_min.x);
-    center_y = 0.5f * (g_mag_max.y + g_mag_min.y);
-    avg_span = 0.5f * (span_x + span_y);
-
-    if (span_x > 1e-4f) {
-        scale_x = avg_span / span_x;
-    }
-    if (span_y > 1e-4f) {
-        scale_y = avg_span / span_y;
-    }
-
-    corrected.x = (corrected.x - center_x) * scale_x;
-    corrected.y = (corrected.y - center_y) * scale_y;
+    /* Do not calibrate min/max online during flight. A partial XY sweep makes
+     * heading nonlinear and can inflate yaw rotation well beyond the real angle.
+     * Keep raw Gauss values here; hard/soft iron compensation must come from a
+     * dedicated calibration procedure with fixed parameters.
+     */
     return corrected;
 }
 
 static void read_all_sensors(flight_main_handle_t *handle)
 {
+    uint32_t now;
+
     /* 读取IMU */
     icm42688_data_t imu_data;
     if (icm42688_read_data(&g_imu, &imu_data) == HAL_OK) {
@@ -486,9 +449,24 @@ static void read_all_sensors(flight_main_handle_t *handle)
         handle->sensors_ok = false;
     }
 
+    if (g_mag_filter_ready) {
+        handle->mag = g_mag_filtered;
+        handle->mag_valid = true;
+    } else {
+        handle->mag_valid = false;
+    }
+
     /* 读取磁力计 (可选) */
+    now = platform_get_time_ms();
+    if (g_last_mag_poll_ms != 0U &&
+        (uint32_t)(now - g_last_mag_poll_ms) < MAG_POLL_INTERVAL_MS) {
+        return;
+    }
+    g_last_mag_poll_ms = now;
+
     qmc5883p_data_t mag_data;
-    if (qmc5883p_read_data(&g_mag, &mag_data) == HAL_OK) {
+    hal_status_t mag_status = qmc5883p_read_data(&g_mag, &mag_data);
+    if (mag_status == HAL_OK) {
         vec3f_t calibrated_mag = apply_mag_runtime_calibration(&mag_data);
         if (!g_mag_filter_ready) {
             g_mag_filtered = calibrated_mag;
@@ -504,6 +482,8 @@ static void read_all_sensors(flight_main_handle_t *handle)
         handle->mag_valid = true;
         g_last_mag_sample = mag_data;
         g_last_mag_valid = true;
+    } else if (mag_status == HAL_BUSY) {
+        /* 没有新样本时继续沿用上一次有效磁场数据。 */
     } else {
         handle->mag_valid = false;
         g_last_mag_valid = false;

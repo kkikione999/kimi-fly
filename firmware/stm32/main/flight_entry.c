@@ -437,19 +437,19 @@ int main(void)
 
     platform_debug_print("[BOOT] Init OK, entering 1kHz control loop\r\n");
 
-    /* Main loop: 1kHz control loop + 200Hz WiFi task */
-    uint32_t last_wifi_ms = 0U;
+    /* Main loop: poll UART RX continuously, run control loop on each 1 ms tick. */
+    uint32_t last_control_ms = platform_get_time_ms();
     while (1) {
-        uint32_t now = platform_get_time_ms();
+        uint32_t now;
 
         /* 轮询 USART2 接收 (每个循环都执行，非阻塞) */
         uart2_poll_rx();
+        now = platform_get_time_ms();
 
-        flight_main_control_loop(&g_flight);
-
-        if ((now - last_wifi_ms) >= 5U) {
-            last_wifi_ms = now;
-            flight_main_wifi_task(&g_flight);
+        while ((uint32_t)(now - last_control_ms) >= 1U) {
+            last_control_ms += 1U;
+            flight_main_control_loop(&g_flight);
+            now = platform_get_time_ms();
         }
     }
 }

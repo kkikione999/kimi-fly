@@ -29,8 +29,11 @@ SERIAL_CANDIDATES = [
     "/dev/tty.usbmodem212301",
 ]
 SERIAL_BAUDRATE = 460800
+SERIAL_RETRY_DELAY_SEC = 1.0
+SERIAL_OPEN_SETTLE_SEC = 0.2
 HEX_BYTE_RE = re.compile(r"\b[0-9A-Fa-f]{2}\b")
 ATT_CDEG_RE = re.compile(r"\[ATT_CDEG\]\s+t=(\d+)\s+r=(-?\d+)\s+p=(-?\d+)\s+y=(-?\d+)\s+m=(\d+)")
+ATTITUDE_SERIAL_PORT = os.environ.get("ATTITUDE_SERIAL_PORT", "").strip()
 
 # 全局数据
 latest_attitude = {
@@ -44,9 +47,22 @@ latest_source = "serial"
 history_path = Path("/Users/ll/kimi-fly/tools/attitude_logs/latest_static_30s.json")
 
 
-def find_serial_port():
+def find_serial_port(preferred_port=None):
     """选择当前最可能的 ESP32/调试串口。"""
-    for candidate in SERIAL_CANDIDATES:
+    candidates = []
+
+    if ATTITUDE_SERIAL_PORT:
+        candidates.append(ATTITUDE_SERIAL_PORT)
+    if preferred_port:
+        candidates.append(preferred_port)
+
+    candidates.extend(SERIAL_CANDIDATES)
+
+    seen = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
         if Path(candidate).exists():
             return candidate
     return None
@@ -103,17 +119,24 @@ def serial_and_read():
     global latest_attitude, last_update, packet_count, latest_source
     line_buffer = ""
     byte_buffer = bytearray()
+    last_port = None
 
     while True:
-        port = find_serial_port()
+        port = find_serial_port(last_port)
         if port is None:
-            print("未找到串口设备，2 秒后重试")
-            time.sleep(2)
+            print("未找到串口设备，1 秒后重试")
+            time.sleep(SERIAL_RETRY_DELAY_SEC)
             continue
 
+        ser = None
         try:
-            ser = serial.Serial(port, SERIAL_BAUDRATE, timeout=0.1)
+            ser = serial.Serial(port, SERIAL_BAUDRATE, timeout=0.1, rtscts=False, dsrdtr=False)
+            # 避免部分 USB CDC 设备在打开串口时因 DTR/RTS 翻转而复位。
+            ser.dtr = False
+            ser.rts = False
+            time.sleep(SERIAL_OPEN_SETTLE_SEC)
             latest_source = port
+            last_port = port
             print(f"已连接串口: {port}")
 
             while True:
@@ -167,7 +190,12 @@ def serial_and_read():
                             latest_attitude['error'] = st['error']
         except Exception as e:
             print(f"串口读取失败: {e}")
-        time.sleep(2)
+            if ser is not None:
+                try:
+                    ser.close()
+                except Exception:
+                    pass
+        time.sleep(SERIAL_RETRY_DELAY_SEC)
 
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html>
@@ -466,6 +494,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </html>"""
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, format, *args):
+        # Keep the terminal readable; serial reconnect errors matter more here.
+        return
+
     def do_GET(self):
         global latest_attitude, last_update, packet_count
         if self.path == '/live.json':
@@ -528,13 +560,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         else:
             super().do_GET()
 
+
+class ReusableTCPServer(socketserver.TCPServer):
+    allow_reuse_address = True
+
 if __name__ == '__main__':
     reader_thread = threading.Thread(target=serial_and_read, daemon=True)
     reader_thread.start()
 
     # 启动HTTP服务器
     PORT = int(os.environ.get("ATTITUDE_VIEWER_PORT", "8080"))
-    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+    with ReusableTCPServer(("", PORT), Handler) as httpd:
         print(f"🌐 网页查看器已启动: http://localhost:{PORT}")
         print("📡 正在从 ESP32 串口日志提取姿态遥测...")
         print(f"📍 当前数据源: {latest_source}")
