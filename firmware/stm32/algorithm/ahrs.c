@@ -130,6 +130,41 @@ void ahrs_set_mag_reference(ahrs_handle_t *ahrs, float mag_north, float mag_down
     }
 }
 
+hal_status_t ahrs_align_to_gravity(ahrs_handle_t *ahrs, const vec3f_t *accel)
+{
+    euler_angle_t euler;
+    vec3f_t gravity;
+    float sin_pitch;
+
+    if (ahrs == NULL || accel == NULL || !ahrs->initialized) {
+        return HAL_ERROR;
+    }
+
+    if (!ahrs_accel_valid(accel)) {
+        return HAL_ERROR;
+    }
+
+    gravity = *accel;
+    vec3f_normalize(&gravity);
+
+    /* For the current body frame (+X forward, +Y left, +Z up), the
+     * steady-state proper acceleration in body coordinates is:
+     *   ax = -sin(pitch)
+     *   ay =  sin(roll) * cos(pitch)
+     *   az =  cos(roll) * cos(pitch)
+     */
+    sin_pitch = clampf(-gravity.x, -1.0f, 1.0f);
+    euler.roll = atan2f(gravity.y, gravity.z);
+    euler.pitch = asinf(sin_pitch);
+    euler.yaw = 0.0f;
+
+    euler_to_quaternion(&ahrs->q, &euler);
+    quat_normalize(&ahrs->q);
+    vec3f_zero(&ahrs->integral_error);
+
+    return HAL_OK;
+}
+
 /* ============================================================================
  * 姿态更新 - Mahony滤波器核心
  * ============================================================================ */

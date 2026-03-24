@@ -169,14 +169,13 @@ class TestSuite:
             yaw_rate=0
         )
 
-        # Get motor outputs - for positive roll error, left motors should be higher
+        # Positive roll in this body frame means left side up, so correction should
+        # increase right motors and decrease left motors.
         m = fc.motors
-        left_avg = (m.motor1 + m.motor4) / 2
-        right_avg = (m.motor2 + m.motor3) / 2
+        left_avg = (m.motor1 + m.motor2) / 2
+        right_avg = (m.motor3 + m.motor4) / 2
 
-        # PID sees error = setpoint - measurement = 0 - 10 = -10
-        # For positive roll error (rolled right), left motors should be higher to correct
-        result = left_avg > right_avg
+        result = right_avg > left_avg
 
         passed = result
         details = f"LeftMotors={left_avg:.0f}, RightMotors={right_avg:.0f}"
@@ -205,10 +204,10 @@ class TestSuite:
         fc.update(0, 0, 0, 0, 0, 0)
         motors = fc.motors
 
-        # Roll input should create differential motor output
-        left_avg = (motors.motor1 + motors.motor4) / 2
-        right_avg = (motors.motor2 + motors.motor3) / 2
-        result = left_avg > right_avg  # Roll right should increase left motors
+        # Positive roll command should increase left motors in the validated body frame.
+        left_avg = (motors.motor1 + motors.motor2) / 2
+        right_avg = (motors.motor3 + motors.motor4) / 2
+        result = left_avg > right_avg
 
         passed = result
         details = f"LeftAvg={left_avg:.0f}, RightAvg={right_avg:.0f}"
@@ -241,20 +240,20 @@ class TestSuite:
         fc.set_rc(throttle=0.5, roll=0.5, pitch=0, yaw=0)
         fc.update(0, 0, 0, 0, 0, 0)
         m = fc.motors
-        result2 = (m.motor1 + m.motor4) > (m.motor2 + m.motor3)  # Left motors higher
+        result2 = (m.motor1 + m.motor2) > (m.motor3 + m.motor4)  # Left motors higher
 
         # Test 3: Pitch input - differential
         # Positive pitch = nose down = rear motors higher
         fc.set_rc(throttle=0.5, roll=0, pitch=0.5, yaw=0)
         fc.update(0, 0, 0, 0, 0, 0)
         m = fc.motors
-        result3 = (m.motor1 + m.motor2) < (m.motor3 + m.motor4)  # Rear motors higher
+        result3 = (m.motor1 + m.motor4) < (m.motor2 + m.motor3)  # Rear motors higher
 
         # Test 4: Yaw input - differential (CW vs CCW)
         fc.set_rc(throttle=0.5, roll=0, pitch=0, yaw=0.5)
         fc.update(0, 0, 0, 0, 0, 0)
         m = fc.motors
-        # Yaw right should increase CCW motors (M2, M4)
+        # Positive yaw should increase CW motors (M2, M4).
         result4 = (m.motor2 + m.motor4) > (m.motor1 + m.motor3)
 
         passed = all([result1, result2, result3, result4])

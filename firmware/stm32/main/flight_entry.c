@@ -295,7 +295,9 @@ uint16_t wifi_platform_send(const uint8_t *data, uint16_t len)
         return 0;
     }
     hal_status_t st = uart_send(&huart2, data, len, 50U);
-    platform_debug_print("[UART2_TX] len=%u st=%d\r\n", (unsigned)len, (int)st);
+    if (st != HAL_OK) {
+        platform_debug_print("[UART2_TX] len=%u st=%d\r\n", (unsigned)len, (int)st);
+    }
     return (st == HAL_OK) ? len : 0U;
 }
 

@@ -43,6 +43,8 @@ static const wifi_telemetry_config_t default_telemetry_config = {
     .motor_rate_hz = 10
 };
 
+#define WIFI_MOTOR_TELEMETRY_INTERVAL_MS 100U
+
 /* ============================================================================
  * API实现 - 初始化和配置
  * ============================================================================ */
@@ -340,6 +342,25 @@ uint16_t wifi_command_update_telemetry(wifi_command_handle_t *handle,
         }
 
         handle->last_tx_time = current_time_ms;
+    }
+
+    /* 发送电机遥测 (10Hz)。地面站调试补偿方向时需要看到实际混控输出。 */
+    if ((current_time_ms - handle->last_motor_tx_time) >= WIFI_MOTOR_TELEMETRY_INTERVAL_MS) {
+        motor_outputs_t motors;
+        protocol_frame_t frame;
+        protocol_motor_t motor_data;
+
+        flight_controller_get_motors(fc, &motors);
+        motor_data.motor1 = motors.motor1;
+        motor_data.motor2 = motors.motor2;
+        motor_data.motor3 = motors.motor3;
+        motor_data.motor4 = motors.motor4;
+        motor_data.armed = flight_controller_is_armed(fc) ? 1U : 0U;
+        motor_data.mode = (uint8_t)flight_controller_get_mode(fc);
+
+        protocol_pack_motor(&motor_data, &frame);
+        total_sent += wifi_command_send_frame(handle, &frame);
+        handle->last_motor_tx_time = current_time_ms;
     }
 
     return total_sent;

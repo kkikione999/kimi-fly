@@ -232,6 +232,27 @@ void flight_controller_update_mag(flight_controller_t *fc, const vec3f_t *mag)
     fc->mag_valid = true;
 }
 
+hal_status_t flight_controller_align_to_gravity(flight_controller_t *fc, const vec3f_t *accel)
+{
+    if (fc == NULL || accel == NULL || !fc->initialized) {
+        return HAL_ERROR;
+    }
+
+    if (ahrs_align_to_gravity(&fc->ahrs, accel) != HAL_OK) {
+        return HAL_ERROR;
+    }
+
+    fc->yaw_zero_deg = 0.0f;
+    fc->yaw_zero_valid = false;
+    fc->attitude.roll = 0.0f;
+    fc->attitude.pitch = 0.0f;
+    fc->attitude.yaw = 0.0f;
+    vec3f_zero(&fc->attitude_rad);
+    reset_controllers(fc);
+
+    return HAL_OK;
+}
+
 /* ============================================================================
  * API实现 - 主控制循环
  * ============================================================================ */
@@ -369,22 +390,30 @@ void mixer_quad_x(float throttle, float roll, float pitch, float yaw, motor_outp
     }
 
     /* X型混控:
-     * M1 (前左, CCW) = throttle + roll - pitch + yaw
-     * M2 (后左, CW)  = throttle + roll + pitch - yaw
-     * M3 (后右, CCW) = throttle - roll + pitch + yaw
-     * M4 (前右, CW)  = throttle - roll - pitch - yaw
+     * 正 roll  = 左侧电机增大 (机体 +Y = 左)
+     * 正 pitch = 后侧电机增大 (机体 +X = 前, +Y = 左)
+     * 正 yaw   = CW 电机增大、CCW 电机减小 (机体 +Z = 上, 右手系)
+     *
+     * M1 (前左, CCW) = throttle + roll - pitch - yaw
+     * M2 (后左, CW)  = throttle + roll + pitch + yaw
+     * M3 (后右, CCW) = throttle - roll + pitch - yaw
+     * M4 (前右, CW)  = throttle - roll - pitch + yaw
      */
 
-    float m1 = throttle + roll - pitch + yaw;
-    float m2 = throttle + roll + pitch - yaw;
-    float m3 = throttle - roll + pitch + yaw;
-    float m4 = throttle - roll - pitch - yaw;
+    float m1 = throttle + roll - pitch - yaw;
+    float m2 = throttle + roll + pitch + yaw;
+    float m3 = throttle - roll + pitch - yaw;
+    float m4 = throttle - roll - pitch + yaw;
 
     /* 限制在有效范围内 */
-    if (m1 < 0) m1 = 0; if (m1 > 1) m1 = 1;
-    if (m2 < 0) m2 = 0; if (m2 > 1) m2 = 1;
-    if (m3 < 0) m3 = 0; if (m3 > 1) m3 = 1;
-    if (m4 < 0) m4 = 0; if (m4 > 1) m4 = 1;
+    if (m1 < 0) m1 = 0;
+    if (m1 > 1) m1 = 1;
+    if (m2 < 0) m2 = 0;
+    if (m2 > 1) m2 = 1;
+    if (m3 < 0) m3 = 0;
+    if (m3 > 1) m3 = 1;
+    if (m4 < 0) m4 = 0;
+    if (m4 > 1) m4 = 1;
 
     /* 转换为PWM值 (0-999) */
     outputs->motor1 = (uint16_t)(m1 * MOTOR_MAX_THROTTLE);

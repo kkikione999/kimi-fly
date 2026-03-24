@@ -170,22 +170,8 @@ class FlightControllerSimulator:
             roll_angle_sp = self.rc.roll * max_angle
             pitch_angle_sp = self.rc.pitch * max_angle
 
-            # Angle PID: output has opposite sign from ACRO convention
-            # For attitude correction (non-zero attitude), negate to get proper motor response
-            # For stick input (zero attitude), keep as-is
-            roll_angle_output = self.roll_angle_pid.update(roll_angle_sp, roll_deg)
-            pitch_angle_output = self.pitch_angle_pid.update(pitch_angle_sp, pitch_deg)
-
-            # Apply negation only when correcting attitude (measurement != 0)
-            if abs(roll_deg) > 0.01:
-                roll_rate_cmd = -roll_angle_output
-            else:
-                roll_rate_cmd = roll_angle_output
-
-            if abs(pitch_deg) > 0.01:
-                pitch_rate_cmd = -pitch_angle_output
-            else:
-                pitch_rate_cmd = pitch_angle_output
+            roll_rate_cmd = self.roll_angle_pid.update(roll_angle_sp, roll_deg)
+            pitch_rate_cmd = self.pitch_angle_pid.update(pitch_angle_sp, pitch_deg)
 
             # Limit rate commands
             roll_rate_cmd = np.clip(roll_rate_cmd, -max_rate, max_rate)
@@ -214,15 +200,15 @@ class FlightControllerSimulator:
             throttle = self.idle_throttle / 1000.0
             roll_out = pitch_out = yaw_out = 0
 
-        # C code mixer convention:
-        # M1 (FL, CW)  = throttle + roll - pitch - yaw
-        # M2 (FR, CCW) = throttle - roll - pitch + yaw
-        # M3 (RR, CW)  = throttle - roll + pitch - yaw
-        # M4 (RL, CCW) = throttle + roll + pitch + yaw
-        m1 = throttle + roll_out - pitch_out - yaw_out   # Front-left (CW)
-        m2 = throttle - roll_out - pitch_out + yaw_out   # Front-right (CCW)
-        m3 = throttle - roll_out + pitch_out - yaw_out   # Rear-right (CW)
-        m4 = throttle + roll_out + pitch_out + yaw_out   # Rear-left (CCW)
+        # C code mixer convention with the validated bench layout:
+        # M1 (FL, CCW) = throttle + roll - pitch - yaw
+        # M2 (RL, CW)  = throttle + roll + pitch + yaw
+        # M3 (RR, CCW) = throttle - roll + pitch - yaw
+        # M4 (FR, CW)  = throttle - roll - pitch + yaw
+        m1 = throttle + roll_out - pitch_out - yaw_out   # Front-left (CCW)
+        m2 = throttle + roll_out + pitch_out + yaw_out   # Rear-left (CW)
+        m3 = throttle - roll_out + pitch_out - yaw_out   # Rear-right (CCW)
+        m4 = throttle - roll_out - pitch_out + yaw_out   # Front-right (CW)
 
         # Convert to PWM (0-1000) and clip to valid range
         self.motors = CStructs.MotorOutputs(

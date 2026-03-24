@@ -157,6 +157,15 @@ void ahrs_set_mag_gains(ahrs_handle_t *ahrs, float kp, float ki);
  */
 void ahrs_set_mag_reference(ahrs_handle_t *ahrs, float mag_north, float mag_down);
 
+/**
+ * @brief 使用当前静止加速度向量对齐 roll/pitch 到水平姿态
+ * @param ahrs AHRS句柄指针
+ * @param accel 机体坐标系加速度 (g)
+ * @return HAL_OK成功
+ * @note 保留 yaw=0，仅用于上电静止水平对齐
+ */
+hal_status_t ahrs_align_to_gravity(ahrs_handle_t *ahrs, const vec3f_t *accel);
+
 /* ============================================================================
  * API函数声明 - 姿态更新
  * ============================================================================ */

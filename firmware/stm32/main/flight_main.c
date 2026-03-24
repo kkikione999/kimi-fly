@@ -32,9 +32,14 @@ static void send_status_report(flight_main_handle_t *handle);
 static void handle_errors(flight_main_handle_t *handle);
 static void update_leds(flight_main_handle_t *handle);
 static void log_attitude_sample(const flight_main_handle_t *handle);
+static const char *flight_mode_name(flight_mode_t mode);
 static void log_i2c_devices(void);
 static void reset_mag_runtime_calibration(void);
 static vec3f_t apply_mag_runtime_calibration(const qmc5883p_data_t *mag_data);
+static void map_imu_to_body_frame(const icm42688_data_t *imu_data, vec3f_t *accel, vec3f_t *gyro);
+static void reset_body_trim(void);
+static bool update_body_trim_from_level_accel(const vec3f_t *level_accel);
+static void apply_body_trim(vec3f_t *vector);
 
 /* ============================================================================
  * 外部变量 (传感器句柄，在驱动中定义)
@@ -52,6 +57,9 @@ static bool g_last_mag_valid = false;
 static bool g_mag_filter_ready = false;
 static vec3f_t g_mag_filtered = {0.0f, 0.0f, 0.0f};
 static uint32_t g_last_mag_poll_ms = 0U;
+static quaternion_t g_body_trim_q = {1.0f, 0.0f, 0.0f, 0.0f};
+static euler_angle_t g_body_trim_euler = {0.0f, 0.0f, 0.0f};
+static bool g_body_trim_ready = false;
 
 /* ============================================================================
  * API实现 - 初始化和反初始化
@@ -65,6 +73,7 @@ hal_status_t flight_main_init(flight_main_handle_t *handle)
 
     memset(handle, 0, sizeof(flight_main_handle_t));
     handle->state = SYS_STATE_INIT;
+    reset_body_trim();
 
     platform_debug_print("[FLIGHT] System init start...\r\n");
 
@@ -175,6 +184,10 @@ hal_status_t flight_main_init_sensors(flight_main_handle_t *handle)
 
 hal_status_t flight_main_calibrate_sensors(flight_main_handle_t *handle)
 {
+    uint32_t valid_samples = 0U;
+    vec3f_t level_accel = {0.0f, 0.0f, 0.0f};
+    vec3f_t avg_gyro = {0.0f, 0.0f, 0.0f};
+
     if (handle == NULL || !handle->sensors_ok) {
         return HAL_ERROR;
     }
@@ -196,15 +209,49 @@ hal_status_t flight_main_calibrate_sensors(flight_main_handle_t *handle)
             gyro_sum.x += imu_data.gyro_x;
             gyro_sum.y += imu_data.gyro_y;
             gyro_sum.z += imu_data.gyro_z;
+            valid_samples++;
         }
 
         platform_delay_us(1000); /* 1ms延时 */
     }
 
-    /* 计算并应用零偏，统一保存为 rad/s，避免与控制链路中的角速度单位不一致。 */
-    handle->gyro_bias.x = (gyro_sum.x / CALIBRATION_SAMPLES) * 3.14159f / 180.0f;
-    handle->gyro_bias.y = (gyro_sum.y / CALIBRATION_SAMPLES) * 3.14159f / 180.0f;
-    handle->gyro_bias.z = (gyro_sum.z / CALIBRATION_SAMPLES) * 3.14159f / 180.0f;
+    if (valid_samples == 0U) {
+        handle->error = ERR_SENSOR_FAIL;
+        handle->state = SYS_STATE_ERROR;
+        platform_debug_print("[CAL] No valid IMU samples\r\n");
+        return HAL_ERROR;
+    }
+
+    icm42688_data_t avg_imu = {
+        .accel_x = accel_sum.x / (float)valid_samples,
+        .accel_y = accel_sum.y / (float)valid_samples,
+        .accel_z = accel_sum.z / (float)valid_samples,
+        .gyro_x = gyro_sum.x / (float)valid_samples,
+        .gyro_y = gyro_sum.y / (float)valid_samples,
+        .gyro_z = gyro_sum.z / (float)valid_samples,
+        .temp = 0.0f
+    };
+
+    map_imu_to_body_frame(&avg_imu, &level_accel, &avg_gyro);
+
+    if (update_body_trim_from_level_accel(&level_accel)) {
+        apply_body_trim(&level_accel);
+        apply_body_trim(&avg_gyro);
+        platform_debug_print("[CAL] Body trim deg: %.2f %.2f\r\n",
+                             g_body_trim_euler.roll * 57.2957795f,
+                             g_body_trim_euler.pitch * 57.2957795f);
+    } else {
+        platform_debug_print("[CAL] Body trim skipped\r\n");
+    }
+
+    handle->gyro_bias = avg_gyro;
+
+    if (flight_controller_align_to_gravity(&handle->flight_ctrl, &level_accel) == HAL_OK) {
+        platform_debug_print("[CAL] Level accel: %.3f %.3f %.3f g\r\n",
+                             level_accel.x, level_accel.y, level_accel.z);
+    } else {
+        platform_debug_print("[CAL] Level align skipped\r\n");
+    }
 
     platform_debug_print("[CAL] Gyro bias: %.3f, %.3f, %.3f\r\n",
                          handle->gyro_bias.x, handle->gyro_bias.y, handle->gyro_bias.z);
@@ -368,11 +415,12 @@ void flight_main_print_status(const flight_main_handle_t *handle)
     flight_controller_get_attitude(&handle->flight_ctrl, &attitude);
 
     platform_debug_print(
-        "[STATUS] State: %s, Armed: %d, "
+        "[STATUS] State: %s, Armed: %d, Mode: %s, "
         "Att: R=%.1f P=%.1f Y=%.1f, "
         "Loops: %lu, IMU: %lu\r\n",
         state_str[state],
         flight_controller_is_armed(&handle->flight_ctrl),
+        flight_mode_name(flight_controller_get_mode(&handle->flight_ctrl)),
         attitude.roll, attitude.pitch, attitude.yaw,
         (unsigned long)handle->loop_count,
         (unsigned long)handle->imu_read_count
@@ -387,6 +435,22 @@ static hal_status_t init_sensor_drivers(void)
 {
     /* 传感器句柄在全局变量中定义，这里只返回OK */
     return HAL_OK;
+}
+
+static const char *flight_mode_name(flight_mode_t mode)
+{
+    switch (mode) {
+        case FLIGHT_MODE_DISARMED:
+            return "DISARMED";
+        case FLIGHT_MODE_ARMED:
+            return "ARMED";
+        case FLIGHT_MODE_STABILIZE:
+            return "STABILIZE";
+        case FLIGHT_MODE_ACRO:
+            return "ACRO";
+        default:
+            return "UNKNOWN";
+    }
 }
 
 static void log_i2c_devices(void)
@@ -413,6 +477,46 @@ static void reset_mag_runtime_calibration(void)
     g_mag_filtered.y = 0.0f;
     g_mag_filtered.z = 0.0f;
     g_last_mag_poll_ms = 0U;
+}
+
+static void reset_body_trim(void)
+{
+    g_body_trim_q.w = 1.0f;
+    g_body_trim_q.x = 0.0f;
+    g_body_trim_q.y = 0.0f;
+    g_body_trim_q.z = 0.0f;
+    g_body_trim_euler.roll = 0.0f;
+    g_body_trim_euler.pitch = 0.0f;
+    g_body_trim_euler.yaw = 0.0f;
+    g_body_trim_ready = false;
+}
+
+static bool update_body_trim_from_level_accel(const vec3f_t *level_accel)
+{
+    if (level_accel == NULL || !ahrs_accel_valid(level_accel)) {
+        reset_body_trim();
+        return false;
+    }
+
+    g_body_trim_euler.roll = atan2f(level_accel->y, level_accel->z);
+    g_body_trim_euler.pitch = asinf(fmaxf(-1.0f, fminf(1.0f, -level_accel->x)));
+    g_body_trim_euler.yaw = 0.0f;
+    euler_to_quaternion(&g_body_trim_q, &g_body_trim_euler);
+    quat_normalize(&g_body_trim_q);
+    g_body_trim_ready = true;
+    return true;
+}
+
+static void apply_body_trim(vec3f_t *vector)
+{
+    vec3f_t rotated;
+
+    if (vector == NULL || !g_body_trim_ready) {
+        return;
+    }
+
+    quat_rotate_vector(&rotated, &g_body_trim_q, vector);
+    *vector = rotated;
 }
 
 static vec3f_t apply_mag_runtime_calibration(const qmc5883p_data_t *mag_data)
@@ -459,6 +563,8 @@ static void read_all_sensors(flight_main_handle_t *handle)
     icm42688_data_t imu_data;
     if (icm42688_read_data(&g_imu, &imu_data) == HAL_OK) {
         map_imu_to_body_frame(&imu_data, &handle->accel, &handle->gyro);
+        apply_body_trim(&handle->accel);
+        apply_body_trim(&handle->gyro);
         handle->gyro.x -= handle->gyro_bias.x;
         handle->gyro.y -= handle->gyro_bias.y;
         handle->gyro.z -= handle->gyro_bias.z;
@@ -469,6 +575,7 @@ static void read_all_sensors(flight_main_handle_t *handle)
 
     if (g_mag_filter_ready) {
         handle->mag = g_mag_filtered;
+        apply_body_trim(&handle->mag);
         handle->mag_valid = true;
     } else {
         handle->mag_valid = false;
@@ -497,6 +604,7 @@ static void read_all_sensors(flight_main_handle_t *handle)
         }
 
         handle->mag = g_mag_filtered;
+        apply_body_trim(&handle->mag);
         handle->mag_valid = true;
         g_last_mag_sample = mag_data;
         g_last_mag_valid = true;
@@ -542,6 +650,9 @@ static void log_attitude_sample(const flight_main_handle_t *handle)
     uint32_t now;
     euler_angle_t attitude;
     vec3f_t gyro;
+    motor_outputs_t motors = {0U, 0U, 0U, 0U};
+    bool armed;
+    flight_mode_t mode;
     int32_t roll_cdeg;
     int32_t pitch_cdeg;
     int32_t yaw_cdeg;
@@ -563,6 +674,10 @@ static void log_attitude_sample(const flight_main_handle_t *handle)
         return;
     }
 
+    armed = flight_controller_is_armed(&handle->flight_ctrl);
+    mode = flight_controller_get_mode(&handle->flight_ctrl);
+    flight_controller_get_motors(&handle->flight_ctrl, &motors);
+
     roll_cdeg = (int32_t)(attitude.roll * 100.0f);
     pitch_cdeg = (int32_t)(attitude.pitch * 100.0f);
     yaw_cdeg = (int32_t)(attitude.yaw * 100.0f);
@@ -576,7 +691,7 @@ static void log_attitude_sample(const flight_main_handle_t *handle)
         yaw_rate_ddeg = (int32_t)(gyro.z * 57.2957795f * 10.0f);
     }
 
-    platform_debug_print("[ATT_CDEG] t=%lu r=%ld p=%ld y=%ld rr=%ld pr=%ld yr=%ld m=%d\r\n",
+    platform_debug_print("[ATT_CDEG] t=%lu r=%ld p=%ld y=%ld rr=%ld pr=%ld yr=%ld m=%d arm=%d md=%u m1=%u m2=%u m3=%u m4=%u\r\n",
                          (unsigned long)now,
                          (long)roll_cdeg,
                          (long)pitch_cdeg,
@@ -584,7 +699,13 @@ static void log_attitude_sample(const flight_main_handle_t *handle)
                          (long)roll_rate_ddeg,
                          (long)pitch_rate_ddeg,
                          (long)yaw_rate_ddeg,
-                         handle->mag_valid ? 1 : 0);
+                         handle->mag_valid ? 1 : 0,
+                         armed ? 1 : 0,
+                         (unsigned)mode,
+                         (unsigned)motors.motor1,
+                         (unsigned)motors.motor2,
+                         (unsigned)motors.motor3,
+                         (unsigned)motors.motor4);
 
     if (handle->mag_valid && g_last_mag_valid && (now - last_mag_log_ms) >= 1000U) {
         float heading_deg = atan2f(-handle->mag.y, handle->mag.x) * 57.2957795f;

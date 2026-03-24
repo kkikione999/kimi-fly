@@ -61,6 +61,7 @@ typedef struct {
     uint32_t last_rx_time;                      /**< 上次接收时间 */
     uint32_t last_tx_time;                      /**< 上次发送时间 */
     uint32_t last_heartbeat;                    /**< 上次心跳时间 */
+    uint32_t last_motor_tx_time;                /**< 上次电机遥测时间 */
 
     /* 统计 */
     uint32_t rx_frames;                         /**< 接收帧计数 */

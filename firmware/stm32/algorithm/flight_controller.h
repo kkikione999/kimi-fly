@@ -241,6 +241,15 @@ void flight_controller_update_imu(flight_controller_t *fc,
  */
 void flight_controller_update_mag(flight_controller_t *fc, const vec3f_t *mag);
 
+/**
+ * @brief 使用静止重力向量对齐姿态零点
+ * @param fc 飞行控制器句柄
+ * @param accel 机体坐标系加速度 (g)
+ * @return HAL_OK成功
+ */
+hal_status_t flight_controller_align_to_gravity(flight_controller_t *fc,
+                                                 const vec3f_t *accel);
+
 /* ============================================================================
  * API函数声明 - 主控制循环
  * ============================================================================ */
