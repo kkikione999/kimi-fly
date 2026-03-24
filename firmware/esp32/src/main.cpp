@@ -3,7 +3,7 @@
  * @brief ESP32-C3 WiFi STA + UART Bridge for Drone Control
  * @note Hardware: ESP32-C3 connected to STM32F411 via UART
  *       WiFi: STA mode, connects to SSID "whc"
- *       UART: TX=GPIO5, RX=GPIO4, 115200 baud
+ *       UART: TX=GPIO0, RX=GPIO1, 115200 baud
  *       TCP Server: Port 8080 for WiFi communication
  */
 

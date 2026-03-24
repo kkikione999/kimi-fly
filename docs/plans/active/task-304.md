@@ -14,8 +14,8 @@
 **当前现象**: STM32↔ESP32 双向 RX=0，没有数据收发。
 
 **硬件连接 (应为):**
-- STM32 PA2 (USART2_TX) → ESP32 GPIO4 (UART0_RX)
-- STM32 PA3 (USART2_RX) ← ESP32 GPIO5 (UART0_TX)
+- STM32 PA2 (USART2_TX) → ESP32 GPIO1 (UART_RX)
+- STM32 PA3 (USART2_RX) ← ESP32 GPIO0 (UART_TX)
 - 共地 (GND)
 
 **可能原因:**
@@ -32,8 +32,8 @@
 
 ### 硬件信息
 - STM32 USART2: PA2 (TX), PA3 (RX), 115200 baud, 8N1
-- ESP32 UART0: GPIO4 (RX), GPIO5 (TX), 115200 baud
-- 参考: `hardware-docs/pinout.md` 第 3.5 节
+- ESP32 UART: GPIO1 (RX), GPIO0 (TX), 115200 baud
+- 参考: `hardware-docs/pinout.md` 第 3.5 节, `hardware-docs/components.md`, `/Users/ll/fly/zmgjb/code/C3/src/myserial.cpp`
 
 ## 具体修改要求
 
@@ -73,8 +73,8 @@
 
 ## 注意事项
 - **硬件连接检查清单** (人工确认，AI无法自动执行):
-  - [ ] STM32 PA2 (TX) 接 ESP32 GPIO4 (RX)，非 GPIO5
-  - [ ] STM32 PA3 (RX) 接 ESP32 GPIO5 (TX)，非 GPIO4
+  - [ ] STM32 PA2 (TX) 接 ESP32 GPIO1 (RX)，非 GPIO0
+  - [ ] STM32 PA3 (RX) 接 ESP32 GPIO0 (TX)，非 GPIO1
   - [ ] GND 已共地
   - [ ] 线路无断路（万用表导通测试）
 - 物理连接问题无法通过代码修复，本任务专注软件层诊断工具

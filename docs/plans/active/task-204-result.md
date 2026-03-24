@@ -12,16 +12,16 @@ Both STM32 and ESP32 firmware are confirmed running and outputting debug data. T
 
 ---
 
-## Hardware Connection (Verified via Schematic)
+## Hardware Connection (Verified via Schematic and Original Aircraft Source)
 
 | Signal | STM32 Pin | ESP32 Pin | Direction |
 |--------|-----------|-----------|-----------|
-| UART TX | PA2 (USART2_TX) | GPIO4 (RX) | STM32 → ESP32 |
-| UART RX | PA3 (USART2_RX) | GPIO5 (TX) | ESP32 → STM32 |
+| UART TX | PA2 (USART2_TX) | GPIO1 (RX) | STM32 → ESP32 |
+| UART RX | PA3 (USART2_RX) | GPIO0 (TX) | ESP32 → STM32 |
 | GND | GND | GND | Common |
 | Baudrate | 115200 | 115200 | Both |
 
-Source: `hardware-docs/components.md` and `hardware-docs/pinout.md`
+Source: `hardware-docs/components.md`, `hardware-docs/pinout.md`, `/Users/ll/fly/zmgjb/code/C3/src/myserial.h`, `/Users/ll/fly/zmgjb/code/C3/src/myserial.cpp`
 
 ---
 
@@ -60,7 +60,7 @@ I (789954) ESP32_UART: WiFi Status: CONNECTED
 I (789964) ESP32_UART: WiFi IP: 192.168.50.132
 ```
 
-- Heartbeats sent every ~2 seconds via Serial1 (GPIO5=TX, GPIO4=RX @ 115200)
+- Heartbeats sent every ~2 seconds via Serial1 (GPIO0=TX, GPIO1=RX @ 115200)
 - TX counter = 534+ (confirmed sending)
 - RX counter = 0 (not receiving from STM32)
 
@@ -123,9 +123,9 @@ W ESP32_UART: Hardware connection issue (TX/RX cross, GND)
 
 ## Next Steps Required
 
-1. **Physical hardware inspection**: Verify TX/RX wire connections between STM32 PA2/PA3 and ESP32 GPIO5/GPIO4
-   - STM32 PA2 (TX) should connect to ESP32 GPIO4 (RX)
-   - STM32 PA3 (RX) should connect to ESP32 GPIO5 (TX)
+1. **Physical hardware inspection**: Verify TX/RX wire connections between STM32 PA2/PA3 and ESP32 GPIO1/GPIO0
+   - STM32 PA2 (TX) should connect to ESP32 GPIO1 (RX)
+   - STM32 PA3 (RX) should connect to ESP32 GPIO0 (TX)
    - Common GND between boards must be connected
 
 2. **Re-run communication test** after hardware connection is confirmed

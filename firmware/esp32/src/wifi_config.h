@@ -29,8 +29,8 @@
  * ============================================================================ */
 
 #define UART_ST_PORT            Serial1
-#define UART_ST_TX_PIN          5       // GPIO5 - TX to STM32
-#define UART_ST_RX_PIN          4       // GPIO4 - RX from STM32
+#define UART_ST_TX_PIN          0       // GPIO0 - TX to STM32 PA3
+#define UART_ST_RX_PIN          1       // GPIO1 - RX from STM32 PA2
 #define UART_ST_BAUDRATE        115200
 #define UART_ST_BUF_SIZE        256
 
