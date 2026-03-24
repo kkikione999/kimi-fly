@@ -189,21 +189,18 @@ void flight_main_print_status(const flight_main_handle_t *handle);
  * @brief 获取当前时间 (毫秒)
  * @return 时间戳 (ms)
  */
-__attribute__((weak))
 uint32_t platform_get_time_ms(void);
 
 /**
  * @brief 获取当前时间 (微秒)
  * @return 时间戳 (us)
  */
-__attribute__((weak))
 uint32_t platform_get_time_us(void);
 
 /**
  * @brief 微秒延时
  * @param us 延时时间
  */
-__attribute__((weak))
 void platform_delay_us(uint32_t us);
 
 /**
@@ -211,7 +208,6 @@ void platform_delay_us(uint32_t us);
  * @param fmt 格式字符串
  * @param ... 可变参数
  */
-__attribute__((weak))
 void platform_debug_print(const char *fmt, ...);
 
 /**
@@ -220,7 +216,6 @@ void platform_debug_print(const char *fmt, ...);
  * @param gyro 角速度输出
  * @return true成功
  */
-__attribute__((weak))
 bool platform_read_imu(vec3f_t *accel, vec3f_t *gyro);
 
 /**
@@ -228,7 +223,6 @@ bool platform_read_imu(vec3f_t *accel, vec3f_t *gyro);
  * @param mag 磁场输出
  * @return true成功
  */
-__attribute__((weak))
 bool platform_read_mag(vec3f_t *mag);
 
 /**
@@ -238,7 +232,6 @@ bool platform_read_mag(vec3f_t *mag);
  * @param m3 电机3输出
  * @param m4 电机4输出
  */
-__attribute__((weak))
 void platform_set_motors(uint16_t m1, uint16_t m2, uint16_t m3, uint16_t m4);
 
 #ifdef __cplusplus

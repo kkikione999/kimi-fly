@@ -127,11 +127,15 @@ typedef enum {
  * 时钟频率定义 (STM32F411CEU6)
  * @note STM32F411 APB1 max = 42MHz, APB2 max = 100MHz
  *       Current config: SYSCLK=84MHz, APB1=42MHz, APB2=84MHz
+ *       When APB prescaler is not 1, STM32 timers run at 2x the APB clock.
+ *       Therefore TIM2/TIM3/TIM4 also see an 84MHz timer clock here.
  * ============================================================================ */
 
 #define HAL_SYSCLK_FREQ     84000000U   /**< 系统时钟 84MHz */
 #define HAL_APB1_CLK_FREQ   42000000U   /**< APB1时钟 42MHz (USART2/I2C1, max for F411) */
 #define HAL_APB2_CLK_FREQ   84000000U   /**< APB2时钟 84MHz (USART1) */
+#define HAL_APB1_TIM_CLK_FREQ 84000000U /**< APB1定时器时钟 84MHz (TIM2/TIM3/TIM4) */
+#define HAL_APB2_TIM_CLK_FREQ 84000000U /**< APB2定时器时钟 84MHz (TIM1) */
 
 #ifdef __cplusplus
 }

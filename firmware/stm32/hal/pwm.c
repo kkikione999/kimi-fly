@@ -1,4 +1,5 @@
 #include "pwm.h"
+#include "gpio.h"
 
 /* TIM register structure */
 typedef struct {
@@ -62,11 +63,6 @@ typedef struct {
 #define TIM_CCMR2_OC3M_PWM1 (6U << 4)
 #define TIM_CCMR2_OC4M_PWM1 (6U << 12)
 
-/* Clock frequencies - STM32F411CEU6 */
-/* SYSCLK=84MHz, APB1=42MHz (max), APB2=84MHz */
-#define APB1_CLOCK_HZ   42000000U   /* 42 MHz - TIM2/TIM3/TIM4 */
-#define APB2_CLOCK_HZ   84000000U   /* 84 MHz - TIM1 */
-
 /* TIM instance array */
 static tim_reg_t *const tim_instances[] = {
     (tim_reg_t *)TIM1_BASE,
@@ -77,6 +73,57 @@ static tim_reg_t *const tim_instances[] = {
 
 /* PWM state for each TIM/channel */
 static pwm_state_t pwm_states[4][4] = {{{0}}};
+
+/* Configure the board-specific PWM output pin for the requested timer channel. */
+static hal_status_t pwm_gpio_init(tim_t tim, tim_channel_t channel)
+{
+    gpio_handle_t gpio = {0};
+    gpio_config_t cfg = {
+        .mode = HAL_GPIO_MODE_AF,
+        .otype = HAL_GPIO_OTYPE_PP,
+        .speed = HAL_GPIO_SPEED_HIGH,
+        .pupd = HAL_GPIO_PUPD_NONE,
+        .af = GPIO_AF_1
+    };
+
+    switch (tim) {
+        case PWM_TIM1:
+            gpio.port = GPIO_PORT_A;
+            cfg.af = GPIO_AF_1;
+            if (channel == TIM_CH1) {
+                gpio.pin_mask = HAL_GPIO_PIN_8;
+                return gpio_init(&gpio, &cfg);
+            }
+            if (channel == TIM_CH4) {
+                gpio.pin_mask = HAL_GPIO_PIN_11;
+                return gpio_init(&gpio, &cfg);
+            }
+            break;
+
+        case PWM_TIM2:
+            if (channel == TIM_CH3) {
+                gpio.port = GPIO_PORT_B;
+                gpio.pin_mask = HAL_GPIO_PIN_10;
+                cfg.af = GPIO_AF_1;
+                return gpio_init(&gpio, &cfg);
+            }
+            break;
+
+        case PWM_TIM3:
+            if (channel == TIM_CH4) {
+                gpio.port = GPIO_PORT_B;
+                gpio.pin_mask = HAL_GPIO_PIN_1;
+                cfg.af = GPIO_AF_2;
+                return gpio_init(&gpio, &cfg);
+            }
+            break;
+
+        case PWM_TIM4:
+            break;
+    }
+
+    return HAL_ERROR;
+}
 
 /* Enable TIM clock */
 static void tim_clock_enable(tim_t tim)
@@ -101,9 +148,9 @@ static void tim_clock_enable(tim_t tim)
 static uint32_t tim_get_clock_freq(tim_t tim)
 {
     if (tim == PWM_TIM1) {
-        return APB2_CLOCK_HZ;
+        return HAL_APB2_TIM_CLK_FREQ;
     }
-    return APB1_CLOCK_HZ;
+    return HAL_APB1_TIM_CLK_FREQ;
 }
 
 /* Calculate prescaler and auto-reload for target frequency */
@@ -114,6 +161,9 @@ static void tim_calc_period(uint32_t tim_clk, uint32_t freq_hz, uint16_t *psc, u
 
     /* period = tim_clk / freq_hz, distribute between PSC and ARR */
     period = tim_clk / freq_hz;
+    if (period < 2U) {
+        period = 2U;
+    }
 
     /* Target ARR around 1000 for 0.1% duty resolution */
     if (period <= 1000) {
@@ -205,7 +255,9 @@ hal_status_t pwm_init(const pwm_init_t *init)
         return HAL_ERROR;
     }
 
-    if (init->frequency_hz == 0 || init->frequency_hz > 20000) {
+    tim_clk = tim_get_clock_freq(init->tim);
+
+    if (init->frequency_hz == 0U || init->frequency_hz > (tim_clk / 2U)) {
         return HAL_ERROR;
     }
 
@@ -214,10 +266,13 @@ hal_status_t pwm_init(const pwm_init_t *init)
     }
 
     tim = tim_instances[init->tim];
-    tim_clk = tim_get_clock_freq(init->tim);
 
     /* Enable TIM clock */
     tim_clock_enable(init->tim);
+
+    if (pwm_gpio_init(init->tim, init->channel) != HAL_OK) {
+        return HAL_ERROR;
+    }
 
     /* Calculate prescaler and auto-reload */
     tim_calc_period(tim_clk, init->frequency_hz, &psc, &arr);
@@ -297,12 +352,12 @@ hal_status_t pwm_set_frequency(tim_t tim, uint32_t frequency_hz)
         return HAL_ERROR;
     }
 
-    if (frequency_hz == 0 || frequency_hz > 20000) {
+    tim_clk = tim_get_clock_freq(tim);
+    if (frequency_hz == 0U || frequency_hz > (tim_clk / 2U)) {
         return HAL_ERROR;
     }
 
     tim_reg = tim_instances[tim];
-    tim_clk = tim_get_clock_freq(tim);
     old_arr = tim_reg->ARR;
 
     /* Calculate new prescaler and auto-reload */

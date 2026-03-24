@@ -16,6 +16,7 @@
 #include "../hal/uart.h"
 #include "../hal/i2c.h"
 #include "../hal/spi.h"
+#include "../hal/pwm.h"
 #include "../comm/wifi_command.h"
 #include <stdarg.h>
 #include <stdio.h>
@@ -28,6 +29,8 @@ uart_handle_t huart1;   /**< USART1 - 调试串口 (PA9/PA10, 460800) */
 uart_handle_t huart2;   /**< USART2 - ESP32-C3 WiFi 通信 (PA2/PA3, 115200) */
 i2c_handle_t  hi2c1;    /**< I2C1 - ICM42688 IMU (PB6/PB7) */
 spi_handle_t  hspi3;    /**< SPI3 - LPS22HBTR 气压计 */
+
+#define MOTOR_PWM_FREQ_HZ 42000U
 
 /* ============================================================================
  * SysTick - 1ms 计时
@@ -224,11 +227,58 @@ static hal_status_t spi3_init(void)
     return spi3_init_for_imu(&hspi3);
 }
 
+static bool g_motors_ready = false;
+
+static uint16_t clamp_motor_throttle(uint16_t throttle)
+{
+    return (throttle > 999U) ? 999U : throttle;
+}
+
+static hal_status_t motor_pwm_init(void)
+{
+    hal_status_t status;
+
+    g_motors_ready = false;
+
+    status = motor_init_all(MOTOR_PWM_FREQ_HZ);
+    if (status != HAL_OK) {
+        return status;
+    }
+
+    status = motor_start_all();
+    if (status != HAL_OK) {
+        motor_set_all_throttle(0U);
+        motor_stop_all();
+        return status;
+    }
+
+    status = motor_set_all_throttle(0U);
+    if (status != HAL_OK) {
+        motor_stop_all();
+        return status;
+    }
+
+    g_motors_ready = true;
+    return HAL_OK;
+}
+
 /* ============================================================================
  * UART2 <-> WiFi command bridge
  * ============================================================================ */
 
 static flight_main_handle_t g_flight;  /* file-scope so wifi_platform_send can access */
+
+void platform_set_motors(uint16_t m1, uint16_t m2, uint16_t m3, uint16_t m4)
+{
+    if (!g_motors_ready) {
+        return;
+    }
+
+    (void)motor_set_throttle(MOTOR_1, clamp_motor_throttle(m1));
+    (void)motor_set_throttle(MOTOR_2, clamp_motor_throttle(m2));
+    (void)motor_set_throttle(MOTOR_3, clamp_motor_throttle(m3));
+    (void)motor_set_throttle(MOTOR_4, clamp_motor_throttle(m4));
+}
 
 /**
  * @brief 覆盖弱引用 wifi_platform_send — 通过 USART2 发送给 ESP32
@@ -426,7 +476,15 @@ int main(void)
     i2c1_init();
     spi3_init();
 
+    status = motor_pwm_init();
+    if (status != HAL_OK) {
+        platform_debug_print("[BOOT] Motor PWM init failed: %d\r\n", (int)status);
+        while (1) { /* halt on fatal error */ }
+    }
+
     platform_debug_print("\r\n[BOOT] Flight controller starting...\r\n");
+    platform_debug_print("[BOOT] Motor PWM ready @ %u Hz on PA8/PA11/PB1/PB10\r\n",
+                         (unsigned)MOTOR_PWM_FREQ_HZ);
 
     /* Initialise flight control system */
     status = flight_main_init(&g_flight);
