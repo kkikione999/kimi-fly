@@ -35,7 +35,10 @@ SERIAL_NO_DATA_REOPEN_SEC = 2.0
 HEX_BYTE_RE = re.compile(r"\b[0-9A-Fa-f]{2}\b")
 ATT_CDEG_RE = re.compile(
     r"\[ATT_CDEG\]\s+t=(\d+)\s+r=(-?\d+)\s+p=(-?\d+)\s+y=(-?\d+)"
-    r"(?:\s+rr=(-?\d+)\s+pr=(-?\d+)\s+yr=(-?\d+))?\s+m=(\d+)"
+    r"(?:\s+rr=(-?\d+)\s+pr=(-?\d+)\s+yr=(-?\d+))?"
+    r"(?:\s+tr=(-?\d+)\s+tp=(-?\d+))?"
+    r"(?:\s+rrs=(-?\d+)\s+prs=(-?\d+)\s+ro=(-?\d+)\s+po=(-?\d+))?"
+    r"\s+m=(\d+)"
 )
 MAG_DBG_RE = re.compile(
     r"\[MAG_DBG\]\s+t=(\d+)\s+addr=0x([0-9A-Fa-f]+)\s+lay=(\d+)\s+"
@@ -47,6 +50,7 @@ ATTITUDE_SERIAL_PORT = os.environ.get("ATTITUDE_SERIAL_PORT", "").strip()
 latest_attitude = {
     'roll': 0, 'pitch': 0, 'yaw': 0,
     'roll_rate': 0, 'pitch_rate': 0, 'yaw_rate': 0,
+    'trim_roll': 0.0, 'trim_pitch': 0.0,
     'mag_heading': 0.0,
     'mag_x': 0, 'mag_y': 0, 'mag_z': 0,
     'armed': False, 'mode': 0, 'error': 0
@@ -177,7 +181,9 @@ def serial_and_read():
                         roll_rate_dd = int(groups[4]) if groups[4] is not None else None
                         pitch_rate_dd = int(groups[5]) if groups[5] is not None else None
                         yaw_rate_dd = int(groups[6]) if groups[6] is not None else None
-                        mag_valid = int(groups[7])
+                        trim_roll_cd = int(groups[7]) if groups[7] is not None else 0
+                        trim_pitch_cd = int(groups[8]) if groups[8] is not None else 0
+                        mag_valid = int(groups[13])
                         prev_roll = latest_attitude['roll']
                         prev_pitch = latest_attitude['pitch']
                         prev_yaw = latest_attitude['yaw']
@@ -185,6 +191,8 @@ def serial_and_read():
                         latest_attitude['roll'] = roll_cd / 100.0
                         latest_attitude['pitch'] = pitch_cd / 100.0
                         latest_attitude['yaw'] = yaw_cd / 100.0
+                        latest_attitude['trim_roll'] = trim_roll_cd / 100.0
+                        latest_attitude['trim_pitch'] = trim_pitch_cd / 100.0
                         now = time.time()
                         dt = max(now - prev_update, 1e-3)
                         if roll_rate_dd is not None and pitch_rate_dd is not None and yaw_rate_dd is not None:

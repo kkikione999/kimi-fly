@@ -46,6 +46,8 @@ class TestSuite:
         # Run tests
         self._test_arm_disarm_safety()
         self._test_throttle_safety()
+        self._test_level_trim_capture()
+        self._test_low_throttle_stabilize_gate()
         self._test_attitude_hold()
         self._test_rate_control()
         self._test_motor_mixer()
@@ -140,6 +142,100 @@ class TestSuite:
 
         self.results.append(TestResult(
             "Throttle Safety",
+            passed,
+            time.time() - start,
+            details
+        ))
+
+        print(f"  {'PASS' if passed else 'FAIL'}")
+
+    def _test_level_trim_capture(self):
+        """Arm on a slightly biased attitude and verify level trim cancels the offset."""
+        print("Running: Level Trim Capture Test...")
+
+        start = time.time()
+        fc = FlightControllerSimulator(self.dt)
+
+        # Simulate the frame sitting with a small residual static bias before arming.
+        fc.update(
+            roll=np.radians(2.0),
+            pitch=np.radians(-4.0),
+            yaw=0.0,
+            roll_rate=0.0,
+            pitch_rate=0.0,
+            yaw_rate=0.0
+        )
+
+        fc.set_rc(throttle=0.0, roll=0.0, pitch=0.0, yaw=0.0, armed=True)
+        fc.set_mode(2)  # STABILIZE
+        fc.set_rc(throttle=0.5, roll=0.0, pitch=0.0, yaw=0.0)
+        fc.update(
+            roll=np.radians(2.0),
+            pitch=np.radians(-4.0),
+            yaw=0.0,
+            roll_rate=0.0,
+            pitch_rate=0.0,
+            yaw_rate=0.0
+        )
+
+        m = fc.motors
+        left_right_diff = abs((m.motor1 + m.motor2) - (m.motor3 + m.motor4))
+        front_rear_diff = abs((m.motor1 + m.motor4) - (m.motor2 + m.motor3))
+        result = left_right_diff < 20 and front_rear_diff < 20
+
+        passed = result
+        details = f"LeftRightDiff={left_right_diff}, FrontRearDiff={front_rear_diff}"
+
+        self.results.append(TestResult(
+            "Level Trim Capture",
+            passed,
+            time.time() - start,
+            details
+        ))
+
+        print(f"  {'PASS' if passed else 'FAIL'}")
+
+    def _test_low_throttle_stabilize_gate(self):
+        """Below the control threshold, stabilize mode should not build differential outputs."""
+        print("Running: Low Throttle Gate Test...")
+
+        start = time.time()
+        fc = FlightControllerSimulator(self.dt)
+        fc.set_rc(throttle=0.0, roll=0.0, pitch=0.0, yaw=0.0, armed=True)
+        fc.set_mode(2)  # STABILIZE
+
+        fc.set_rc(throttle=0.05, roll=0.0, pitch=0.0, yaw=0.0)
+        fc.update(
+            roll=np.radians(8.0),
+            pitch=np.radians(0.0),
+            yaw=0.0,
+            roll_rate=0.0,
+            pitch_rate=0.0,
+            yaw_rate=0.0
+        )
+        low = fc.motors
+
+        low_diff = abs((low.motor1 + low.motor2) - (low.motor3 + low.motor4))
+        result1 = low_diff < 20
+
+        fc.set_rc(throttle=0.5, roll=0.0, pitch=0.0, yaw=0.0)
+        fc.update(
+            roll=np.radians(8.0),
+            pitch=np.radians(0.0),
+            yaw=0.0,
+            roll_rate=0.0,
+            pitch_rate=0.0,
+            yaw_rate=0.0
+        )
+        high = fc.motors
+        high_diff = abs((high.motor1 + high.motor2) - (high.motor3 + high.motor4))
+        result2 = high_diff > 20
+
+        passed = result1 and result2
+        details = f"LowDiff={low_diff}, HighDiff={high_diff}"
+
+        self.results.append(TestResult(
+            "Low Throttle Gate",
             passed,
             time.time() - start,
             details

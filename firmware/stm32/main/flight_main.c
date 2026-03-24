@@ -659,6 +659,12 @@ static void log_attitude_sample(const flight_main_handle_t *handle)
     int32_t roll_rate_ddeg;
     int32_t pitch_rate_ddeg;
     int32_t yaw_rate_ddeg;
+    int32_t trim_roll_cdeg;
+    int32_t trim_pitch_cdeg;
+    int32_t roll_rate_sp_ddeg;
+    int32_t pitch_rate_sp_ddeg;
+    int32_t roll_out_raw;
+    int32_t pitch_out_raw;
 
     if (handle == NULL || !handle->initialized) {
         return;
@@ -691,7 +697,14 @@ static void log_attitude_sample(const flight_main_handle_t *handle)
         yaw_rate_ddeg = (int32_t)(gyro.z * 57.2957795f * 10.0f);
     }
 
-    platform_debug_print("[ATT_CDEG] t=%lu r=%ld p=%ld y=%ld rr=%ld pr=%ld yr=%ld m=%d arm=%d md=%u m1=%u m2=%u m3=%u m4=%u\r\n",
+    trim_roll_cdeg = (int32_t)(handle->flight_ctrl.attitude_trim.roll * 100.0f);
+    trim_pitch_cdeg = (int32_t)(handle->flight_ctrl.attitude_trim.pitch * 100.0f);
+    roll_rate_sp_ddeg = (int32_t)(handle->flight_ctrl.debug_roll_rate_sp * 10.0f);
+    pitch_rate_sp_ddeg = (int32_t)(handle->flight_ctrl.debug_pitch_rate_sp * 10.0f);
+    roll_out_raw = (int32_t)handle->flight_ctrl.debug_roll_out;
+    pitch_out_raw = (int32_t)handle->flight_ctrl.debug_pitch_out;
+
+    platform_debug_print("[ATT_CDEG] t=%lu r=%ld p=%ld y=%ld rr=%ld pr=%ld yr=%ld tr=%ld tp=%ld rrs=%ld prs=%ld ro=%ld po=%ld m=%d arm=%d md=%u m1=%u m2=%u m3=%u m4=%u\r\n",
                          (unsigned long)now,
                          (long)roll_cdeg,
                          (long)pitch_cdeg,
@@ -699,6 +712,12 @@ static void log_attitude_sample(const flight_main_handle_t *handle)
                          (long)roll_rate_ddeg,
                          (long)pitch_rate_ddeg,
                          (long)yaw_rate_ddeg,
+                         (long)trim_roll_cdeg,
+                         (long)trim_pitch_cdeg,
+                         (long)roll_rate_sp_ddeg,
+                         (long)pitch_rate_sp_ddeg,
+                         (long)roll_out_raw,
+                         (long)pitch_out_raw,
                          handle->mag_valid ? 1 : 0,
                          armed ? 1 : 0,
                          (unsigned)mode,

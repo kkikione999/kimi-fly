@@ -35,13 +35,15 @@ extern "C" {
 #define MOTOR_MAX_THROTTLE          999     /**< 最大油门 (PWM) */
 #define MOTOR_IDLE_THROTTLE         50      /**< 怠速油门 (解锁后最小值) */
 
-#define MAX_ANGLE_SETPOINT          30.0f   /**< 最大角度设定值 (度) */
-#define MAX_YAW_RATE_SETPOINT       120.0f  /**< 最大偏航角速度 (度/秒) */
+#define MAX_ANGLE_SETPOINT          18.0f   /**< 第一轮平衡调试使用更保守的最大角度设定值 (度) */
+#define MAX_YAW_RATE_SETPOINT       90.0f   /**< 第一轮平衡调试使用更保守的最大偏航角速度 (度/秒) */
 
 /* 姿态环输出限制 (作为角速度环设定值) */
-#define ROLL_RATE_LIMIT             250.0f  /**< 横滚角速度限制 (度/秒) */
-#define PITCH_RATE_LIMIT            250.0f  /**< 俯仰角速度限制 (度/秒) */
-#define YAW_RATE_LIMIT              200.0f  /**< 偏航角速度限制 (度/秒) */
+#define ROLL_RATE_LIMIT             180.0f  /**< 横滚角速度限制 (度/秒) */
+#define PITCH_RATE_LIMIT            180.0f  /**< 俯仰角速度限制 (度/秒) */
+#define YAW_RATE_LIMIT              120.0f  /**< 偏航角速度限制 (度/秒) */
+#define CONTROL_ACTIVE_THROTTLE_MIN 0.08f   /**< 低于该油门时仅保留电机均匀起转，不运行姿态控制 */
+#define ATTITUDE_TRIM_CAPTURE_MAX_ANGLE 10.0f /**< 解锁时允许捕获水平零点的最大静态倾角 (度) */
 
 /* ============================================================================
  * 数据类型定义
@@ -131,6 +133,13 @@ typedef struct {
     /* 姿态反馈 */
     euler_angle_t       attitude;       /**< 当前姿态 (度) */
     vec3f_t             attitude_rad;   /**< 当前姿态 (rad) */
+    euler_angle_t       attitude_trim;  /**< 解锁时捕获的 roll/pitch 水平零点修正 (度) */
+    bool                attitude_trim_valid; /**< 水平零点修正是否有效 */
+    float               debug_roll_rate_sp;  /**< 调试: 横滚角速度目标 (度/秒) */
+    float               debug_pitch_rate_sp; /**< 调试: 俯仰角速度目标 (度/秒) */
+    float               debug_roll_out;      /**< 调试: 横滚控制输出 (PID原始值) */
+    float               debug_pitch_out;     /**< 调试: 俯仰控制输出 (PID原始值) */
+    float               debug_yaw_out;       /**< 调试: 偏航控制输出 (PID原始值) */
     float               yaw_zero_deg;   /**< 输出偏航零点 (度, 用于相对航向显示) */
     bool                yaw_zero_valid; /**< 偏航零点是否已锁定 */
 

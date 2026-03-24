@@ -38,6 +38,9 @@ static void calculate_setpoints(flight_controller_t *fc);
 static void run_attitude_controller(flight_controller_t *fc, float *roll_rate_sp, float *pitch_rate_sp);
 static void run_rate_controller(flight_controller_t *fc, float roll_rate_sp, float pitch_rate_sp, float *roll_out, float *pitch_out, float *yaw_out);
 static void update_motors_with_outputs(flight_controller_t *fc, float roll_out, float pitch_out, float yaw_out);
+static void capture_attitude_trim(flight_controller_t *fc);
+static void clear_attitude_trim(flight_controller_t *fc);
+static void apply_attitude_trim(const flight_controller_t *fc, euler_angle_t *attitude);
 static void reset_controllers(flight_controller_t *fc);
 static float wrap_degrees(float angle_deg);
 
@@ -78,6 +81,12 @@ hal_status_t flight_controller_init(flight_controller_t *fc, const flight_contro
     fc->motors_armed = false;
     fc->yaw_zero_deg = 0.0f;
     fc->yaw_zero_valid = false;
+    clear_attitude_trim(fc);
+    fc->debug_roll_rate_sp = 0.0f;
+    fc->debug_pitch_rate_sp = 0.0f;
+    fc->debug_roll_out = 0.0f;
+    fc->debug_pitch_out = 0.0f;
+    fc->debug_yaw_out = 0.0f;
 
     return HAL_OK;
 }
@@ -111,6 +120,7 @@ bool flight_controller_arm(flight_controller_t *fc)
 
     /* 复位所有PID控制器 */
     reset_controllers(fc);
+    capture_attitude_trim(fc);
 
     fc->motors_armed = true;
     fc->mode = FLIGHT_MODE_ARMED;
@@ -128,6 +138,7 @@ void flight_controller_disarm(flight_controller_t *fc)
     fc->motors_armed = false;
     fc->mode = FLIGHT_MODE_DISARMED;
     fc->state = FLIGHT_STATE_IDLE;
+    clear_attitude_trim(fc);
 
     /* 停止所有电机 */
     fc->motors.motor1 = 0;
@@ -244,6 +255,7 @@ hal_status_t flight_controller_align_to_gravity(flight_controller_t *fc, const v
 
     fc->yaw_zero_deg = 0.0f;
     fc->yaw_zero_valid = false;
+    clear_attitude_trim(fc);
     fc->attitude.roll = 0.0f;
     fc->attitude.pitch = 0.0f;
     fc->attitude.yaw = 0.0f;
@@ -263,6 +275,7 @@ hal_status_t flight_controller_update(flight_controller_t *fc)
         return HAL_ERROR;
     }
 
+    const bool control_active = (fc->setpoint.throttle >= CONTROL_ACTIVE_THROTTLE_MIN);
     float roll_rate_sp = 0.0f, pitch_rate_sp = 0.0f;
     float roll_out = 0.0f, pitch_out = 0.0f, yaw_out = 0.0f;
 
@@ -271,23 +284,38 @@ hal_status_t flight_controller_update(flight_controller_t *fc)
 
     /* 2. 根据模式运行控制律 */
     if (fc->mode == FLIGHT_MODE_STABILIZE) {
-        /* 自稳模式: 角度环 + 角速度环 */
-        run_attitude_controller(fc, &roll_rate_sp, &pitch_rate_sp);
-        run_rate_controller(fc, roll_rate_sp, pitch_rate_sp, &roll_out, &pitch_out, &yaw_out);
+        if (control_active) {
+            /* 自稳模式: 角度环 + 角速度环 */
+            run_attitude_controller(fc, &roll_rate_sp, &pitch_rate_sp);
+            run_rate_controller(fc, roll_rate_sp, pitch_rate_sp, &roll_out, &pitch_out, &yaw_out);
+        } else {
+            /* 低油门地面/系绳阶段只保留均匀起转，不让积分在约束状态下堆积。 */
+            reset_controllers(fc);
+        }
     }
     else if (fc->mode == FLIGHT_MODE_ACRO) {
-        /* 特技模式: 直接角速度控制 */
-        roll_rate_sp = rc_to_rate(fc->rc_input.roll, ROLL_RATE_LIMIT);
-        pitch_rate_sp = rc_to_rate(fc->rc_input.pitch, PITCH_RATE_LIMIT);
-        float yaw_rate_sp = rc_to_rate(fc->rc_input.yaw, YAW_RATE_LIMIT);
-        run_rate_controller(fc, roll_rate_sp, pitch_rate_sp, &roll_out, &pitch_out, &yaw_out);
-        /* 偏航直接给前馈 */
-        yaw_out = yaw_rate_sp * 0.1f;
+        if (control_active) {
+            /* 特技模式: 直接角速度控制 */
+            roll_rate_sp = rc_to_rate(fc->rc_input.roll, ROLL_RATE_LIMIT);
+            pitch_rate_sp = rc_to_rate(fc->rc_input.pitch, PITCH_RATE_LIMIT);
+            float yaw_rate_sp = rc_to_rate(fc->rc_input.yaw, YAW_RATE_LIMIT);
+            run_rate_controller(fc, roll_rate_sp, pitch_rate_sp, &roll_out, &pitch_out, &yaw_out);
+            /* 偏航直接给前馈 */
+            yaw_out = yaw_rate_sp * 0.1f;
+        } else {
+            reset_controllers(fc);
+        }
     }
     else if (fc->mode == FLIGHT_MODE_ARMED) {
         /* 怠速模式: 复位控制器，只给怠速油门 */
         reset_controllers(fc);
     }
+
+    fc->debug_roll_rate_sp = roll_rate_sp;
+    fc->debug_pitch_rate_sp = pitch_rate_sp;
+    fc->debug_roll_out = roll_out;
+    fc->debug_pitch_out = pitch_out;
+    fc->debug_yaw_out = yaw_out;
 
     /* 3. 电机输出 */
     if (fc->motors_armed) {
@@ -454,6 +482,7 @@ static void update_attitude(flight_controller_t *fc)
         fc->yaw_zero_valid = false;
     }
 
+    apply_attitude_trim(fc, &absolute_attitude);
     fc->attitude = absolute_attitude;
 
     /* 转换为弧度供PID使用 */
@@ -540,12 +569,62 @@ static void update_motors_with_outputs(flight_controller_t *fc, float roll_out, 
     mixer_quad_x(throttle, roll_out, pitch_out, yaw_out, &fc->motors);
 }
 
+static void capture_attitude_trim(flight_controller_t *fc)
+{
+    if (fc == NULL) {
+        return;
+    }
+
+    if (fabsf(fc->attitude.roll) > ATTITUDE_TRIM_CAPTURE_MAX_ANGLE ||
+        fabsf(fc->attitude.pitch) > ATTITUDE_TRIM_CAPTURE_MAX_ANGLE) {
+        clear_attitude_trim(fc);
+        return;
+    }
+
+    fc->attitude_trim.roll = fc->attitude.roll;
+    fc->attitude_trim.pitch = fc->attitude.pitch;
+    fc->attitude_trim.yaw = 0.0f;
+    fc->attitude_trim_valid = true;
+
+    fc->attitude.roll = 0.0f;
+    fc->attitude.pitch = 0.0f;
+    fc->attitude_rad.x = 0.0f;
+    fc->attitude_rad.y = 0.0f;
+}
+
+static void clear_attitude_trim(flight_controller_t *fc)
+{
+    if (fc == NULL) {
+        return;
+    }
+
+    fc->attitude_trim.roll = 0.0f;
+    fc->attitude_trim.pitch = 0.0f;
+    fc->attitude_trim.yaw = 0.0f;
+    fc->attitude_trim_valid = false;
+}
+
+static void apply_attitude_trim(const flight_controller_t *fc, euler_angle_t *attitude)
+{
+    if (fc == NULL || attitude == NULL || !fc->attitude_trim_valid) {
+        return;
+    }
+
+    attitude->roll -= fc->attitude_trim.roll;
+    attitude->pitch -= fc->attitude_trim.pitch;
+}
+
 /**
  * @brief 复位所有控制器
  */
 static void reset_controllers(flight_controller_t *fc)
 {
     flight_pid_reset_all(&fc->pid_set);
+    fc->debug_roll_rate_sp = 0.0f;
+    fc->debug_pitch_rate_sp = 0.0f;
+    fc->debug_roll_out = 0.0f;
+    fc->debug_pitch_out = 0.0f;
+    fc->debug_yaw_out = 0.0f;
 }
 
 static float wrap_degrees(float angle_deg)

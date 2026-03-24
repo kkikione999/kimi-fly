@@ -207,39 +207,42 @@ void flight_pid_set_defaults(flight_pid_set_t *pid_set)
         return;
     }
 
-    /* 角度环PID参数 - 响应较慢，积分小 */
+    /* 第二轮系绳平衡调试参数:
+     * 1. 外环稍微降带宽，避免被系绳/地效扰动时持续“追大角度”。
+     * 2. 内环继续偏向 P/D 阻尼，让机体先把角速度压住，再回正姿态。
+     */
     /* 横滚角度环 */
-    pid_set_gains(&pid_set->channels[PID_ROLL_ANGLE],  4.0f, 0.05f, 0.0f);
-    pid_set_integral_limit(&pid_set->channels[PID_ROLL_ANGLE], 20.0f);
-    pid_set_output_limit(&pid_set->channels[PID_ROLL_ANGLE], 200.0f);
+    pid_set_gains(&pid_set->channels[PID_ROLL_ANGLE],  6.0f, 0.01f, 0.0f);
+    pid_set_integral_limit(&pid_set->channels[PID_ROLL_ANGLE], 8.0f);
+    pid_set_output_limit(&pid_set->channels[PID_ROLL_ANGLE], 180.0f);
 
     /* 俯仰角度环 */
-    pid_set_gains(&pid_set->channels[PID_PITCH_ANGLE], 4.0f, 0.05f, 0.0f);
-    pid_set_integral_limit(&pid_set->channels[PID_PITCH_ANGLE], 20.0f);
-    pid_set_output_limit(&pid_set->channels[PID_PITCH_ANGLE], 200.0f);
+    pid_set_gains(&pid_set->channels[PID_PITCH_ANGLE], 4.2f, 0.01f, 0.0f);
+    pid_set_integral_limit(&pid_set->channels[PID_PITCH_ANGLE], 8.0f);
+    pid_set_output_limit(&pid_set->channels[PID_PITCH_ANGLE], 120.0f);
 
     /* 偏航角度环 */
-    pid_set_gains(&pid_set->channels[PID_YAW_ANGLE],  3.0f, 0.02f, 0.0f);
-    pid_set_integral_limit(&pid_set->channels[PID_YAW_ANGLE], 30.0f);
-    pid_set_output_limit(&pid_set->channels[PID_YAW_ANGLE], 150.0f);
+    pid_set_gains(&pid_set->channels[PID_YAW_ANGLE],  2.0f, 0.01f, 0.0f);
+    pid_set_integral_limit(&pid_set->channels[PID_YAW_ANGLE], 20.0f);
+    pid_set_output_limit(&pid_set->channels[PID_YAW_ANGLE], 90.0f);
 
     /* 角速度环PID参数 - 响应快，D项抑制震荡 */
     /* 横滚角速度环 */
-    pid_set_gains(&pid_set->channels[PID_ROLL_RATE],  0.15f, 0.3f, 0.001f);
-    pid_set_integral_limit(&pid_set->channels[PID_ROLL_RATE], 200.0f);
-    pid_set_output_limit(&pid_set->channels[PID_ROLL_RATE], 400.0f);
-    pid_set_d_filter(&pid_set->channels[PID_ROLL_RATE], 0.1f);
+    pid_set_gains(&pid_set->channels[PID_ROLL_RATE],  0.60f, 0.05f, 0.0045f);
+    pid_set_integral_limit(&pid_set->channels[PID_ROLL_RATE], 70.0f);
+    pid_set_output_limit(&pid_set->channels[PID_ROLL_RATE], 380.0f);
+    pid_set_d_filter(&pid_set->channels[PID_ROLL_RATE], 0.06f);
 
     /* 俯仰角速度环 */
-    pid_set_gains(&pid_set->channels[PID_PITCH_RATE], 0.15f, 0.3f, 0.001f);
-    pid_set_integral_limit(&pid_set->channels[PID_PITCH_RATE], 200.0f);
-    pid_set_output_limit(&pid_set->channels[PID_PITCH_RATE], 400.0f);
-    pid_set_d_filter(&pid_set->channels[PID_PITCH_RATE], 0.1f);
+    pid_set_gains(&pid_set->channels[PID_PITCH_RATE], 0.52f, 0.05f, 0.0045f);
+    pid_set_integral_limit(&pid_set->channels[PID_PITCH_RATE], 70.0f);
+    pid_set_output_limit(&pid_set->channels[PID_PITCH_RATE], 320.0f);
+    pid_set_d_filter(&pid_set->channels[PID_PITCH_RATE], 0.06f);
 
     /* 偏航角速度环 */
-    pid_set_gains(&pid_set->channels[PID_YAW_RATE],   0.2f, 0.4f, 0.0f);
-    pid_set_integral_limit(&pid_set->channels[PID_YAW_RATE], 150.0f);
-    pid_set_output_limit(&pid_set->channels[PID_YAW_RATE], 300.0f);
+    pid_set_gains(&pid_set->channels[PID_YAW_RATE],   0.18f, 0.05f, 0.0f);
+    pid_set_integral_limit(&pid_set->channels[PID_YAW_RATE], 50.0f);
+    pid_set_output_limit(&pid_set->channels[PID_YAW_RATE], 140.0f);
 
     /* 高度环PID参数 */
     pid_set_gains(&pid_set->channels[PID_ALTITUDE],   2.0f, 0.1f, 0.5f);

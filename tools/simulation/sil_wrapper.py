@@ -57,20 +57,24 @@ class FlightControllerSimulator:
 
     def __init__(self, dt: float = 0.001):
         self.dt = dt
+        self.max_angle = 18.0
+        self.max_rate = 180.0
+        self.max_yaw_rate = 120.0
+        self.control_active_throttle_min = 0.08
+        self.level_trim_capture_max_angle_deg = 10.0
 
         # Flight mode
         self.mode = 0  # DISARMED
         self.armed = False
 
-        # PID controllers (simplified)
-        self.roll_angle_pid = PIDController(kp=4.0, ki=0.05, kd=0.0, dt=dt)
-        self.pitch_angle_pid = PIDController(kp=4.0, ki=0.05, kd=0.0, dt=dt)
-        self.yaw_angle_pid = PIDController(kp=3.0, ki=0.02, kd=0.0, dt=dt)
+        # PID controllers aligned with the current tether-balance profile.
+        self.roll_angle_pid = PIDController(kp=6.0, ki=0.01, kd=0.0, dt=dt)
+        self.pitch_angle_pid = PIDController(kp=4.2, ki=0.01, kd=0.0, dt=dt)
+        self.yaw_angle_pid = PIDController(kp=2.0, ki=0.01, kd=0.0, dt=dt)
 
-        # Rate PID - higher gains for SIL testing
-        self.roll_rate_pid = PIDController(kp=1.5, ki=0.3, kd=0.001, dt=dt)
-        self.pitch_rate_pid = PIDController(kp=1.5, ki=0.3, kd=0.001, dt=dt)
-        self.yaw_rate_pid = PIDController(kp=2.0, ki=0.4, kd=0.0, dt=dt)
+        self.roll_rate_pid = PIDController(kp=0.60, ki=0.05, kd=0.0045, dt=dt)
+        self.pitch_rate_pid = PIDController(kp=0.52, ki=0.05, kd=0.0045, dt=dt)
+        self.yaw_rate_pid = PIDController(kp=0.18, ki=0.05, kd=0.0, dt=dt)
 
         # RC input
         self.rc = CStructs.RCCommand()
@@ -83,6 +87,8 @@ class FlightControllerSimulator:
         # State
         self.attitude = CStructs.EulerAngle(0, 0, 0)
         self.gyro = CStructs.Vec3f(0, 0, 0)
+        self.attitude_trim = CStructs.EulerAngle(0, 0, 0)
+        self.attitude_trim_valid = False
 
         # Motors
         self.motors = CStructs.MotorOutputs(0, 0, 0, 0)
@@ -94,6 +100,8 @@ class FlightControllerSimulator:
         """Try to arm the motors"""
         if self.rc.throttle > 0.05:
             return False  # Throttle must be low
+        self._capture_level_trim()
+        self._reset_pids()
         self.armed = True
         self.mode = 1  # ARMED
         return True
@@ -103,6 +111,8 @@ class FlightControllerSimulator:
         self.armed = False
         self.mode = 0  # DISARMED
         self.motors = CStructs.MotorOutputs(0, 0, 0, 0)
+        self.attitude_trim = CStructs.EulerAngle(0, 0, 0)
+        self.attitude_trim_valid = False
         self._reset_pids()
 
     def set_mode(self, mode: int):
@@ -151,10 +161,6 @@ class FlightControllerSimulator:
             )
             return self.motors
 
-        # Convert RC input to setpoints
-        max_angle = 30.0  # degrees
-        max_rate = 250.0  # deg/s
-
         # Convert attitude to degrees
         roll_deg = roll * 180.0 / np.pi
         pitch_deg = pitch * 180.0 / np.pi
@@ -164,23 +170,41 @@ class FlightControllerSimulator:
         pitch_rate_deg = pitch_rate * 180.0 / np.pi
         yaw_rate_deg = yaw_rate * 180.0 / np.pi
 
+        if self.attitude_trim_valid:
+            roll_deg -= self.attitude_trim.roll * 180.0 / np.pi
+            pitch_deg -= self.attitude_trim.pitch * 180.0 / np.pi
+
         # Cascade PID (simplified)
         if self.mode == 2:  # STABILIZE mode
-            # Outer loop (angle)
-            roll_angle_sp = self.rc.roll * max_angle
-            pitch_angle_sp = self.rc.pitch * max_angle
+            if self.rc.throttle >= self.control_active_throttle_min:
+                # Outer loop (angle)
+                roll_angle_sp = self.rc.roll * self.max_angle
+                pitch_angle_sp = self.rc.pitch * self.max_angle
 
-            roll_rate_cmd = self.roll_angle_pid.update(roll_angle_sp, roll_deg)
-            pitch_rate_cmd = self.pitch_angle_pid.update(pitch_angle_sp, pitch_deg)
+                roll_rate_cmd = self.roll_angle_pid.update(roll_angle_sp, roll_deg)
+                pitch_rate_cmd = self.pitch_angle_pid.update(pitch_angle_sp, pitch_deg)
 
-            # Limit rate commands
-            roll_rate_cmd = np.clip(roll_rate_cmd, -max_rate, max_rate)
-            pitch_rate_cmd = np.clip(pitch_rate_cmd, -max_rate, max_rate)
-        else:  # ACRO mode
-            roll_rate_cmd = self.rc.roll * max_rate  # Direct rate control
-            pitch_rate_cmd = self.rc.pitch * max_rate
+                # Limit rate commands
+                roll_rate_cmd = np.clip(roll_rate_cmd, -self.max_rate, self.max_rate)
+                pitch_rate_cmd = np.clip(pitch_rate_cmd, -self.max_rate, self.max_rate)
+            else:
+                self._reset_pids()
+                roll_rate_cmd = 0.0
+                pitch_rate_cmd = 0.0
+        elif self.mode == 3:  # ACRO mode
+            if self.rc.throttle >= self.control_active_throttle_min:
+                roll_rate_cmd = self.rc.roll * self.max_rate
+                pitch_rate_cmd = self.rc.pitch * self.max_rate
+            else:
+                self._reset_pids()
+                roll_rate_cmd = 0.0
+                pitch_rate_cmd = 0.0
+        else:
+            self._reset_pids()
+            roll_rate_cmd = 0.0
+            pitch_rate_cmd = 0.0
 
-        yaw_rate_sp = self.rc.yaw * max_rate
+        yaw_rate_sp = self.rc.yaw * self.max_yaw_rate if self.mode in (2, 3) else 0.0
 
         # Inner loop (rate)
         roll_out = self.roll_rate_pid.update(roll_rate_cmd, roll_rate_deg)
@@ -219,6 +243,26 @@ class FlightControllerSimulator:
         )
 
         return self.motors
+
+    def _capture_level_trim(self):
+        """Capture the current roll/pitch as the level reference when arming."""
+        roll_deg = np.degrees(self.attitude.roll)
+        pitch_deg = np.degrees(self.attitude.pitch)
+
+        if abs(roll_deg) > self.level_trim_capture_max_angle_deg:
+            self.attitude_trim = CStructs.EulerAngle(0, 0, 0)
+            self.attitude_trim_valid = False
+            return
+
+        if abs(pitch_deg) > self.level_trim_capture_max_angle_deg:
+            self.attitude_trim = CStructs.EulerAngle(0, 0, 0)
+            self.attitude_trim_valid = False
+            return
+
+        self.attitude_trim.roll = self.attitude.roll
+        self.attitude_trim.pitch = self.attitude.pitch
+        self.attitude_trim.yaw = 0.0
+        self.attitude_trim_valid = True
 
     def _reset_pids(self):
         """Reset all PID controllers"""

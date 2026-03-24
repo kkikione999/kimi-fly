@@ -20,6 +20,7 @@
 #include "../comm/wifi_command.h"
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 /* ============================================================================
  * 全局 HAL 句柄 (flight_main.c 通过 extern 引用)
@@ -31,6 +32,34 @@ i2c_handle_t  hi2c1;    /**< I2C1 - ICM42688 IMU (PB6/PB7) */
 spi_handle_t  hspi3;    /**< SPI3 - LPS22HBTR 气压计 */
 
 #define MOTOR_PWM_FREQ_HZ 42000U
+
+#ifdef AUTO_TETHER_BALANCE_TEST
+typedef struct {
+    uint16_t duration_ms;
+    float throttle;
+    bool armed;
+    flight_mode_t mode;
+    const char *name;
+} auto_tether_stage_t;
+
+#define AUTO_TETHER_ABORT_ROLL_DEG          8.0f
+#define AUTO_TETHER_ABORT_PITCH_DEG         8.0f
+#define AUTO_TETHER_ABORT_HOLD_MS           120U
+#define AUTO_TETHER_DISARM_STAGE_INDEX      (sizeof(k_auto_tether_stages) / sizeof(k_auto_tether_stages[0]) - 1U)
+
+static const auto_tether_stage_t k_auto_tether_stages[] = {
+    {3000U, 0.00f, false, FLIGHT_MODE_DISARMED, "PREP"},
+    {1500U, 0.00f, true,  FLIGHT_MODE_ARMED,    "ARM_CAPTURE"},
+    {3000U, 0.09f, true,  FLIGHT_MODE_STABILIZE,"STAB_09"},
+    {3000U, 0.12f, true,  FLIGHT_MODE_STABILIZE,"STAB_12"},
+    {3000U, 0.15f, true,  FLIGHT_MODE_STABILIZE,"STAB_15"},
+    {3000U, 0.18f, true,  FLIGHT_MODE_STABILIZE,"STAB_18"},
+    {2000U, 0.12f, true,  FLIGHT_MODE_STABILIZE,"STAB_12_COOLDOWN"},
+    {1000U, 0.00f, false, FLIGHT_MODE_DISARMED, "DISARM"},
+};
+
+static void auto_tether_balance_test_update(flight_main_handle_t *flight);
+#endif
 
 /* ============================================================================
  * SysTick - 1ms 计时
@@ -466,6 +495,135 @@ static void uart2_poll_rx(void)
 
 }
 
+#ifdef AUTO_TETHER_BALANCE_TEST
+static void auto_tether_balance_test_update(flight_main_handle_t *flight)
+{
+    static bool started = false;
+    static bool finished = false;
+    static bool abort_logged = false;
+    static uint32_t sequence_start_ms = 0U;
+    static uint32_t tilt_exceed_since_ms = 0U;
+    static size_t announced_stage_index = (size_t)-1;
+    static size_t stage_index = 0U;
+    uint32_t elapsed_ms = 0U;
+    uint32_t accumulated_ms = 0U;
+    rc_command_t cmd = {0};
+    const auto_tether_stage_t *stage = NULL;
+    euler_angle_t attitude = {0.0f, 0.0f, 0.0f};
+
+    if (flight == NULL || !flight->initialized || !flight->sensors_ok) {
+        return;
+    }
+
+    if (!started) {
+        started = true;
+        sequence_start_ms = platform_get_time_ms();
+        stage_index = 0U;
+        announced_stage_index = (size_t)-1;
+        abort_logged = false;
+        tilt_exceed_since_ms = 0U;
+        platform_debug_print("[AUTO_TEST] Enabled on %s, stages=%u\r\n",
+                             __DATE__,
+                             (unsigned)(sizeof(k_auto_tether_stages) / sizeof(k_auto_tether_stages[0])));
+    }
+
+    if (finished) {
+        cmd.throttle = 0.0f;
+        cmd.roll = 0.0f;
+        cmd.pitch = 0.0f;
+        cmd.yaw = 0.0f;
+        cmd.armed = false;
+        cmd.mode_switch = false;
+        flight_controller_set_rc_input(&flight->flight_ctrl, &cmd);
+        (void)flight_controller_set_mode(&flight->flight_ctrl, FLIGHT_MODE_DISARMED);
+        flight->wifi_cmd.last_rx_time = platform_get_time_ms();
+        return;
+    }
+
+    elapsed_ms = platform_get_time_ms() - sequence_start_ms;
+
+    if (flight_controller_get_attitude(&flight->flight_ctrl, &attitude) &&
+        flight_controller_is_armed(&flight->flight_ctrl) &&
+        stage_index >= 2U &&
+        !finished) {
+        const bool roll_exceeded = (attitude.roll >= AUTO_TETHER_ABORT_ROLL_DEG) ||
+                                   (attitude.roll <= -AUTO_TETHER_ABORT_ROLL_DEG);
+        const bool pitch_exceeded = (attitude.pitch >= AUTO_TETHER_ABORT_PITCH_DEG) ||
+                                    (attitude.pitch <= -AUTO_TETHER_ABORT_PITCH_DEG);
+
+        if (roll_exceeded || pitch_exceeded) {
+            if (tilt_exceed_since_ms == 0U) {
+                tilt_exceed_since_ms = platform_get_time_ms();
+            } else if ((platform_get_time_ms() - tilt_exceed_since_ms) >= AUTO_TETHER_ABORT_HOLD_MS) {
+                if (!abort_logged) {
+                    platform_debug_print("[AUTO_TEST] ABORT_TILT roll=%.2f pitch=%.2f t=%lu\r\n",
+                                         (double)attitude.roll,
+                                         (double)attitude.pitch,
+                                         (unsigned long)elapsed_ms);
+                    abort_logged = true;
+                }
+                stage_index = AUTO_TETHER_DISARM_STAGE_INDEX;
+            }
+        } else {
+            tilt_exceed_since_ms = 0U;
+        }
+    } else {
+        tilt_exceed_since_ms = 0U;
+    }
+
+    for (stage_index = 0U; stage_index < (sizeof(k_auto_tether_stages) / sizeof(k_auto_tether_stages[0])); stage_index++) {
+        const auto_tether_stage_t *candidate = &k_auto_tether_stages[stage_index];
+        if (elapsed_ms < (accumulated_ms + candidate->duration_ms)) {
+            stage = candidate;
+            break;
+        }
+        accumulated_ms += candidate->duration_ms;
+    }
+
+    if (abort_logged) {
+        stage_index = AUTO_TETHER_DISARM_STAGE_INDEX;
+        stage = &k_auto_tether_stages[stage_index];
+    }
+
+    if (stage == NULL) {
+        finished = true;
+        platform_debug_print("[AUTO_TEST] COMPLETE total=%lu ms\r\n", (unsigned long)elapsed_ms);
+        return;
+    }
+
+    if (announced_stage_index != stage_index) {
+        platform_debug_print("[AUTO_TEST] stage=%u name=%s throttle=%.2f armed=%u mode=%u t=%lu\r\n",
+                             (unsigned)stage_index,
+                             stage->name,
+                             (double)stage->throttle,
+                             stage->armed ? 1U : 0U,
+                             (unsigned)stage->mode,
+                             (unsigned long)elapsed_ms);
+        announced_stage_index = stage_index;
+    }
+
+    cmd.throttle = stage->throttle;
+    cmd.roll = 0.0f;
+    cmd.pitch = 0.0f;
+    cmd.yaw = 0.0f;
+    cmd.armed = stage->armed;
+    cmd.mode_switch = false;
+
+    flight_controller_set_rc_input(&flight->flight_ctrl, &cmd);
+
+    if (stage->mode != FLIGHT_MODE_DISARMED) {
+        if (flight_controller_is_armed(&flight->flight_ctrl)) {
+            (void)flight_controller_set_mode(&flight->flight_ctrl, stage->mode);
+        }
+    } else {
+        (void)flight_controller_set_mode(&flight->flight_ctrl, FLIGHT_MODE_DISARMED);
+    }
+
+    /* 没有 WiFi 遥控链路时，自动系绳测试本身就是“本地控制源”。 */
+    flight->wifi_cmd.last_rx_time = platform_get_time_ms();
+}
+#endif
+
 /* ============================================================================
  * main()
  * ============================================================================ */
@@ -514,6 +672,9 @@ int main(void)
 
         while ((uint32_t)(now - last_control_ms) >= 1U) {
             last_control_ms += 1U;
+#ifdef AUTO_TETHER_BALANCE_TEST
+            auto_tether_balance_test_update(&g_flight);
+#endif
             flight_main_control_loop(&g_flight);
             now = platform_get_time_ms();
         }
