@@ -1,0 +1,280 @@
+[ATT_CDEG] t=11028 r=77 p=-119 y=41 rr=-99 pr=121 yr=0 tr=0 tp=-12 rrs=44 prs=57 ro=11 po=-7 m=1 arm=1 md=2 m1=163 m2=148 m3=12    _  [ATT_CDEG] t=11128 r=50 p=-132 y=46 rr=91 pr=86 yr=-8 tr=0 tp=-12 rrs=77 prs=63 ro=-3 po=-3 m=1 arm=1 md=2 m1=149 m2=142 m3=149    _  [ATT_CDEG] t=11228 r=41 p=-120 y=54 rr=-103 pr=5 yr=-83 tr=0 tp=-12 rrs=82 prs=57 ro=13 po=3 m=1 arm=1 md=2 m1=159 m2=168 m3=13    _  [STATUS] State: STANDBY, Armed: 1, Mode: STABILIZE, Att: R=0.4 P=-1.3 Y=0.5, Loops: 9998, IMU: 9998
+[ATT_CDEG] t=11328 r=38 p=-130 y=53 rr=-18 pr=5 yr=-83 tr=0 tp=-12 rrs=84 prs=62 ro=6 po=2 m=1 arm=1 md=2 m1=152 m2=161 m3=144     _ [MAG_DBG] t=11328 addr=0x2C lay=1 mx=-192 my=-731 mz=441 hx=10005
+[ATT_CDEG] t=11428 r=22 p=-157 y=53 rr=69 pr=-16 yr=-71 tr=0 tp=-12 rrs=94 prs=75 ro=0 po=5 m=1 arm=1 md=2 m1=142 m2=156 m3=154    _  [ATT_CDEG] t=11528 r=17 p=-204 y=60 rr=-15 pr=68 yr=57 tr=0 tp=-12 rrs=97 prs=98 ro=7 po=0 m=1 arm=1 md=2 m1=157 m2=156 m3=143     _ [ATT_CDEG] t=11628 r=9 p=-216 y=60 rr=139 pr=179 yr=17 tr=0 tp=-12 rrs=102 prs=103 ro=-5 po=-9 m=1 arm=1 md=2 m1=153 m2=134 m3=    _   [ATT_CDEG] t=11728 r=13 p=-233 y=58 rr=-82 pr=-21 yr=77 tr=0 tp=-12 rrs=99 prs=112 ro=13 po=9 m=1 arm=1 md=2 m1=155 m2=170 m3=1 ~   _  [ATT_CDEG] t=11828 r=-4 p=-243 y=68 rr=95 pr=159 yr=31 tr=0 tp=-12 rrs=110 prs=116 ro=-1 po=-6 m=1 arm=1 md=2 m1=155 m2=141 m3=    _   [ATT_CDEG] t=11928 r=7 p=-269 y=66 rr=-61 pr=-104 yr=78 tr=0 tp=-12 rrs=103 prs=129 ro=11 po=16 m=1 arm=1 md=2 m1=146 m2=177 m3 w   _    [ATT_CDEG] t=12028 r=2 p=-281 y=71 rr=13 pr=105 yr=14 tr=0 tp=-12 rrs=106 prs=135 ro=5 po=0 m=1 arm=1 md=2 m1=156 m2=154 m3=144    _  [ATT_CDEG] t=12128 r=3 p=-250 y=82 rr=-28 pr=-70 yr=23 tr=0 tp=-12 rrs=105 prs=120 ro=9 po=13 m=1 arm=1 md=2 m1=146 m2=172 m3=1 ~   _  [ATT_CDEG] t=12228 r=11 p=-243 y=73 rr=-11 pr=-113 yr=-37 tr=0 tp=-12 rrs=101 prs=117 ro=7 po=16 m=1 arm=1 md=2 m1=139 m2=174 m ~   _    [STATUS] State: STANDBY, Armed: 1, Mode: STABILIZE, Att: R=0.2 P=-2.2 Y=0.8, Loops: 10998, IMU: 10998
+[ATT_CDEG] t=12328 r=17 p=-209 y=82 rr=-67 pr=7 yr=44 tr=0 tp=-12 rrs=97 prs=100 ro=12 po=6 m=1 arm=1 md=2 m1=157 m2=167 m3=144    _  [MAG_DBG] t=12328 addr=0x2C lay=1 mx=-191 my=-727 mz=440 hx=9969
+[ATT_CDEG] t=12428 r=22 p=-207 y=81 rr=-36 pr=-157 yr=-6 tr=0 tp=-12 rrs=94 prs=99 ro=9 po=19 m=1 arm=1 md=2 m1=139 m2=179 m3=1 x   _  [ATT_CDEG] t=12528 r=10 p=-242 y=76 rr=116 pr=49 yr=19 tr=0 tp=-12 rrs=101 prs=116 ro=-3 po=3 m=1 arm=1 md=2 m1=143 m2=149 m3=1    _  [ATT_CDEG] t=12628 r=28 p=-220 y=78 rr=-55 pr=90 yr=46 tr=0 tp=-12 rrs=91 prs=106 ro=10 po=0 m=1 arm=1 md=2 m1=162 m2=159 m3=13    _  [ATT_CDEG] t=12728 r=0 p=-246 y=75 rr=65 pr=29 yr=99 tr=0 tp=-12 rrs=107 prs=118 ro=1 po=5 m=1 arm=1 md=2 m1=147 m2=154 m3=155     _ 
+[BOOT] Flight controller starting...
+[BOOT] Motor PWM ready @ 42000 Hz on PA8/PA11/PB1/PB10
+[FLIGHT] System init start...
+[FLIGHT] Flight controller init OK
+[FLIGHT] WiFi command init OK
+[I2C] found=2 0x2C 0x69
+[SENSOR] IMU init OK
+[SENSOR] Barometer init OK
+[SENSOR] Magnetometer init OK addr=0x2C layout=1 chip=0x80 ctrl1=0x0A ctrl2=0x0B
+[FLIGHT] All sensors init OK
+[CAL] Starting sensor calibration...
+[CAL] Body trim deg: 0.51 8.25
+[CAL] Level accel: 0.002 0.000 1.015 g
+[CAL] Gyro bias: 0.005, -0.003, -0.036
+[CAL] Calibration complete!
+[FLIGHT] System init complete!
+[BOOT] Init OK, entering 1kHz control loop
+[AUTO_TEST] Enabled on Mar 25 2026, stages=10
+[AUTO_TEST] stage=0 name=PREP throttle=0.00 roll=0.00 pitch=0.00 blend=0 armed=0 mode=0 t=0
+[ATT_CDEG] t=1320 r=0 p=-12 y=0 rr=16 pr=-4 yr=-1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[MAG_DBG] t=1320 addr=0x2C lay=1 mx=-209 my=-685 mz=397 hx=10234
+[ATT_CDEG] t=1420 r=-1 p=1 y=7 rr=-11 pr=9 yr=11 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=1520 r=-1 p=10 y=5 rr=0 pr=12 yr=-8 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=1620 r=3 p=0 y=3 rr=-4 pr=3 yr=7 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=1720 r=-3 p=-7 y=14 rr=-7 pr=-10 yr=13 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=1820 r=-2 p=-4 y=15 rr=9 pr=7 yr=-9 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=1920 r=2 p=4 y=13 rr=-3 pr=13 yr=7 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=2020 r=-2 p=7 y=19 rr=-2 pr=5 yr=4 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=2120 r=0 p=-7 y=21 rr=0 pr=-8 yr=-2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=2220 r=-2 p=-8 y=23 rr=-6 pr=2 yr=8 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[STATUS] State: STANDBY, Armed: 0, Mode: DISARMED, Att: R=-0.0 P=0.0 Y=0.3, Loops: 998, IMU: 998
+[ATT_CDEG] t=2320 r=-2 p=4 y=28 rr=4 pr=16 yr=-2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[MAG_DBG] t=2320 addr=0x2C lay=1 mx=-209 my=-687 mz=407 hx=10234
+[ATT_CDEG] t=2420 r=1 p=4 y=25 rr=0 pr=1 yr=0 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=2520 r=-2 p=-4 y=30 rr=-5 pr=0 yr=9 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=2620 r=-3 p=-6 y=36 rr=0 pr=-2 yr=-1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=2720 r=0 p=-1 y=33 rr=-2 pr=8 yr=0 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=2820 r=-1 p=6 y=38 rr=0 pr=14 yr=5 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=2920 r=0 p=0 y=41 rr=-1 pr=-6 yr=0 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=3020 r=-2 p=-9 y=42 rr=-3 pr=-1 yr=5 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=3120 r=-2 p=-1 y=48 rr=0 pr=9 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=3220 r=0 p=4 y=46 rr=0 pr=6 yr=-1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[STATUS] State: STANDBY, Armed: 0, Mode: DISARMED, Att: R=-0.0 P=0.0 Y=0.5, Loops: 1998, IMU: 1998
+[ATT_CDEG] t=3320 r=0 p=0 y=48 rr=-1 pr=5 yr=6 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[MAG_DBG] t=3320 addr=0x2C lay=1 mx=-209 my=-684 mz=406 hx=10223
+[ATT_CDEG] t=3420 r=-2 p=-5 y=55 rr=-3 pr=-4 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=3520 r=-2 p=-5 y=54 rr=0 pr=3 yr=0 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=3620 r=0 p=3 y=58 rr=0 pr=13 yr=4 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=3720 r=0 p=2 y=60 rr=-1 pr=0 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=3820 r=-1 p=-6 y=62 rr=-1 pr=-1 yr=4 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=3920 r=-1 p=-4 y=67 rr=-2 pr=4 yr=5 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=4020 r=0 p=1 y=68 rr=0 pr=8 yr=0 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=4120 r=0 p=1 y=69 rr=0 pr=7 yr=4 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=4220 r=0 p=-2 y=73 rr=-3 pr=-2 yr=4 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[STATUS] State: STANDBY, Armed: 0, Mode: DISARMED, Att: R=-0.0 P=-0.1 Y=0.8, Loops: 2998, IMU: 2998
+[AUTO_TEST] result stage=0 name=PREP dt=3002 cmd_t=0.00 cmd_r=0.00 cmd_p=0.00 roll_min=-0.06 roll_max=0.04 pitch_min=-0.12 pitc I   K        +                                `     @1?        @?"?   }5       >?    5?                                 [AUTO_TEST] stage=1 name=ARM_CAPTURE throttle=0.00 roll=0.00 pitch=0.00 blend=0 armed=1 mode=1 t=3002
+[ATT_CDEG] t=4328 r=0 p=0 y=76 rr=0 pr=1 yr=0 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=1 m1=50 m2=50 m3=50 m4=50
+[MAG_DBG] t=4328 addr=0x2C lay=1 mx=-210 my=-687 mz=405 hx=10220
+[ATT_CDEG] t=4428 r=2 p=6 y=80 rr=-5 pr=9 yr=4 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=1 m1=50 m2=50 m3=50 m4=50
+[ATT_CDEG] t=4528 r=3 p=12 y=82 rr=17 pr=3 yr=0 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=1 m1=50 m2=50 m3=50 m4=50
+[ATT_CDEG] t=4628 r=1 p=4 y=85 rr=-11 pr=10 yr=15 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=1 m1=50 m2=50 m3=50 m4=50
+[ATT_CDEG] t=4728 r=0 p=4 y=89 rr=10 pr=27 yr=-6 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=1 m1=50 m2=50 m3=50 m4=50
+[ATT_CDEG] t=4828 r=0 p=8 y=93 rr=-19 pr=12 yr=14 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=1 m1=50 m2=50 m3=50 m4=50
+[ATT_CDEG] t=4928 r=0 p=16 y=95 rr=-11 pr=14 yr=6 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=1 m1=50 m2=50 m3=50 m4=50
+[ATT_CDEG] t=5028 r=-1 p=15 y=99 rr=-18 pr=15 yr=20 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=1 m1=50 m2=50 m3=50 m4=50
+[ATT_CDEG] t=5128 r=-3 p=9 y=104 rr=15 pr=-16 yr=9 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=1 m1=50 m2=50 m3=50 m4=50
+[ATT_CDEG] t=5228 r=-5 p=13 y=108 rr=-19 pr=4 yr=17 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=1 m1=50 m2=50 m3=50 m4=50
+[STATUS] State: STANDBY, Armed: 1, Mode: ARMED, Att: R=-0.0 P=0.2 Y=1.1, Loops: 3998, IMU: 3998
+[ATT_CDEG] t=5328 r=-4 p=22 y=110 rr=-4 pr=51 yr=-14 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=1 m1=50 m2=50 m3=50 m4=50
+[MAG_DBG] t=5328 addr=0x2C lay=1 mx=-206 my=-696 mz=413 hx=10167
+[ATT_CDEG] t=5428 r=-7 p=22 y=113 rr=27 pr=-11 yr=-7 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=1 m1=50 m2=50 m3=50 m4=50
+[ATT_CDEG] t=5528 r=-8 p=15 y=117 rr=-55 pr=8 yr=33 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=1 m1=50 m2=50 m3=50 m4=50
+[ATT_CDEG] t=5628 r=-6 p=19 y=120 rr=-44 pr=11 yr=43 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=1 m1=50 m2=50 m3=50 m4=50
+[ATT_CDEG] t=5728 r=-4 p=21 y=122 rr=31 pr=-29 yr=2 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=1 m1=50 m2=50 m3=50 m4=50
+[AUTO_TEST] result stage=1 name=ARM_CAPTURE dt=1498 cmd_t=0.00 cmd_r=0.00 cmd_p=0.00 roll_min=-0.12 roll_max=0.05 pitch_min=-0. z   K        0                                @}    d ?   `~    ?   _   > ?     @    @                                       [AUTO_TEST] stage=2 name=STAB_09 throttle=0.09 roll=0.00 pitch=0.00 blend=250 armed=1 mode=2 t=4500
+[ATT_CDEG] t=5828 r=-8 p=34 y=124 rr=-14 pr=29 yr=-2 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=2 m1=50 m2=50 m3=50 m4=50
+[ATT_CDEG] t=5928 r=-6 p=26 y=128 rr=23 pr=17 yr=-33 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=2 m1=40 m2=40 m3=40 m4=40
+[ATT_CDEG] t=6028 r=-7 p=24 y=128 rr=-19 pr=35 yr=-18 tr=-1 tp=-6 rrs=0 prs=0 ro=0 po=0 m=1 arm=1 md=2 m1=76 m2=76 m3=76 m4=76 [ATT_CDEG] t=6128 r=-9 p=24 y=136 rr=13 pr=-8 yr=-7 tr=-1 tp=-6 rrs=5 prs=-11 ro=-1 po=0 m=1 arm=1 md=2 m1=88 m2=89 m3=91 m4=90 Z[ATT_CDEG] t=6228 r=-9 p=28 y=147 rr=53 pr=10 yr=-31 tr=-1 tp=-6 rrs=5 prs=-13 ro=-4 po=-1 m=1 arm=1 md=2 m1=86 m2=84 m3=91 m4= `  [STATUS] State: STANDBY, Armed: 1, Mode: STABILIZE, Att: R=-0.1 P=0.3 Y=1.5, Loops: 4998, IMU: 4998
+[ATT_CDEG] t=6328 r=-11 p=28 y=149 rr=-20 pr=36 yr=-6 tr=-1 tp=-6 rrs=6 prs=-13 ro=2 po=-3 m=1 arm=1 md=2 m1=96 m2=88 m3=83 m4= [  [MAG_DBG] t=6328 addr=0x2C lay=1 mx=-201 my=-711 mz=422 hx=10124
+[ATT_CDEG] t=6428 r=-4 p=56 y=154 rr=-49 pr=6 yr=29 tr=-1 tp=-6 rrs=2 prs=-27 ro=4 po=-1 m=1 arm=1 md=2 m1=97 m2=92 m3=83 m4=86 V[ATT_CDEG] t=6528 r=-13 p=65 y=157 rr=-40 pr=22 yr=18 tr=-1 tp=-6 rrs=8 prs=-31 ro=4 po=-3 m=1 arm=1 md=2 m1=98 m2=90 m3=82 m4= Y  [ATT_CDEG] t=6628 r=-11 p=77 y=156 rr=-41 pr=-50 yr=41 tr=-1 tp=-6 rrs=6 prs=-37 ro=3 po=2 m=1 arm=1 md=2 m1=92 m2=95 m3=88 m4= S  [ATT_CDEG] t=6728 r=-4 p=85 y=163 rr=4 pr=20 yr=-14 tr=-1 tp=-6 rrs=2 prs=-40 ro=0 po=-4 m=1 arm=1 md=2 m1=93 m2=85 m3=85 m4=94 ^[ATT_CDEG] t=6828 r=-9 p=78 y=165 rr=43 pr=-20 yr=-12 tr=-1 tp=-6 rrs=5 prs=-37 ro=-3 po=0 m=1 arm=1 md=2 m1=86 m2=85 m3=92 m4= ^  [ATT_CDEG] t=6928 r=-9 p=73 y=168 rr=13 pr=-46 yr=20 tr=-1 tp=-6 rrs=5 prs=-35 ro=0 po=1 m=1 arm=1 md=2 m1=87 m2=90 m3=93 m4=88 X[ATT_CDEG] t=7028 r=-9 p=83 y=173 rr=34 pr=-36 yr=36 tr=-1 tp=-6 rrs=5 prs=-40 ro=-2 po=1 m=1 arm=1 md=2 m1=86 m2=87 m3=94 m4=9 Z [ATT_CDEG] t=7128 r=-10 p=110 y=174 rr=33 pr=-41 yr=-15 tr=-1 tp=-6 rrs=6 prs=-53 ro=-2 po=0 m=1 arm=1 md=2 m1=86 m2=88 m3=92 m \   [ATT_CDEG] t=7228 r=-4 p=102 y=172 rr=35 pr=-19 yr=-11 tr=-1 tp=-6 rrs=2 prs=-49 ro=-2 po=-1 m=1 arm=1 md=2 m1=88 m2=85 m3=91 m ^   [STATUS] State: STANDBY, Armed: 1, Mode: STABILIZE, Att: R=-0.1 P=1.1 Y=1.7, Loops: 5998, IMU: 5998
+[ATT_CDEG] t=7328 r=-6 p=108 y=173 rr=-25 pr=38 yr=4 tr=-1 tp=-6 rrs=3 prs=-52 ro=2 po=-6 m=1 arm=1 md=2 m1=98 m2=85 m3=81 m4=9 ] [MAG_DBG] t=7328 addr=0x2C lay=1 mx=-204 my=-707 mz=418 hx=10121
+[ATT_CDEG] t=7428 r=-10 p=116 y=174 rr=-34 pr=61 yr=9 tr=-1 tp=-6 rrs=6 prs=-56 ro=3 po=-8 m=1 arm=1 md=2 m1=102 m2=84 m3=77 m4 ^   [ATT_CDEG] t=7528 r=-9 p=116 y=173 rr=36 pr=-25 yr=-4 tr=-1 tp=-6 rrs=5 prs=-55 ro=-3 po=-1 m=1 arm=1 md=2 m1=87 m2=85 m3=91 m4 ^   [ATT_CDEG] t=7628 r=-4 p=116 y=174 rr=-44 pr=2 yr=30 tr=-1 tp=-6 rrs=2 prs=-55 ro=4 po=-3 m=1 arm=1 md=2 m1=98 m2=89 m3=82 m4=8 X [ATT_CDEG] t=7728 r=-1 p=121 y=176 rr=-38 pr=-28 yr=57 tr=-1 tp=-6 rrs=0 prs=-58 ro=3 po=-1 m=1 arm=1 md=2 m1=95 m2=90 m3=86 m4 V   [ATT_CDEG] t=7828 r=-3 p=134 y=177 rr=27 pr=-20 yr=12 tr=-1 tp=-6 rrs=2 prs=-64 ro=-2 po=-2 m=1 arm=1 md=2 m1=90 m2=85 m3=90 m4 ^   [ATT_CDEG] t=7928 r=-5 p=137 y=182 rr=-113 pr=53 yr=25 tr=-1 tp=-6 rrs=3 prs=-66 ro=10 po=-9 m=1 arm=1 md=2 m1=109 m2=90 m3=71  X   _[ATT_CDEG] t=8028 r=-8 p=130 y=187 rr=53 pr=14 yr=-18 tr=-1 tp=-6 rrs=5 prs=-62 ro=-4 po=-5 m=1 arm=1 md=2 m1=90 m2=80 m3=88 m4 d   [ATT_CDEG] t=8128 r=-6 p=131 y=189 rr=-47 pr=104 yr=-36 tr=-1 tp=-6 rrs=3 prs=-63 ro=4 po=-13 m=1 arm=1 md=2 m1=106 m2=81 m3=71 c   _ [ATT_CDEG] t=8228 r=-7 p=138 y=192 rr=47 pr=-18 yr=-12 tr=-1 tp=-6 rrs=4 prs=-66 ro=-3 po=-2 m=1 arm=1 md=2 m1=88 m2=83 m3=90 m `   [STATUS] State: STANDBY, Armed: 1, Mode: STABILIZE, Att: R=-0.0 P=1.5 Y=1.9, Loops: 6998, IMU: 6998
+[AUTO_TEST] result stage=2 name=STAB_09 dt=2502 cmd_t=0.09 cmd_r=0.00 cmd_p=0.00 roll_min=-0.22 roll_max=0.02 pitch_min=0.17 pi    K        <  	     =
+?                   P    c?   `?    ]?   @&   `?     *@   `-,@   @?     @   6'@    0@.   C   [AUTO_TEST] stage=3 name=STAB_12 throttle=0.12 roll=0.00 pitch=0.00 blend=250 armed=1 mode=2 t=7002
+[ATT_CDEG] t=8328 r=-4 p=149 y=190 rr=-85 pr=-30 yr=53 tr=-1 tp=-6 rrs=3 prs=-71 ro=7 po=-2 m=1 arm=1 md=2 m1=100 m2=94 m3=80 m S   [MAG_DBG] t=8328 addr=0x2C lay=1 mx=-200 my=-703 mz=422 hx=10115
+[ATT_CDEG] t=8428 r=-6 p=141 y=196 rr=87 pr=-57 yr=-8 tr=-1 tp=-6 rrs=3 prs=-68 ro=-7 po=0 m=1 arm=1 md=2 m1=95 m2=95 m3=110 m4 n   [ATT_CDEG] t=8528 r=0 p=145 y=201 rr=80 pr=-63 yr=-58 tr=-1 tp=-6 rrs=0 prs=-69 ro=-7 po=0 m=1 arm=1 md=2 m1=106 m2=109 m3=122  z   _ [ATT_CDEG] t=8628 r=7 p=139 y=206 rr=-33 pr=-82 yr=73 tr=-1 tp=-6 rrs=-4 prs=-67 ro=2 po=2 m=1 arm=1 md=2 m1=121 m2=123 m3=121  q   _ [ATT_CDEG] t=8728 r=10 p=128 y=212 rr=45 pr=-126 yr=-37 tr=-1 tp=-6 rrs=-6 prs=-61 ro=-4 po=6 m=1 arm=1 md=2 m1=108 m2=122 m3=1 v   _  [ATT_CDEG] t=8828 r=3 p=89 y=219 rr=19 pr=-119 yr=35 tr=-1 tp=-6 rrs=-2 prs=-43 ro=-1 po=7 m=1 arm=1 md=2 m1=111 m2=124 m3=129  q   _ [ATT_CDEG] t=8928 r=6 p=75 y=228 rr=-42 pr=29 yr=59 tr=-1 tp=-6 rrs=-3 prs=-36 ro=3 po=-5 m=1 arm=1 md=2 m1=129 m2=117 m3=112 m x   _[ATT_CDEG] t=9028 r=23 p=46 y=229 rr=-35 pr=96 yr=23 tr=-1 tp=-6 rrs=-13 prs=-22 ro=2 po=-9 m=1 arm=1 md=2 m1=132 m2=111 m3=108     _  [ATT_CDEG] t=9128 r=25 p=7 y=233 rr=-163 pr=60 yr=97 tr=-1 tp=-6 rrs=-15 prs=-3 ro=13 po=-5 m=1 arm=1 md=2 m1=140 m2=125 m3=102 n   _  [ATT_CDEG] t=9228 r=18 p=27 y=238 rr=-30 pr=185 yr=8 tr=-1 tp=-6 rrs=-11 prs=-13 ro=1 po=-17 m=1 arm=1 md=2 m1=139 m2=104 m3=10    _  [STATUS] State: STANDBY, Armed: 1, Mode: STABILIZE, Att: R=0.3 P=0.1 Y=2.4, Loops: 7998, IMU: 7998
+[ATT_CDEG] t=9328 r=20 p=6 y=235 rr=-143 pr=-47 yr=71 tr=-1 tp=-6 rrs=-12 prs=-3 ro=11 po=2 m=1 arm=1 md=2 m1=130 m2=133 m3=112 g   _  [MAG_DBG] t=9328 addr=0x2C lay=1 mx=-199 my=-719 mz=430 hx=10066
+[ATT_CDEG] t=9428 r=24 p=9 y=237 rr=2 pr=62 yr=-33 tr=-1 tp=-6 rrs=-14 prs=-4 ro=-1 po=-6 m=1 arm=1 md=2 m1=124 m2=113 m3=114 m     _[ATT_CDEG] t=9528 r=52 p=-57 y=238 rr=-33 pr=-143 yr=-17 tr=-1 tp=-6 rrs=-31 prs=27 ro=1 po=13 m=1 arm=1 md=2 m1=107 m2=134 m3= i   _   [ATT_CDEG] t=9628 r=45 p=-70 y=244 rr=85 pr=36 yr=-22 tr=-1 tp=-6 rrs=-27 prs=33 ro=-9 po=-1 m=1 arm=1 md=2 m1=112 m2=109 m3=12    _  [ATT_CDEG] t=9728 r=47 p=-73 y=248 rr=-42 pr=144 yr=22 tr=-1 tp=-6 rrs=-28 prs=35 ro=2 po=-10 m=1 arm=1 md=2 m1=132 m2=111 m3=1     _  [ATT_CDEG] t=9828 r=49 p=-93 y=248 rr=-30 pr=-207 yr=2 tr=-1 tp=-6 rrs=-29 prs=44 ro=0 po=19 m=1 arm=1 md=2 m1=101 m2=140 m3=13 c   _  [ATT_CDEG] t=9928 r=52 p=-91 y=251 rr=-79 pr=136 yr=42 tr=-1 tp=-6 rrs=-31 prs=43 ro=4 po=-9 m=1 arm=1 md=2 m1=135 m2=114 m3=10 {   _  [ATT_CDEG] t=10028 r=55 p=-71 y=254 rr=164 pr=-6 yr=-72 tr=-1 tp=-6 rrs=-33 prs=33 ro=-16 po=2 m=1 arm=1 md=2 m1=100 m2=106 m3=    _   [ATT_CDEG] t=10128 r=50 p=-73 y=254 rr=-191 pr=-12 yr=60 tr=-1 tp=-6 rrs=-30 prs=34 ro=14 po=2 m=1 arm=1 md=2 m1=133 m2=136 m3= e   _   [ATT_CDEG] t=10228 r=48 p=-77 y=259 rr=163 pr=-24 yr=-13 tr=-1 tp=-6 rrs=-28 prs=36 ro=-16 po=3 m=1 arm=1 md=2 m1=99 m2=107 m3=    _   [STATUS] State: STANDBY, Armed: 1, Mode: STABILIZE, Att: R=0.5 P=-0.7 Y=2.6, Loops: 8998, IMU: 8998
+[ATT_CDEG] t=10328 r=59 p=-54 y=259 rr=-89 pr=115 yr=-9 tr=-1 tp=-6 rrs=-35 prs=26 ro=6 po=-8 m=1 arm=1 md=2 m1=134 m2=117 m3=1 z   _  [MAG_DBG] t=10328 addr=0x2C lay=1 mx=-198 my=-718 mz=429 hx=10059
+[ATT_CDEG] t=10428 r=56 p=-96 y=259 rr=12 pr=-94 yr=41 tr=-1 tp=-6 rrs=-34 prs=46 ro=-3 po=10 m=1 arm=1 md=2 m1=106 m2=126 m3=1 o   _  [ATT_CDEG] t=10528 r=64 p=-104 y=266 rr=44 pr=7 yr=-31 tr=-1 tp=-6 rrs=-38 prs=50 ro=-6 po=1 m=1 arm=1 md=2 m1=111 m2=115 m3=12 |   _  [ATT_CDEG] t=10628 r=68 p=-119 y=267 rr=-25 pr=124 yr=3 tr=-1 tp=-6 rrs=-40 prs=57 ro=0 po=-7 m=1 arm=1 md=2 m1=127 m2=111 m3=1     _  [ATT_CDEG] t=10728 r=62 p=-134 y=268 rr=-58 pr=-70 yr=47 tr=-1 tp=-6 rrs=-37 prs=64 ro=2 po=9 m=1 arm=1 md=2 m1=113 m2=131 m3=1 j   _  [AUTO_TEST] result stage=3 name=STAB_12 dt=2498 cmd_t=0.12 cmd_r=0.00 cmd_p=0.00 roll_min=-0.13 roll_max=0.79 pitch_min=-1.40 p     K        D  	     Q?                    -t   @Y?   fr   A?     ?       Y5@   `JM<@   <
+ @   `  @    4@   KH9@S   e   {
+[AUTO_TEST] stage=4 name=ROLL_POS_15 throttle=0.15 roll=0.10 pitch=0.00 blend=250 armed=1 mode=2 t=9500
+[ATT_CDEG] t=10828 r=69 p=-131 y=273 rr=118 pr=-138 yr=7 tr=-1 tp=-6 rrs=-41 prs=63 ro=-12 po=14 m=1 arm=1 md=2 m1=93 m2=123 m3 v   _    [ATT_CDEG] t=10928 r=63 p=-142 y=277 rr=41 pr=156 yr=-34 tr=-1 tp=-6 rrs=10 prs=68 ro=-3 po=-9 m=1 arm=1 md=2 m1=139 m2=121 m3=    _   [ATT_CDEG] t=11028 r=59 p=-126 y=281 rr=78 pr=-96 yr=-24 tr=-1 tp=-6 rrs=55 prs=60 ro=-3 po=11 m=1 arm=1 md=2 m1=129 m2=153 m3=    _   [ATT_CDEG] t=11128 r=60 p=-151 y=284 rr=-86 pr=13 yr=119 tr=-1 tp=-6 rrs=71 prs=72 ro=11 po=3 m=1 arm=1 md=2 m1=160 m2=162 m3=1    _  [ATT_CDEG] t=11228 r=51 p=-195 y=289 rr=108 pr=80 yr=-7 tr=-1 tp=-6 rrs=77 prs=93 ro=-5 po=-1 m=1 arm=1 md=2 m1=146 m2=143 m3=1    _  [STATUS] State: STANDBY, Armed: 1, Mode: STABILIZE, Att: R=0.4 P=-1.7 Y=3.0, Loops: 9998, IMU: 9998
+[ATT_CDEG] t=11328 r=40 p=-178 y=297 rr=-107 pr=-78 yr=14 tr=-1 tp=-6 rrs=83 prs=85 ro=14 po=11 m=1 arm=1 md=2 m1=152 m2=175 m3 {   _    [MAG_DBG] t=11328 addr=0x2C lay=1 mx=-191 my=-725 mz=439 hx=9990
+[ATT_CDEG] t=11428 r=30 p=-163 y=302 rr=69 pr=81 yr=-109 tr=-1 tp=-6 rrs=89 prs=78 ro=0 po=-2 m=1 arm=1 md=2 m1=149 m2=148 m3=1    _  [ATT_CDEG] t=11528 r=9 p=-173 y=308 rr=42 pr=-134 yr=-4 tr=-1 tp=-6 rrs=102 prs=83 ro=2 po=16 m=1 arm=1 md=2 m1=136 m2=168 m3=1    _  [ATT_CDEG] t=11628 r=15 p=-165 y=305 rr=-114 pr=-162 yr=-46 tr=-1 tp=-6 rrs=98 prs=79 ro=15 po=18 m=1 arm=1 md=2 m1=146 m2=185  s   _    l-[ATT_CDEG] t=11728 r=15 p=-154 y=299 rr=-34 pr=38 yr=-77 tr=-1 tp=-6 rrs=98 prs=74 ro=9 po=1 m=1 arm=1 md=2 m1=156 m2=162 m3=14    _  [ATT_CDEG] t=11828 r=-10 p=-147 y=304 rr=-11 pr=51 yr=-88 tr=-1 tp=-6 rrs=114 prs=70 ro=8 po=0 m=1 arm=1 md=2 m1=157 m2=159 m3=    _   [ATT_CDEG] t=11928 r=-15 p=-184 y=302 rr=33 pr=-79 yr=13 tr=-1 tp=-6 rrs=117 prs=88 ro=4 po=11 m=1 arm=1 md=2 m1=142 m2=165 m3=    _   [ATT_CDEG] t=12028 r=9 p=-164 y=300 rr=-75 pr=-103 yr=87 tr=-1 tp=-6 rrs=102 prs=79 ro=12 po=13 m=1 arm=1 md=2 m1=150 m2=174 m3 y   _    [ATT_CDEG] t=12128 r=23 p=-133 y=309 rr=25 pr=173 yr=59 tr=-1 tp=-6 rrs=94 prs=64 ro=4 po=-10 m=1 arm=1 md=2 m1=165 m2=141 m3=1    _  [ATT_CDEG] t=12228 r=20 p=-179 y=315 rr=127 pr=169 yr=-17 tr=-1 tp=-6 rrs=96 prs=86 ro=-5 po=-9 m=1 arm=1 md=2 m1=154 m2=135 m3    _    [STATUS] State: STANDBY, Armed: 1, Mode: STABILIZE, Att: R=-0.1 P=-2.0 Y=3.2, Loops: 10998, IMU: 10998
+[ATT_CDEG] t=12328 r=-12 p=-199 y=323 rr=92 pr=-70 yr=69 tr=-1 tp=-6 rrs=115 prs=95 ro=0 po=11 m=1 arm=1 md=2 m1=138 m2=159 m3=    _   [MAG_DBG] t=12328 addr=0x2C lay=1 mx=-187 my=-728 mz=442 hx=9963
+[ATT_CDEG] t=12428 r=-6 p=-213 y=325 rr=-52 pr=-75 yr=-6 tr=-1 tp=-6 rrs=111 prs=102 ro=11 po=13 m=1 arm=1 md=2 m1=148 m2=175 m |   _    [ATT_CDEG] t=12528 r=-1 p=-208 y=323 rr=16 pr=158 yr=-95 tr=-1 tp=-6 rrs=108 prs=100 ro=5 po=-7 m=1 arm=1 md=2 m1=161 m2=149 m3    _    [ATT_CDEG] t=12628 r=-26 p=-223 y=328 rr=12 pr=-164 yr=49 tr=-1 tp=-6 rrs=124 prs=107 ro=6 po=20 m=1 arm=1 md=2 m1=136 m2=176 m y   _    T[ATT_CDEG] t=12728 r=-19 p=-238 y=331 rr=103 pr=153 yr=0 tr=-1 tp=-6 rrs=120 prs=114 ro=-1 po=-6 m=1 arm=1 md=2 m1=155 m2=142 m    _    [AUTO_TEST] result stage=4 name=ROLL_POS_15 dt=2000 cmd_t=0.15 cmd_r=0.10 cmd_p=0.00 roll_min=-0.43 roll_max=0.76 pitch_min=-2. K   K        L        @33?   ?           C     :?   '         G       "4@   @e;@    *@   @ (@    s6@   `4;@Z   o   \   \   ,[AUTO_TEST] stage=5 name=RECOVER_12_A throttle=0.12 roll=0.00 pitch=0.00 blend=250 armed=1 mode=2 t=11500
+[ATT_CDEG] t=12828 r=-11 p=-245 y=327 rr=-46 pr=-65 yr=46 tr=-1 tp=-6 rrs=110 prs=118 ro=11 po=12 m=1 arm=1 md=2 m1=147 m2=171  {   _     2[ATT_CDEG] t=12928 r=3 p=-273 y=327 rr=-66 pr=-154 yr=9 tr=-1 tp=-6 rrs=58 prs=131 ro=10 po=21 m=1 arm=1 md=2 m1=125 m2=168 m3= h   _   [ATT_CDEG] t=13028 r=25 p=-263 y=329 rr=-85 pr=38 yr=71 tr=-1 tp=-6 rrs=-14 prs=126 ro=7 po=4 m=1 arm=1 md=2 m1=128 m2=135 m3=1 o   _  [ATT_CDEG] t=13128 r=43 p=-233 y=319 rr=1 pr=-23 yr=-28 tr=-1 tp=-6 rrs=-26 prs=112 ro=0 po=9 m=1 arm=1 md=2 m1=109 m2=128 m3=1 o   _  [ATT_CDEG] t=13228 r=36 p=-234 y=329 rr=-99 pr=-8 yr=20 tr=-1 tp=-6 rrs=-21 prs=112 ro=8 po=8 m=1 arm=1 md=2 m1=120 m2=135 m3=1 g   _  [STATUS] State: STANDBY, Armed: 1, Mode: STABILIZE, Att: R=0.3 P=-1.8 Y=3.3, Loops: 11998, IMU: 11998
+[ATT_CDEG] t=13328 r=23 p=-171 y=334 rr=163 pr=1 yr=-84 tr=-1 tp=-6 rrs=-14 prs=82 ro=-14 po=5 m=1 arm=1 md=2 m1=98 m2=111 m3=1    _  [MAG_DBG] t=13328 addr=0x2C lay=1 mx=-193 my=-721 mz=433 hx=10004
+[ATT_CDEG] t=13428 r=31 p=-156 y=332 rr=34 pr=167 yr=12 tr=-1 tp=-6 rrs=-18 prs=75 ro=-3 po=-9 m=1 arm=1 md=2 m1=126 m2=106 m3=    _   [ATT_CDEG] t=13528 r=39 p=-130 y=336 rr=14 pr=120 yr=15 tr=-1 tp=-6 rrs=-23 prs=62 ro=-2 po=-6 m=1 arm=1 md=2 m1=124 m2=111 m3=     _   [ATT_CDEG] t=13628 r=49 p=-120 y=335 rr=201 pr=25 yr=-73 tr=-1 tp=-6 rrs=-29 prs=58 ro=-18 po=2 m=1 arm=1 md=2 m1=97 m2=104 m3=    _   [ATT_CDEG] t=13728 r=59 p=-145 y=338 rr=-19 pr=-20 yr=-40 tr=-1 tp=-6 rrs=-35 prs=70 ro=0 po=6 m=1 arm=1 md=2 m1=112 m2=127 m3= q   _   [ATT_CDEG] t=13828 r=53 p=-153 y=343 rr=-71 pr=-117 yr=21 tr=-1 tp=-6 rrs=-32 prs=73 ro=5 po=15 m=1 arm=1 md=2 m1=110 m2=139 m3 c   _   [ATT_CDEG] t=13928 r=52 p=-164 y=342 rr=-188 pr=59 yr=60 tr=-1 tp=-6 rrs=-31 prs=79 ro=15 po=0 m=1 arm=1 md=2 m1=136 m2=134 m3= g   _   [ATT_CDEG] t=14028 r=65 p=-164 y=346 rr=-102 pr=-42 yr=101 tr=-1 tp=-6 rrs=-39 prs=79 ro=7 po=9 m=1 arm=1 md=2 m1=119 m2=134 m3 e   _    [ATT_CDEG] t=14128 r=53 p=-143 y=354 rr=39 pr=63 yr=40 tr=-1 tp=-6 rrs=-31 prs=69 ro=-4 po=0 m=1 arm=1 md=2 m1=116 m2=113 m3=12 |   _  [ATT_CDEG] t=14228 r=55 p=-137 y=356 rr=103 pr=-119 yr=-16 tr=-1 tp=-6 rrs=-33 prs=66 ro=-10 po=14 m=1 arm=1 md=2 m1=94 m2=124  s   _    7[STATUS] State: STANDBY, Armed: 1, Mode: STABILIZE, Att: R=0.7 P=-1.2 Y=3.6, Loops: 12998, IMU: 12998
+[AUTO_TEST] result stage=5 name=RECOVER_12_A dt=1500 cmd_t=0.12 cmd_r=0.00 cmd_p=0.00 roll_min=-0.16 roll_max=0.77 pitch_min=-2 d   K        X        Q?                    0     v?   V    @Iz   ?         8@   @AQ=@   /&@   +@    / 5@   `-?@T   |   i   i   2[AUTO_TEST] stage=6 name=ROLL_NEG_15 throttle=0.15 roll=-0.10 pitch=0.00 blend=250 armed=1 mode=2 t=13000
+[ATT_CDEG] t=14328 r=70 p=-118 y=357 rr=125 pr=2 yr=-43 tr=-1 tp=-6 rrs=-42 prs=57 ro=-12 po=4 m=1 arm=1 md=2 m1=102 m2=111 m3=    _   [MAG_DBG] t=14328 addr=0x2C lay=1 mx=-195 my=-716 mz=431 hx=10030
+[ATT_CDEG] t=14428 r=71 p=-136 y=367 rr=-46 pr=24 yr=-39 tr=-1 tp=-6 rrs=-90 prs=66 ro=0 po=2 m=1 arm=1 md=2 m1=128 m2=135 m3=1    _  [ATT_CDEG] t=14529 r=78 p=-146 y=366 rr=-26 pr=231 yr=5 tr=-1 tp=-6 rrs=-137 prs=71 ro=-5 po=-14 m=1 arm=1 md=2 m1=154 m2=124 m    _    [ATT_CDEG] t=14629 r=56 p=-90 y=383 rr=-155 pr=42 yr=-39 tr=-1 tp=-6 rrs=-141 prs=43 ro=5 po=0 m=1 arm=1 md=2 m1=154 m2=156 m3=    _   [ATT_CDEG] t=14729 r=30 p=-147 y=393 rr=-117 pr=183 yr=39 tr=-1 tp=-6 rrs=-125 prs=71 ro=3 po=-10 m=1 arm=1 md=2 m1=164 m2=141     _    9[ATT_CDEG] t=14829 r=32 p=-152 y=393 rr=-134 pr=-129 yr=33 tr=-1 tp=-6 rrs=-127 prs=73 ro=4 po=16 m=1 arm=1 md=2 m1=138 m2=170      _    9[ATT_CDEG] t=14929 r=13 p=-108 y=405 rr=225 pr=-82 yr=-81 tr=-1 tp=-6 rrs=-116 prs=52 ro=-26 po=11 m=1 arm=1 md=2 m1=110 m2=135    _    Q: [ATT_CDEG] t=15029 r=11 p=-117 y=411 rr=-159 pr=-93 yr=-6 tr=-1 tp=-6 rrs=-115 prs=56 ro=7 po=12 m=1 arm=1 md=2 m1=145 m2=169 m    _    [ATT_CDEG] t=15129 r=11 p=-84 y=408 rr=194 pr=-150 yr=-45 tr=-1 tp=-6 rrs=-114 prs=41 ro=-23 po=16 m=1 arm=1 md=2 m1=109 m2=143    _     ; [ATT_CDEG] t=15229 r=11 p=-102 y=409 rr=-197 pr=-139 yr=-29 tr=-1 tp=-6 rrs=-114 prs=49 ro=10 po=15 m=1 arm=1 md=2 m1=144 m2=17 |   _    };  [STATUS] State: STANDBY, Armed: 1, Mode: STABILIZE, Att: R=-0.1 P=-0.7 Y=4.1, Loops: 13998, IMU: 13998
+[ATT_CDEG] t=15329 r=-21 p=-78 y=416 rr=193 pr=37 yr=-106 tr=-1 tp=-6 rrs=-94 prs=38 ro=-22 po=0 m=1 arm=1 md=2 m1=125 m2=128 m    _    [MAG_DBG] t=15329 addr=0x2C lay=1 mx=-193 my=-731 mz=442 hx=9999
+[ATT_CDEG] t=15429 r=-18 p=-56 y=419 rr=144 pr=112 yr=37 tr=-1 tp=-6 rrs=-96 prs=27 ro=-18 po=-7 m=1 arm=1 md=2 m1=139 m2=123 m    _    E[ATT_CDEG] t=15529 r=-32 p=-54 y=428 rr=-150 pr=226 yr=43 tr=-1 tp=-6 rrs=-88 prs=26 ro=7 po=-16 m=1 arm=1 md=2 m1=175 m2=139 m    _    [ATT_CDEG] t=15629 r=-27 p=-65 y=430 rr=98 pr=-64 yr=91 tr=-1 tp=-6 rrs=-91 prs=32 ro=-14 po=8 m=1 arm=1 md=2 m1=128 m2=142 m3=    _   [ATT_CDEG] t=15729 r=-23 p=-67 y=435 rr=-209 pr=96 yr=89 tr=-1 tp=-6 rrs=-94 prs=32 ro=12 po=-5 m=1 arm=1 md=2 m1=169 m2=155 m3    _    [ATT_CDEG] t=15829 r=-29 p=-104 y=431 rr=216 pr=5 yr=-60 tr=-1 tp=-6 rrs=-90 prs=50 ro=-24 po=3 m=1 arm=1 md=2 m1=120 m2=130 m3    _    [ATT_CDEG] t=15929 r=-13 p=-91 y=425 rr=-79 pr=-153 yr=-19 tr=-1 tp=-6 rrs=-99 prs=44 ro=0 po=17 m=1 arm=1 md=2 m1=133 m2=167 m    _    9[ATT_CDEG] t=16029 r=-33 p=-98 y=428 rr=223 pr=60 yr=-107 tr=-1 tp=-6 rrs=-88 prs=48 ro=-25 po=-1 m=1 arm=1 md=2 m1=124 m2=125     _    >[ATT_CDEG] t=16129 r=-38 p=-104 y=429 rr=-14 pr=-242 yr=-31 tr=-1 tp=-6 rrs=-84 prs=50 ro=-3 po=24 m=1 arm=1 md=2 m1=120 m2=171    _     ? [ATT_CDEG] t=16229 r=-35 p=-95 y=429 rr=130 pr=-34 yr=-68 tr=-1 tp=-6 rrs=-86 prs=46 ro=-16 po=6 m=1 arm=1 md=2 m1=125 m2=140 m    _    e[STATUS] State: STANDBY, Armed: 1, Mode: STABILIZE, Att: R=-0.3 P=-1.1 Y=4.3, Loops: 14998, IMU: 14998
+[AUTO_TEST] result stage=6 name=ROLL_NEG_15 dt=2000 cmd_t=0.15 cmd_r=-0.10 cmd_p=0.00 roll_min=-0.47 roll_max=0.82 pitch_min=-2    K        e        @33?              ]6    +?   r     d3    ~    @ X   	>@    A@   `r.@   1#@   ,?@    A@            : [AUTO_TEST] stage=7 name=RECOVER_12_B throttle=0.12 roll=0.00 pitch=0.00 blend=250 armed=1 mode=2 t=15000
+[ATT_CDEG] t=16329 r=-30 p=-104 y=432 rr=34 pr=-23 yr=53 tr=-1 tp=-6 rrs=-84 prs=50 ro=-8 po=5 m=1 arm=1 md=2 m1=135 m2=144 m3=    _   [MAG_DBG] t=16329 addr=0x2C lay=1 mx=-196 my=-725 mz=439 hx=9995
+[ATT_CDEG] t=16429 r=-21 p=-89 y=430 rr=-59 pr=275 yr=-7 tr=-1 tp=-6 rrs=-47 prs=43 ro=2 po=-19 m=1 arm=1 md=2 m1=158 m2=118 m3    _    [ATT_CDEG] t=16529 r=-14 p=-86 y=424 rr=93 pr=24 yr=-115 tr=-1 tp=-6 rrs=8 prs=42 ro=-7 po=1 m=1 arm=1 md=2 m1=113 m2=119 m3=13    _  [ATT_CDEG] t=16629 r=6 p=-109 y=417 rr=-165 pr=47 yr=32 tr=-1 tp=-6 rrs=-4 prs=53 ro=13 po=0 m=1 arm=1 md=2 m1=134 m2=133 m3=10 h   _  [ATT_CDEG] t=16729 r=25 p=-101 y=416 rr=73 pr=-61 yr=-49 tr=-1 tp=-6 rrs=-15 prs=49 ro=-7 po=9 m=1 arm=1 md=2 m1=102 m2=123 m3= v   _   [ATT_CDEG] t=16829 r=26 p=-101 y=417 rr=100 pr=-57 yr=25 tr=-1 tp=-6 rrs=-16 prs=49 ro=-10 po=8 m=1 arm=1 md=2 m1=101 m2=117 m3 x   _    [ATT_CDEG] t=16929 r=36 p=-73 y=421 rr=125 pr=45 yr=-65 tr=-1 tp=-6 rrs=-22 prs=35 ro=-12 po=0 m=1 arm=1 md=2 m1=106 m2=107 m3=    _   [ATT_CDEG] t=17029 r=57 p=-94 y=421 rr=-18 pr=-4 yr=-50 tr=-1 tp=-6 rrs=-34 prs=46 ro=0 po=4 m=1 arm=1 md=2 m1=113 m2=124 m3=12 t   _  [ATT_CDEG] t=17129 r=60 p=-138 y=424 rr=31 pr=-132 yr=-4 tr=-1 tp=-6 rrs=-36 prs=67 ro=-5 po=16 m=1 arm=1 md=2 m1=97 m2=131 m3= l   _   [ATT_CDEG] t=17229 r=47 p=-149 y=434 rr=72 pr=-188 yr=-18 tr=-1 tp=-6 rrs=-28 prs=72 ro=-8 po=21 m=1 arm=1 md=2 m1=89 m2=133 m3 j   _    [STATUS] State: STANDBY, Armed: 1, Mode: STABILIZE, Att: R=0.3 P=-1.5 Y=4.4, Loops: 15998, IMU: 15998
+[ATT_CDEG] t=17329 r=32 p=-150 y=441 rr=5 pr=-84 yr=27 tr=-1 tp=-6 rrs=-19 prs=73 ro=-2 po=13 m=1 arm=1 md=2 m1=104 m2=129 m3=1 l   _  [MAG_DBG] t=17329 addr=0x2C lay=1 mx=-194 my=-718 mz=435 hx=10031
+[ATT_CDEG] t=17429 r=32 p=-136 y=447 rr=90 pr=-86 yr=-14 tr=-1 tp=-6 rrs=-19 prs=66 ro=-9 po=12 m=1 arm=1 md=2 m1=97 m2=122 m3= u   _   [ATT_CDEG] t=17529 r=23 p=-140 y=451 rr=-121 pr=-32 yr=53 tr=-1 tp=-6 rrs=-14 prs=68 ro=9 po=8 m=1 arm=1 md=2 m1=122 m2=136 m3= e   _   [ATT_CDEG] t=17629 r=33 p=-145 y=452 rr=-65 pr=6 yr=11 tr=-1 tp=-6 rrs=-20 prs=70 ro=4 po=5 m=1 arm=1 md=2 m1=119 m2=128 m3=121 n   _  [ATT_CDEG] t=17729 r=40 p=-154 y=454 rr=-90 pr=167 yr=-14 tr=-1 tp=-6 rrs=-24 prs=75 ro=6 po=-8 m=1 arm=1 md=2 m1=134 m2=117 m3 z   _    [AUTO_TEST] result stage=7 name=RECOVER_12_B dt=1500 cmd_t=0.12 cmd_r=0.00 cmd_p=0.00 roll_min=-0.39 roll_max=0.66 pitch_min=-1    K        q        Q?                    (+    
+G?    }   @    1?   @    >@   `
+>@    "@    @   M?@   `=@}   x   o   o   t[AUTO_TEST] stage=8 name=STAB_15_HOLD throttle=0.15 roll=0.00 pitch=0.00 blend=250 armed=1 mode=2 t=16500
+[ATT_CDEG] t=17829 r=62 p=-147 y=450 rr=-86 pr=130 yr=11 tr=-1 tp=-6 rrs=-38 prs=71 ro=5 po=-5 m=1 arm=1 md=2 m1=132 m2=120 m3= y   _   [ATT_CDEG] t=17929 r=77 p=-127 y=452 rr=123 pr=14 yr=-66 tr=-1 tp=-6 rrs=-46 prs=61 ro=-14 po=3 m=1 arm=1 md=2 m1=113 m2=123 m3    _    [ATT_CDEG] t=18029 r=95 p=-143 y=455 rr=2 pr=29 yr=-11 tr=-1 tp=-6 rrs=-57 prs=69 ro=-4 po=3 m=1 arm=1 md=2 m1=137 m2=144 m3=15    _  [ATT_CDEG] t=18129 r=89 p=-131 y=464 rr=-66 pr=-13 yr=-23 tr=-1 tp=-6 rrs=-53 prs=64 ro=1 po=6 m=1 arm=1 md=2 m1=144 m2=158 m3=    _   [ATT_CDEG] t=18229 r=68 p=-170 y=468 rr=-5 pr=92 yr=46 tr=-1 tp=-6 rrs=-41 prs=82 ro=-2 po=-1 m=1 arm=1 md=2 m1=149 m2=144 m3=1    _  [STATUS] State: STANDBY, Armed: 1, Mode: STABILIZE, Att: R=0.7 P=-1.7 Y=4.7, Loops: 16998, IMU: 16998
+[ATT_CDEG] t=18329 r=68 p=-187 y=471 rr=-96 pr=-184 yr=100 tr=-1 tp=-6 rrs=-41 prs=91 ro=5 po=23 m=1 arm=1 md=2 m1=133 m2=176 m w   _    [MAG_DBG] t=18329 addr=0x2C lay=1 mx=-190 my=-726 mz=445 hx=9990
+[ATT_CDEG] t=18429 r=62 p=-152 y=471 rr=36 pr=63 yr=71 tr=-1 tp=-6 rrs=-37 prs=73 ro=-6 po=0 m=1 arm=1 md=2 m1=144 m2=142 m3=15    _  [ATT_CDEG] t=18529 r=51 p=-132 y=480 rr=-134 pr=-207 yr=28 tr=-1 tp=-6 rrs=-31 prs=64 ro=9 po=23 m=1 arm=1 md=2 m1=136 m2=181 m t   _    a[ATT_CDEG] t=18629 r=49 p=-128 y=486 rr=-117 pr=-154 yr=86 tr=-1 tp=-6 rrs=-29 prs=62 ro=7 po=18 m=1 arm=1 md=2 m1=140 m2=174 m y   _    [ATT_CDEG] t=18729 r=36 p=-131 y=497 rr=-43 pr=-73 yr=72 tr=-1 tp=-6 rrs=-21 prs=63 ro=1 po=12 m=1 arm=1 md=2 m1=141 m2=162 m3=    _   [ATT_CDEG] t=18829 r=22 p=-127 y=498 rr=105 pr=-116 yr=14 tr=-1 tp=-6 rrs=-14 prs=62 ro=-10 po=15 m=1 arm=1 md=2 m1=123 m2=154     _    I[ATT_CDEG] t=18929 r=23 p=-131 y=499 rr=156 pr=-126 yr=-83 tr=-1 tp=-6 rrs=-14 prs=64 ro=-15 po=16 m=1 arm=1 md=2 m1=116 m2=152    _    I [ATT_CDEG] t=19029 r=23 p=-122 y=500 rr=98 pr=2 yr=-48 tr=-1 tp=-6 rrs=-14 prs=59 ro=-10 po=4 m=1 arm=1 md=2 m1=134 m2=144 m3=1    _  [ATT_CDEG] t=19129 r=18 p=-150 y=502 rr=81 pr=230 yr=-16 tr=-1 tp=-6 rrs=-11 prs=73 ro=-8 po=-13 m=1 arm=1 md=2 m1=154 m2=127 m    _    [ATT_CDEG] t=19229 r=4 p=-165 y=512 rr=106 pr=202 yr=-54 tr=-1 tp=-6 rrs=-2 prs=80 ro=-10 po=-10 m=1 arm=1 md=2 m1=149 m2=129 m    _     [STATUS] State: STANDBY, Armed: 1, Mode: STABILIZE, Att: R=-0.1 P=-1.7 Y=5.2, Loops: 17998, IMU: 17998
+[ATT_CDEG] t=19329 r=-13 p=-157 y=516 rr=85 pr=82 yr=-107 tr=-1 tp=-6 rrs=7 prs=76 ro=-7 po=0 m=1 arm=1 md=2 m1=141 m2=143 m3=1    _  [MAG_DBG] t=19329 addr=0x2C lay=1 mx=-191 my=-729 mz=446 hx=9975
+[ATT_CDEG] t=19429 r=-18 p=-148 y=517 rr=-72 pr=-131 yr=108 tr=-1 tp=-6 rrs=11 prs=71 ro=6 po=17 m=1 arm=1 md=2 m1=141 m2=171 m |   _    [ATT_CDEG] t=19529 r=-33 p=-149 y=529 rr=-81 pr=204 yr=11 tr=-1 tp=-6 rrs=19 prs=72 ro=7 po=-10 m=1 arm=1 md=2 m1=168 m2=146 m3    _    [ATT_CDEG] t=19629 r=-48 p=-184 y=536 rr=-25 pr=47 yr=-126 tr=-1 tp=-6 rrs=28 prs=89 ro=3 po=3 m=1 arm=1 md=2 m1=147 m2=158 m3=    _   [ATT_CDEG] t=19729 r=-39 p=-171 y=530 rr=-6 pr=240 yr=-20 tr=-1 tp=-6 rrs=23 prs=83 ro=1 po=-13 m=1 arm=1 md=2 m1=164 m2=137 m3    _    [AUTO_TEST] result stage=8 name=STAB_15_HOLD dt=2000 cmd_t=0.15 cmd_r=0.00 cmd_p=0.00 roll_min=-0.58 roll_max=0.98 pitch_min=-2     K        ~        @33?                   9o   @s?   a       @     cO    @8>7@   @Z?@   @ @   @ %@   6@    @@[            DH[AUTO_TEST] stage=9 name=DISARM throttle=0.00 roll=0.00 pitch=0.00 blend=0 armed=0 mode=0 t=18500
+[ATT_CDEG] t=19829 r=-47 p=-205 y=540 rr=-81 pr=-104 yr=-43 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0 [ATT_CDEG] t=19929 r=-19 p=-205 y=521 rr=-56 pr=61 yr=-60 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=20029 r=0 p=-188 y=478 rr=38 pr=-73 yr=8 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=20129 r=-10 p=-133 y=493 rr=-22 pr=-39 yr=40 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=20229 r=-16 p=-120 y=495 rr=26 pr=-26 yr=-21 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[STATUS] State: STANDBY, Armed: 0, Mode: DISARMED, Att: R=-0.1 P=-1.3 Y=4.8, Loops: 18998, IMU: 18998
+[ATT_CDEG] t=20329 r=-6 p=-123 y=476 rr=-1 pr=0 yr=20 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[MAG_DBG] t=20329 addr=0x2C lay=1 mx=-207 my=-677 mz=410 hx=10166
+[ATT_CDEG] t=20429 r=-5 p=-79 y=492 rr=0 pr=24 yr=8 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=20529 r=-5 p=-49 y=489 rr=8 pr=13 yr=-23 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=20629 r=0 p=-60 y=479 rr=-27 pr=10 yr=9 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=20729 r=-9 p=-51 y=498 rr=-33 pr=18 yr=16 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[AUTO_TEST] result stage=9 name=DISARM dt=1000 cmd_t=0.00 cmd_r=0.00 cmd_p=0.00 roll_min=-0.51 roll_max=0.03 pitch_min=-2.19 pi    K    	                                    -    [?   @                1@     <@    @    
+#@   6?    @    !   [AUTO_TEST] COMPLETE total=19500 ms
+[ATT_CDEG] t=20829 r=-1 p=-37 y=494 rr=12 pr=-18 yr=-15 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=20929 r=4 p=-25 y=487 rr=-35 pr=21 yr=16 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=21029 r=-3 p=-15 y=498 rr=-6 pr=8 yr=10 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=21129 r=0 p=-29 y=494 rr=5 pr=-19 yr=-5 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=21229 r=-2 p=-24 y=499 rr=2 pr=15 yr=19 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[STATUS] State: STANDBY, Armed: 0, Mode: DISARMED, Att: R=-0.0 P=-0.0 Y=5.1, Loops: 19998, IMU: 19998
+[ATT_CDEG] t=21329 r=-3 p=-1 y=505 rr=8 pr=14 yr=-5 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[MAG_DBG] t=21329 addr=0x2C lay=1 mx=-207 my=-678 mz=405 hx=10214
+[ATT_CDEG] t=21429 r=1 p=-10 y=496 rr=-5 pr=-1 yr=-2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=21529 r=-3 p=-13 y=505 rr=-10 pr=4 yr=18 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=21629 r=-3 p=-10 y=514 rr=4 pr=-2 yr=-10 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=21729 r=0 p=-5 y=506 rr=1 pr=6 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=21829 r=-1 p=5 y=515 rr=-1 pr=17 yr=8 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=21929 r=-2 p=-5 y=518 rr=-1 pr=-13 yr=-5 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=22029 r=-1 p=-12 y=515 rr=-4 pr=2 yr=6 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=22129 r=-2 p=1 y=526 rr=0 pr=14 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=22229 r=0 p=4 y=522 rr=2 pr=0 yr=-4 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[STATUS] State: STANDBY, Armed: 0, Mode: DISARMED, Att: R=-0.0 P=-0.0 Y=5.2, Loops: 20998, IMU: 20998
+[ATT_CDEG] t=22329 r=0 p=-2 y=524 rr=-3 pr=4 yr=9 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[MAG_DBG] t=22329 addr=0x2C lay=1 mx=-207 my=-675 mz=410 hx=10219
+[ATT_CDEG] t=22429 r=-3 p=-5 y=533 rr=-3 pr=-4 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=22529 r=-1 p=-3 y=530 rr=1 pr=4 yr=-2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=22629 r=0 p=4 y=534 rr=-1 pr=16 yr=6 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=22729 r=-2 p=3 y=538 rr=0 pr=-4 yr=0 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=22829 r=-1 p=-7 y=537 rr=-1 pr=-2 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=22929 r=-2 p=-2 y=544 rr=-3 pr=7 yr=7 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=23029 r=-1 p=4 y=545 rr=2 pr=6 yr=-2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=23129 r=0 p=1 y=545 rr=-2 pr=4 yr=4 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=23229 r=-3 p=-2 y=551 rr=-3 pr=-2 yr=6 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[STATUS] State: STANDBY, Armed: 0, Mode: DISARMED, Att: R=-0.0 P=-0.0 Y=5.5, Loops: 21998, IMU: 21998
+[ATT_CDEG] t=23329 r=-2 p=-3 y=553 rr=1 pr=0 yr=-1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[MAG_DBG] t=23329 addr=0x2C lay=1 mx=-208 my=-678 mz=403 hx=10215
+[ATT_CDEG] t=23429 r=0 p=2 y=554 rr=-2 pr=10 yr=5 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=23529 r=-1 p=5 y=558 rr=0 pr=5 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=23629 r=-1 p=-2 y=559 rr=-1 pr=-3 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=23729 r=-2 p=-4 y=563 rr=-4 pr=2 yr=5 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=23829 r=-2 p=2 y=567 rr=0 pr=6 yr=-1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=23929 r=0 p=3 y=566 rr=0 pr=5 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=24029 r=-2 p=0 y=571 rr=-3 pr=1 yr=6 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=24129 r=-2 p=-3 y=575 rr=0 pr=-1 yr=0 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=24229 r=0 p=0 y=575 rr=-1 pr=7 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[STATUS] State: STANDBY, Armed: 0, Mode: DISARMED, Att: R=-0.0 P=0.0 Y=5.8, Loops: 22998, IMU: 22998
+[ATT_CDEG] t=24329 r=-1 p=4 y=579 rr=0 pr=8 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[MAG_DBG] t=24329 addr=0x2C lay=1 mx=-206 my=-682 mz=405 hx=10213
+[ATT_CDEG] t=24429 r=0 p=0 y=581 rr=0 pr=0 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=24529 r=-1 p=-4 y=584 rr=-3 pr=0 yr=5 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=24629 r=-2 p=0 y=588 rr=0 pr=5 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=24729 r=0 p=3 y=588 rr=0 pr=7 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=24829 r=-1 p=1 y=591 rr=-2 pr=4 yr=4 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=24929 r=-2 p=-1 y=595 rr=-1 pr=-1 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=25029 r=-1 p=-2 y=597 rr=-1 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=25129 r=-1 p=2 y=600 rr=0 pr=8 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=25229 r=0 p=2 y=602 rr=0 pr=2 yr=0 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[STATUS] State: STANDBY, Armed: 0, Mode: DISARMED, Att: R=-0.0 P=-0.0 Y=6.0, Loops: 23997, IMU: 23997
+[ATT_CDEG] t=25329 r=-1 p=-2 y=604 rr=-2 pr=0 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[MAG_DBG] t=25329 addr=0x2C lay=1 mx=-206 my=-681 mz=410 hx=10209
+[ATT_CDEG] t=25430 r=-2 p=-2 y=609 rr=-1 pr=2 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=25530 r=0 p=0 y=610 rr=0 pr=5 yr=0 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=25630 r=0 p=2 y=612 rr=-2 pr=6 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=25730 r=-1 p=0 y=615 rr=-1 pr=0 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=25830 r=-1 p=-3 y=617 rr=-1 pr=0 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=25930 r=-1 p=0 y=620 rr=-1 pr=6 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=26030 r=0 p=2 y=622 rr=0 pr=4 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=26130 r=-1 p=0 y=624 rr=-1 pr=2 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=26230 r=-1 p=-2 y=628 rr=-2 pr=0 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[STATUS] State: STANDBY, Armed: 0, Mode: DISARMED, Att: R=-0.0 P=-0.0 Y=6.3, Loops: 24998, IMU: 24998
+[ATT_CDEG] t=26330 r=-1 p=0 y=630 rr=0 pr=4 yr=0 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[MAG_DBG] t=26330 addr=0x2C lay=1 mx=-207 my=-682 mz=409 hx=10217
+[ATT_CDEG] t=26430 r=-1 p=2 y=632 rr=0 pr=6 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=26530 r=-2 p=1 y=635 rr=-2 pr=2 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=26630 r=-2 p=-2 y=638 rr=-1 pr=0 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=26730 r=-1 p=-1 y=641 rr=0 pr=3 yr=4 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=26830 r=-1 p=1 y=643 rr=0 pr=5 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=26930 r=0 p=0 y=645 rr=0 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=27030 r=-1 p=-2 y=648 rr=-2 pr=1 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=27130 r=-1 p=-2 y=651 rr=0 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=27230 r=0 p=0 y=653 rr=0 pr=6 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[STATUS] State: STANDBY, Armed: 0, Mode: DISARMED, Att: R=-0.0 P=0.0 Y=6.6, Loops: 25998, IMU: 25998
+[ATT_CDEG] t=27330 r=0 p=1 y=656 rr=-1 pr=5 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[MAG_DBG] t=27330 addr=0x2C lay=1 mx=-205 my=-680 mz=405 hx=10218
+[ATT_CDEG] t=27430 r=-1 p=-1 y=658 rr=-1 pr=0 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=27530 r=-1 p=-2 y=661 rr=-1 pr=2 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=27630 r=-1 p=0 y=664 rr=0 pr=5 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=27730 r=0 p=1 y=666 rr=0 pr=5 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=27830 r=-1 p=-1 y=669 rr=-2 pr=2 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=27930 r=-2 p=-1 y=672 rr=0 pr=2 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=28030 r=-1 p=0 y=674 rr=-1 pr=4 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=28130 r=-1 p=0 y=677 rr=-1 pr=5 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=28230 r=-1 p=0 y=679 rr=-1 pr=2 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[STATUS] State: STANDBY, Armed: 0, Mode: DISARMED, Att: R=-0.0 P=-0.0 Y=6.8, Loops: 26998, IMU: 26998
+[ATT_CDEG] t=28331 r=-1 p=-2 y=682 rr=-2 pr=2 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[MAG_DBG] t=28331 addr=0x2C lay=1 mx=-207 my=-680 mz=407 hx=10217
+[ATT_CDEG] t=28431 r=-1 p=0 y=685 rr=-1 pr=5 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=28531 r=-1 p=0 y=687 rr=-1 pr=5 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=28631 r=-1 p=0 y=690 rr=-1 pr=3 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=28731 r=-2 p=-2 y=693 rr=-1 pr=2 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=28831 r=-1 p=-1 y=695 rr=-1 pr=3 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=28931 r=-1 p=0 y=698 rr=-1 pr=5 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=29031 r=-1 p=0 y=701 rr=0 pr=2 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=29131 r=-1 p=-1 y=703 rr=-1 pr=2 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=29231 r=-1 p=-1 y=706 rr=-2 pr=3 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[STATUS] State: STANDBY, Armed: 0, Mode: DISARMED, Att: R=-0.0 P=-0.0 Y=7.1, Loops: 27998, IMU: 27998
+[ATT_CDEG] t=29331 r=-1 p=0 y=709 rr=0 pr=5 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[MAG_DBG] t=29331 addr=0x2C lay=1 mx=-207 my=-679 mz=402 hx=10216
+[ATT_CDEG] t=29431 r=-1 p=0 y=711 rr=-1 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=29531 r=-1 p=-1 y=714 rr=-2 pr=2 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=29631 r=-1 p=-1 y=717 rr=-1 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=29731 r=-1 p=0 y=719 rr=-1 pr=5 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=29831 r=-1 p=0 y=721 rr=0 pr=4 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=29931 r=-1 p=-1 y=724 rr=-1 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=30031 r=-1 p=-2 y=727 rr=-1 pr=3 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=30131 r=-1 p=0 y=729 rr=0 pr=5 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=30231 r=0 p=0 y=732 rr=-1 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[STATUS] State: STANDBY, Armed: 0, Mode: DISARMED, Att: R=-0.0 P=-0.0 Y=7.3, Loops: 28998, IMU: 28998
+[ATT_CDEG] t=30331 r=-1 p=0 y=734 rr=-1 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[MAG_DBG] t=30331 addr=0x2C lay=1 mx=-206 my=-681 mz=402 hx=10217
+[ATT_CDEG] t=30431 r=-1 p=-2 y=737 rr=-1 pr=2 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=30531 r=-1 p=-1 y=740 rr=-1 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=30631 r=-1 p=0 y=742 rr=-1 pr=4 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=30731 r=-1 p=0 y=745 rr=-1 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=30831 r=-1 p=-1 y=747 rr=-1 pr=2 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=30931 r=-1 p=-1 y=750 rr=-1 pr=2 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=31031 r=-1 p=0 y=752 rr=-1 pr=5 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=31131 r=-1 p=0 y=755 rr=-1 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=31231 r=-1 p=-1 y=758 rr=0 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[STATUS] State: STANDBY, Armed: 0, Mode: DISARMED, Att: R=-0.0 P=-0.0 Y=7.6, Loops: 29998, IMU: 29998
+[ATT_CDEG] t=31331 r=-1 p=-1 y=760 rr=-1 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[MAG_DBG] t=31331 addr=0x2C lay=1 mx=-208 my=-682 mz=406 hx=10215
+[ATT_CDEG] t=31431 r=-1 p=0 y=763 rr=-1 pr=4 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=31531 r=0 p=0 y=765 rr=-1 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=31631 r=-1 p=-1 y=768 rr=-1 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=31731 r=-1 p=-1 y=771 rr=-1 pr=2 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=31831 r=0 p=0 y=773 rr=-1 pr=3 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=31931 r=0 p=0 y=776 rr=-1 pr=4 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=32031 r=-1 p=0 y=779 rr=-1 pr=2 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=32131 r=-1 p=-1 y=781 rr=-1 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=32231 r=-1 p=0 y=784 rr=-1 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[STATUS] State: STANDBY, Armed: 0, Mode: DISARMED, Att: R=-0.0 P=-0.0 Y=7.9, Loops: 30998, IMU: 30998
+[ATT_CDEG] t=32331 r=0 p=0 y=786 rr=-1 pr=3 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[MAG_DBG] t=32331 addr=0x2C lay=1 mx=-207 my=-682 mz=404 hx=10220
+[ATT_CDEG] t=32431 r=0 p=-1 y=789 rr=-1 pr=3 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=32531 r=-1 p=-1 y=792 rr=-1 pr=3 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=32631 r=-1 p=-2 y=794 rr=-1 pr=3 yr=2 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=32731 r=0 p=0 y=797 rr=-1 pr=4 yr=3 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0
+[ATT_CDEG] t=32831 r=0 p=-1 y=799 rr=-1 pr=3 yr=1 tr=0 tp=0 rrs=0 prs=0 ro=0 po=0 m=1 arm=0 md=0 m1=0 m2=0 m3=0 m4=0

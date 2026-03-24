@@ -16,7 +16,7 @@
  * 静态函数声明
  * ============================================================================ */
 
-static float pid_update_position(pid_controller_t *pid, float error, float dt);
+static float pid_update_position(pid_controller_t *pid, float error, float input, float dt);
 static float pid_update_incremental(pid_controller_t *pid, float error, float dt);
 
 /* ============================================================================
@@ -144,7 +144,7 @@ float pid_update(pid_controller_t *pid, float setpoint, float input, float dt)
     /* 根据模式选择计算方式 */
     switch (pid->mode) {
         case PID_MODE_POSITION:
-            output = pid_update_position(pid, error, dt);
+            output = pid_update_position(pid, error, input, dt);
             break;
 
         case PID_MODE_INCREMENTAL:
@@ -207,9 +207,9 @@ void flight_pid_set_defaults(flight_pid_set_t *pid_set)
         return;
     }
 
-    /* 第二轮系绳平衡调试参数:
-     * 1. 外环稍微降带宽，避免被系绳/地效扰动时持续“追大角度”。
-     * 2. 内环继续偏向 P/D 阻尼，让机体先把角速度压住，再回正姿态。
+    /* 0.35 峰值系绳悬停调试参数:
+     * 1. 外环略增益，提升高油门时回正能力，但保持低积分避免慢振荡。
+     * 2. 内环适度增强 P/D 阻尼，优先压制角速度峰值，保护 5° 熔断窗口。
      */
     /* 横滚角度环 */
     pid_set_gains(&pid_set->channels[PID_ROLL_ANGLE],  6.0f, 0.01f, 0.0f);
@@ -217,9 +217,9 @@ void flight_pid_set_defaults(flight_pid_set_t *pid_set)
     pid_set_output_limit(&pid_set->channels[PID_ROLL_ANGLE], 180.0f);
 
     /* 俯仰角度环 */
-    pid_set_gains(&pid_set->channels[PID_PITCH_ANGLE], 4.2f, 0.01f, 0.0f);
+    pid_set_gains(&pid_set->channels[PID_PITCH_ANGLE], 4.8f, 0.01f, 0.0f);
     pid_set_integral_limit(&pid_set->channels[PID_PITCH_ANGLE], 8.0f);
-    pid_set_output_limit(&pid_set->channels[PID_PITCH_ANGLE], 120.0f);
+    pid_set_output_limit(&pid_set->channels[PID_PITCH_ANGLE], 150.0f);
 
     /* 偏航角度环 */
     pid_set_gains(&pid_set->channels[PID_YAW_ANGLE],  2.0f, 0.01f, 0.0f);
@@ -234,10 +234,10 @@ void flight_pid_set_defaults(flight_pid_set_t *pid_set)
     pid_set_d_filter(&pid_set->channels[PID_ROLL_RATE], 0.06f);
 
     /* 俯仰角速度环 */
-    pid_set_gains(&pid_set->channels[PID_PITCH_RATE], 0.52f, 0.05f, 0.0045f);
-    pid_set_integral_limit(&pid_set->channels[PID_PITCH_RATE], 70.0f);
-    pid_set_output_limit(&pid_set->channels[PID_PITCH_RATE], 320.0f);
-    pid_set_d_filter(&pid_set->channels[PID_PITCH_RATE], 0.06f);
+    pid_set_gains(&pid_set->channels[PID_PITCH_RATE], 0.60f, 0.04f, 0.0050f);
+    pid_set_integral_limit(&pid_set->channels[PID_PITCH_RATE], 60.0f);
+    pid_set_output_limit(&pid_set->channels[PID_PITCH_RATE], 360.0f);
+    pid_set_d_filter(&pid_set->channels[PID_PITCH_RATE], 0.05f);
 
     /* 偏航角速度环 */
     pid_set_gains(&pid_set->channels[PID_YAW_RATE],   0.18f, 0.05f, 0.0f);
@@ -307,7 +307,7 @@ float pid_cascade_update(pid_controller_t *outer_pid,
  * @brief 位置式PID更新
  * @note output = Kp*error + Ki*integral + Kd*derivative
  */
-static float pid_update_position(pid_controller_t *pid, float error, float dt)
+static float pid_update_position(pid_controller_t *pid, float error, float input, float dt)
 {
     /* 比例项 */
     float p_term = pid->gains.kp * error;
@@ -317,8 +317,11 @@ static float pid_update_position(pid_controller_t *pid, float error, float dt)
     pid->integral = pid_constrain(pid->integral, pid->integral_limit);
     float i_term = pid->gains.ki * pid->integral;
 
-    /* 微分项 (基于测量值的变化，而非误差，避免setpoint突变导致冲击) */
-    float derivative = (error - pid->last_error) / dt;
+    /* 微分项只对测量值变化做阻尼，避免设定值跳变直接打进 D 项。 */
+    float derivative = 0.0f;
+    if (pid->update_count > 0U) {
+        derivative = -(input - pid->last_input) / dt;
+    }
 
     /* 一阶低通滤波 */
     pid->last_derivative = pid_lpf(derivative, pid->last_derivative, pid->d_filter_coef);
@@ -327,6 +330,7 @@ static float pid_update_position(pid_controller_t *pid, float error, float dt)
 
     /* 保存当前误差 */
     pid->last_error = error;
+    pid->last_input = input;
 
     /* 计算输出 */
     float output = p_term + i_term + d_term;

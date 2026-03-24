@@ -18,6 +18,7 @@
 #include "../hal/spi.h"
 #include "../hal/pwm.h"
 #include "../comm/wifi_command.h"
+#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -36,8 +37,10 @@ spi_handle_t  hspi3;    /**< SPI3 - LPS22HBTR 气压计 */
 #if defined(AUTO_TETHER_BALANCE_TEST) || defined(AUTO_TETHER_ROLL_ID_TEST)
 typedef struct {
     uint16_t duration_ms;
+    uint16_t transition_ms;
     float throttle;
     float roll;
+    float pitch;
     bool armed;
     flight_mode_t mode;
     const char *name;
@@ -50,49 +53,106 @@ typedef struct {
     float pitch_max;
     float last_roll;
     float last_pitch;
+    float roll_rate_abs_max;
+    float pitch_rate_abs_max;
+    float roll_rate_sp_abs_max;
+    float pitch_rate_sp_abs_max;
+    float roll_out_abs_max;
+    float pitch_out_abs_max;
+    uint32_t left_right_delta_abs_max;
+    uint32_t front_rear_delta_abs_max;
     uint32_t start_ms;
+    uint32_t last_sample_ms;
+    uint32_t stable_total_ms;
+    uint32_t stable_run_ms;
+    uint32_t stable_longest_ms;
     bool valid;
+    bool stable_active;
 } auto_tether_stage_stats_t;
 
-#define AUTO_TETHER_ABORT_ROLL_DEG          8.0f
-#define AUTO_TETHER_ABORT_PITCH_DEG         8.0f
+#define AUTO_TETHER_ABORT_ROLL_DEG          5.0f
+#define AUTO_TETHER_ABORT_PITCH_DEG         5.0f
 #define AUTO_TETHER_ABORT_HOLD_MS           120U
+#define AUTO_TETHER_SETTLE_ANGLE_DEG        3.0f
+#define AUTO_TETHER_SETTLE_RATE_DPS         45.0f
 
 #ifdef AUTO_TETHER_BALANCE_TEST
 #define AUTO_TETHER_STAB_15_ROLL_TRIM       0.00f
 #define AUTO_TETHER_STAB_18_ROLL_TRIM       0.00f
+#define AUTO_TETHER_STAB_20_ROLL_CMD        0.00f
+#define AUTO_TETHER_STAB_22_ROLL_CMD        0.00f
+#define AUTO_TETHER_STAB_26_ROLL_CMD        0.00f
+#define AUTO_TETHER_STAB_30_ROLL_CMD        0.00f
+#define AUTO_TETHER_STAB_33_ROLL_CMD        0.00f
+#define AUTO_TETHER_STAB_35_ROLL_CMD        0.00f
+#define AUTO_TETHER_POST35_30_ROLL_CMD      0.00f
+#define AUTO_TETHER_POST30_24_ROLL_CMD      0.00f
+#define AUTO_TETHER_POST24_18_ROLL_CMD      0.00f
+#define AUTO_TETHER_POST18_14_ROLL_CMD      0.00f
+#define AUTO_TETHER_COOLDOWN_ROLL_CMD       0.00f
+#define AUTO_TETHER_PRE18_PITCH_CMD         0.03f
+#define AUTO_TETHER_STAB_16_PITCH_CMD       0.07f
+#define AUTO_TETHER_STAB_18_ENTRY_PITCH_CMD 0.10f
+#define AUTO_TETHER_STAB_18_HOLD_PITCH_CMD  0.06f
+#define AUTO_TETHER_STAB_20_PITCH_CMD       0.05f
+#define AUTO_TETHER_STAB_22_PITCH_CMD       0.05f
+#define AUTO_TETHER_STAB_26_PITCH_CMD       0.05f
+#define AUTO_TETHER_STAB_30_PITCH_CMD       0.04f
+#define AUTO_TETHER_STAB_33_PITCH_CMD       0.03f
+#define AUTO_TETHER_STAB_35_PITCH_CMD       0.03f
+#define AUTO_TETHER_POST35_30_PITCH_CMD     0.03f
+#define AUTO_TETHER_POST30_24_PITCH_CMD     0.02f
+#define AUTO_TETHER_POST24_18_PITCH_CMD     0.02f
+#define AUTO_TETHER_POST18_14_PITCH_CMD     0.03f
+#define AUTO_TETHER_COOLDOWN_PITCH_CMD      0.02f
 static const auto_tether_stage_t k_auto_tether_stages[] = {
-    {3000U, 0.00f, 0.00f, false, FLIGHT_MODE_DISARMED, "PREP"},
-    {1500U, 0.00f, 0.00f, true,  FLIGHT_MODE_ARMED,    "ARM_CAPTURE"},
-    {3000U, 0.09f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_09"},
-    {2500U, 0.12f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_12"},
-    {2000U, 0.15f, AUTO_TETHER_STAB_15_ROLL_TRIM, true, FLIGHT_MODE_STABILIZE, "STAB_15"},
-    {1500U, 0.12f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"RECOVER_12_PRE18"},
-    {1500U, 0.18f, AUTO_TETHER_STAB_18_ROLL_TRIM, true, FLIGHT_MODE_STABILIZE, "STAB_18_PROBE"},
-    {2000U, 0.12f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_12_COOLDOWN"},
-    {1000U, 0.00f, 0.00f, false, FLIGHT_MODE_DISARMED, "DISARM"},
+    {3000U,   0U, 0.00f, 0.00f, 0.00f, false, FLIGHT_MODE_DISARMED, "PREP"},
+    {1500U,   0U, 0.00f, 0.00f, 0.00f, true,  FLIGHT_MODE_ARMED,    "ARM_CAPTURE"},
+    {3000U, 250U, 0.09f, 0.00f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_09"},
+    {2500U, 250U, 0.12f, 0.00f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_12"},
+    {1800U, 250U, 0.15f, AUTO_TETHER_STAB_15_ROLL_TRIM, 0.00f, true, FLIGHT_MODE_STABILIZE, "STAB_15"},
+    {1100U, 320U, 0.12f, 0.00f, AUTO_TETHER_PRE18_PITCH_CMD, true,  FLIGHT_MODE_STABILIZE, "PRE18_UNLOAD"},
+    { 700U, 360U, 0.16f, 0.00f, AUTO_TETHER_STAB_16_PITCH_CMD, true, FLIGHT_MODE_STABILIZE, "STAB_16_ENTRY"},
+    { 900U, 420U, 0.18f, AUTO_TETHER_STAB_18_ROLL_TRIM, AUTO_TETHER_STAB_18_ENTRY_PITCH_CMD, true, FLIGHT_MODE_STABILIZE, "STAB_18_ENTRY"},
+    {1200U, 350U, 0.18f, AUTO_TETHER_STAB_18_ROLL_TRIM, AUTO_TETHER_STAB_18_HOLD_PITCH_CMD, true, FLIGHT_MODE_STABILIZE, "STAB_18_PROBE"},
+    {1200U, 500U, 0.20f, AUTO_TETHER_STAB_20_ROLL_CMD, AUTO_TETHER_STAB_20_PITCH_CMD, true, FLIGHT_MODE_STABILIZE, "STAB_20"},
+    {1200U, 550U, 0.22f, AUTO_TETHER_STAB_22_ROLL_CMD, AUTO_TETHER_STAB_22_PITCH_CMD, true, FLIGHT_MODE_STABILIZE, "STAB_22"},
+    {1400U, 600U, 0.26f, AUTO_TETHER_STAB_26_ROLL_CMD, AUTO_TETHER_STAB_26_PITCH_CMD, true, FLIGHT_MODE_STABILIZE, "STAB_26"},
+    {1400U, 600U, 0.30f, AUTO_TETHER_STAB_30_ROLL_CMD, AUTO_TETHER_STAB_30_PITCH_CMD, true, FLIGHT_MODE_STABILIZE, "STAB_30"},
+    {1300U, 620U, 0.33f, AUTO_TETHER_STAB_33_ROLL_CMD, AUTO_TETHER_STAB_33_PITCH_CMD, true, FLIGHT_MODE_STABILIZE, "STAB_33"},
+    {1600U, 650U, 0.35f, AUTO_TETHER_STAB_35_ROLL_CMD, AUTO_TETHER_STAB_35_PITCH_CMD, true, FLIGHT_MODE_STABILIZE, "STAB_35_HOVER"},
+    {1000U, 500U, 0.30f, AUTO_TETHER_POST35_30_ROLL_CMD, AUTO_TETHER_POST35_30_PITCH_CMD, true, FLIGHT_MODE_STABILIZE, "POST35_30"},
+    {1000U, 420U, 0.24f, AUTO_TETHER_POST30_24_ROLL_CMD, AUTO_TETHER_POST30_24_PITCH_CMD, true, FLIGHT_MODE_STABILIZE, "POST30_24"},
+    {1000U, 360U, 0.18f, AUTO_TETHER_POST24_18_ROLL_CMD, AUTO_TETHER_POST24_18_PITCH_CMD, true, FLIGHT_MODE_STABILIZE, "POST24_18"},
+    { 900U, 300U, 0.14f, AUTO_TETHER_POST18_14_ROLL_CMD, AUTO_TETHER_POST18_14_PITCH_CMD, true, FLIGHT_MODE_STABILIZE, "POST18_14"},
+    {1200U, 320U, 0.12f, AUTO_TETHER_COOLDOWN_ROLL_CMD, AUTO_TETHER_COOLDOWN_PITCH_CMD, true,  FLIGHT_MODE_STABILIZE, "STAB_12_COOLDOWN"},
+    {1000U,   0U, 0.00f, 0.00f, 0.00f, false, FLIGHT_MODE_DISARMED, "DISARM"},
 };
 #elif defined(AUTO_TETHER_ROLL_ID_TEST)
 #define AUTO_TETHER_ROLL_ID_CMD             0.10f
 static const auto_tether_stage_t k_auto_tether_stages[] = {
-    {3000U, 0.00f, 0.00f, false, FLIGHT_MODE_DISARMED, "PREP"},
-    {1500U, 0.00f, 0.00f, true,  FLIGHT_MODE_ARMED,    "ARM_CAPTURE"},
-    {2500U, 0.09f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_09"},
-    {2500U, 0.12f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_12"},
-    {2000U, 0.15f, AUTO_TETHER_ROLL_ID_CMD, true, FLIGHT_MODE_STABILIZE, "ROLL_POS_15"},
-    {1500U, 0.12f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"RECOVER_12_A"},
-    {2000U, 0.15f, -AUTO_TETHER_ROLL_ID_CMD, true, FLIGHT_MODE_STABILIZE, "ROLL_NEG_15"},
-    {1500U, 0.12f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"RECOVER_12_B"},
-    {2000U, 0.15f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_15_HOLD"},
-    {1000U, 0.00f, 0.00f, false, FLIGHT_MODE_DISARMED, "DISARM"},
+    {3000U,   0U, 0.00f, 0.00f, 0.00f, false, FLIGHT_MODE_DISARMED, "PREP"},
+    {1500U,   0U, 0.00f, 0.00f, 0.00f, true,  FLIGHT_MODE_ARMED,    "ARM_CAPTURE"},
+    {2500U, 250U, 0.09f, 0.00f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_09"},
+    {2500U, 250U, 0.12f, 0.00f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_12"},
+    {2000U, 250U, 0.15f, AUTO_TETHER_ROLL_ID_CMD, 0.00f, true, FLIGHT_MODE_STABILIZE, "ROLL_POS_15"},
+    {1500U, 250U, 0.12f, 0.00f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"RECOVER_12_A"},
+    {2000U, 250U, 0.15f, -AUTO_TETHER_ROLL_ID_CMD, 0.00f, true, FLIGHT_MODE_STABILIZE, "ROLL_NEG_15"},
+    {1500U, 250U, 0.12f, 0.00f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"RECOVER_12_B"},
+    {2000U, 250U, 0.15f, 0.00f, 0.00f, true,  FLIGHT_MODE_STABILIZE,"STAB_15_HOLD"},
+    {1000U,   0U, 0.00f, 0.00f, 0.00f, false, FLIGHT_MODE_DISARMED, "DISARM"},
 };
 #endif
 
 #define AUTO_TETHER_DISARM_STAGE_INDEX      (sizeof(k_auto_tether_stages) / sizeof(k_auto_tether_stages[0]) - 1U)
 
 static void auto_tether_balance_test_update(flight_main_handle_t *flight);
+static float auto_tether_lerp(float from, float to, float blend);
 static void auto_tether_stage_stats_reset(auto_tether_stage_stats_t *stats, uint32_t start_ms);
-static void auto_tether_stage_stats_update(auto_tether_stage_stats_t *stats, const euler_angle_t *attitude);
+static void auto_tether_stage_stats_update(auto_tether_stage_stats_t *stats,
+                                           const flight_main_handle_t *flight,
+                                           const euler_angle_t *attitude,
+                                           uint32_t now_ms);
 static void auto_tether_stage_stats_report(size_t stage_index,
                                            const auto_tether_stage_t *stage,
                                            const auto_tether_stage_stats_t *stats,
@@ -550,16 +610,20 @@ static void auto_tether_balance_test_update(flight_main_handle_t *flight)
     uint32_t accumulated_ms = 0U;
     rc_command_t cmd = {0};
     const auto_tether_stage_t *stage = NULL;
+    const auto_tether_stage_t *previous_stage = NULL;
     euler_angle_t attitude = {0.0f, 0.0f, 0.0f};
     bool attitude_valid = false;
+    uint32_t now_ms = 0U;
 
     if (flight == NULL || !flight->initialized || !flight->sensors_ok) {
         return;
     }
 
+    now_ms = platform_get_time_ms();
+
     if (!started) {
         started = true;
-        sequence_start_ms = platform_get_time_ms();
+        sequence_start_ms = now_ms;
         stage_index = 0U;
         announced_stage_index = (size_t)-1;
         active_stage_index = (size_t)-1;
@@ -581,11 +645,11 @@ static void auto_tether_balance_test_update(flight_main_handle_t *flight)
         cmd.mode_switch = false;
         flight_controller_set_rc_input(&flight->flight_ctrl, &cmd);
         (void)flight_controller_set_mode(&flight->flight_ctrl, FLIGHT_MODE_DISARMED);
-        flight->wifi_cmd.last_rx_time = platform_get_time_ms();
+        flight->wifi_cmd.last_rx_time = now_ms;
         return;
     }
 
-    elapsed_ms = platform_get_time_ms() - sequence_start_ms;
+    elapsed_ms = now_ms - sequence_start_ms;
     attitude_valid = flight_controller_get_attitude(&flight->flight_ctrl, &attitude);
 
     if (attitude_valid &&
@@ -599,8 +663,8 @@ static void auto_tether_balance_test_update(flight_main_handle_t *flight)
 
         if (roll_exceeded || pitch_exceeded) {
             if (tilt_exceed_since_ms == 0U) {
-                tilt_exceed_since_ms = platform_get_time_ms();
-            } else if ((platform_get_time_ms() - tilt_exceed_since_ms) >= AUTO_TETHER_ABORT_HOLD_MS) {
+                tilt_exceed_since_ms = now_ms;
+            } else if ((now_ms - tilt_exceed_since_ms) >= AUTO_TETHER_ABORT_HOLD_MS) {
                 if (!abort_logged) {
                     platform_debug_print("[AUTO_TEST] ABORT_TILT roll=%.2f pitch=%.2f t=%lu\r\n",
                                          (double)attitude.roll,
@@ -657,11 +721,13 @@ static void auto_tether_balance_test_update(flight_main_handle_t *flight)
     }
 
     if (announced_stage_index != stage_index) {
-        platform_debug_print("[AUTO_TEST] stage=%u name=%s throttle=%.2f roll=%.2f armed=%u mode=%u t=%lu\r\n",
+        platform_debug_print("[AUTO_TEST] stage=%u name=%s throttle=%.2f roll=%.2f pitch=%.2f blend=%u armed=%u mode=%u t=%lu\r\n",
                              (unsigned)stage_index,
                              stage->name,
                              (double)stage->throttle,
                              (double)stage->roll,
+                             (double)stage->pitch,
+                             (unsigned)stage->transition_ms,
                              stage->armed ? 1U : 0U,
                              (unsigned)stage->mode,
                              (unsigned long)elapsed_ms);
@@ -669,12 +735,24 @@ static void auto_tether_balance_test_update(flight_main_handle_t *flight)
     }
 
     if (attitude_valid) {
-        auto_tether_stage_stats_update(&stage_stats, &attitude);
+        auto_tether_stage_stats_update(&stage_stats, flight, &attitude, now_ms);
     }
 
-    cmd.throttle = stage->throttle;
-    cmd.roll = stage->roll;
-    cmd.pitch = 0.0f;
+    previous_stage = (stage_index > 0U) ? &k_auto_tether_stages[stage_index - 1U] : stage;
+
+    if (stage->transition_ms > 0U) {
+        const uint32_t stage_elapsed_ms = elapsed_ms - stage_start_elapsed_ms;
+        const float blend = (stage_elapsed_ms >= stage->transition_ms) ?
+                            1.0f :
+                            ((float)stage_elapsed_ms / (float)stage->transition_ms);
+        cmd.throttle = auto_tether_lerp(previous_stage->throttle, stage->throttle, blend);
+        cmd.roll = auto_tether_lerp(previous_stage->roll, stage->roll, blend);
+        cmd.pitch = auto_tether_lerp(previous_stage->pitch, stage->pitch, blend);
+    } else {
+        cmd.throttle = stage->throttle;
+        cmd.roll = stage->roll;
+        cmd.pitch = stage->pitch;
+    }
     cmd.yaw = 0.0f;
     cmd.armed = stage->armed;
     cmd.mode_switch = false;
@@ -690,7 +768,18 @@ static void auto_tether_balance_test_update(flight_main_handle_t *flight)
     }
 
     /* 没有 WiFi 遥控链路时，自动系绳测试本身就是“本地控制源”。 */
-    flight->wifi_cmd.last_rx_time = platform_get_time_ms();
+    flight->wifi_cmd.last_rx_time = now_ms;
+}
+
+static float auto_tether_lerp(float from, float to, float blend)
+{
+    if (blend <= 0.0f) {
+        return from;
+    }
+    if (blend >= 1.0f) {
+        return to;
+    }
+    return from + (to - from) * blend;
 }
 
 static void auto_tether_stage_stats_reset(auto_tether_stage_stats_t *stats, uint32_t start_ms)
@@ -705,13 +794,40 @@ static void auto_tether_stage_stats_reset(auto_tether_stage_stats_t *stats, uint
     stats->pitch_max = 0.0f;
     stats->last_roll = 0.0f;
     stats->last_pitch = 0.0f;
+    stats->roll_rate_abs_max = 0.0f;
+    stats->pitch_rate_abs_max = 0.0f;
+    stats->roll_rate_sp_abs_max = 0.0f;
+    stats->pitch_rate_sp_abs_max = 0.0f;
+    stats->roll_out_abs_max = 0.0f;
+    stats->pitch_out_abs_max = 0.0f;
+    stats->left_right_delta_abs_max = 0U;
+    stats->front_rear_delta_abs_max = 0U;
     stats->start_ms = start_ms;
+    stats->last_sample_ms = 0U;
+    stats->stable_total_ms = 0U;
+    stats->stable_run_ms = 0U;
+    stats->stable_longest_ms = 0U;
     stats->valid = false;
+    stats->stable_active = false;
 }
 
-static void auto_tether_stage_stats_update(auto_tether_stage_stats_t *stats, const euler_angle_t *attitude)
+static void auto_tether_stage_stats_update(auto_tether_stage_stats_t *stats,
+                                           const flight_main_handle_t *flight,
+                                           const euler_angle_t *attitude,
+                                           uint32_t now_ms)
 {
-    if (stats == NULL || attitude == NULL) {
+    vec3f_t gyro = {0.0f, 0.0f, 0.0f};
+    motor_outputs_t motors = {0};
+    float roll_rate_dps = 0.0f;
+    float pitch_rate_dps = 0.0f;
+    float roll_rate_sp_abs = 0.0f;
+    float pitch_rate_sp_abs = 0.0f;
+    float roll_out_abs = 0.0f;
+    float pitch_out_abs = 0.0f;
+    uint32_t dt_ms = 0U;
+    bool stable_now = false;
+
+    if (stats == NULL || flight == NULL || attitude == NULL) {
         return;
     }
 
@@ -738,6 +854,80 @@ static void auto_tether_stage_stats_update(auto_tether_stage_stats_t *stats, con
 
     stats->last_roll = attitude->roll;
     stats->last_pitch = attitude->pitch;
+
+    if (stats->last_sample_ms > 0U && now_ms >= stats->last_sample_ms) {
+        dt_ms = now_ms - stats->last_sample_ms;
+    }
+    stats->last_sample_ms = now_ms;
+
+    if (flight_controller_get_gyro(&flight->flight_ctrl, &gyro)) {
+        roll_rate_dps = gyro.x * 57.2957795f;
+        pitch_rate_dps = gyro.y * 57.2957795f;
+    }
+
+    roll_rate_sp_abs = fabsf(flight->flight_ctrl.debug_roll_rate_sp);
+    pitch_rate_sp_abs = fabsf(flight->flight_ctrl.debug_pitch_rate_sp);
+    roll_out_abs = fabsf(flight->flight_ctrl.debug_roll_out);
+    pitch_out_abs = fabsf(flight->flight_ctrl.debug_pitch_out);
+
+    if (fabsf(roll_rate_dps) > stats->roll_rate_abs_max) {
+        stats->roll_rate_abs_max = fabsf(roll_rate_dps);
+    }
+    if (fabsf(pitch_rate_dps) > stats->pitch_rate_abs_max) {
+        stats->pitch_rate_abs_max = fabsf(pitch_rate_dps);
+    }
+    if (roll_rate_sp_abs > stats->roll_rate_sp_abs_max) {
+        stats->roll_rate_sp_abs_max = roll_rate_sp_abs;
+    }
+    if (pitch_rate_sp_abs > stats->pitch_rate_sp_abs_max) {
+        stats->pitch_rate_sp_abs_max = pitch_rate_sp_abs;
+    }
+    if (roll_out_abs > stats->roll_out_abs_max) {
+        stats->roll_out_abs_max = roll_out_abs;
+    }
+    if (pitch_out_abs > stats->pitch_out_abs_max) {
+        stats->pitch_out_abs_max = pitch_out_abs;
+    }
+
+    flight_controller_get_motors(&flight->flight_ctrl, &motors);
+    {
+        int32_t left_right_delta = ((int32_t)motors.motor1 + (int32_t)motors.motor2) -
+                                   ((int32_t)motors.motor3 + (int32_t)motors.motor4);
+        int32_t front_rear_delta = ((int32_t)motors.motor1 + (int32_t)motors.motor4) -
+                                   ((int32_t)motors.motor2 + (int32_t)motors.motor3);
+        if (left_right_delta < 0) {
+            left_right_delta = -left_right_delta;
+        }
+        if (front_rear_delta < 0) {
+            front_rear_delta = -front_rear_delta;
+        }
+        if ((uint32_t)left_right_delta > stats->left_right_delta_abs_max) {
+            stats->left_right_delta_abs_max = (uint32_t)left_right_delta;
+        }
+        if ((uint32_t)front_rear_delta > stats->front_rear_delta_abs_max) {
+            stats->front_rear_delta_abs_max = (uint32_t)front_rear_delta;
+        }
+    }
+
+    stable_now = (fabsf(attitude->roll) <= AUTO_TETHER_SETTLE_ANGLE_DEG) &&
+                 (fabsf(attitude->pitch) <= AUTO_TETHER_SETTLE_ANGLE_DEG) &&
+                 (fabsf(roll_rate_dps) <= AUTO_TETHER_SETTLE_RATE_DPS) &&
+                 (fabsf(pitch_rate_dps) <= AUTO_TETHER_SETTLE_RATE_DPS);
+
+    if (stable_now) {
+        if (dt_ms == 0U) {
+            dt_ms = 1U;
+        }
+        stats->stable_total_ms += dt_ms;
+        stats->stable_run_ms += dt_ms;
+        stats->stable_active = true;
+        if (stats->stable_run_ms > stats->stable_longest_ms) {
+            stats->stable_longest_ms = stats->stable_run_ms;
+        }
+    } else {
+        stats->stable_active = false;
+        stats->stable_run_ms = 0U;
+    }
 }
 
 static void auto_tether_stage_stats_report(size_t stage_index,
@@ -757,16 +947,29 @@ static void auto_tether_stage_stats_report(size_t stage_index,
         return;
     }
 
-    platform_debug_print("[AUTO_TEST] result stage=%u name=%s dt=%lu roll_min=%.2f roll_max=%.2f pitch_min=%.2f pitch_max=%.2f final_r=%.2f final_p=%.2f\r\n",
+    platform_debug_print("[AUTO_TEST] result stage=%u name=%s dt=%lu cmd_t=%.2f cmd_r=%.2f cmd_p=%.2f roll_min=%.2f roll_max=%.2f pitch_min=%.2f pitch_max=%.2f final_r=%.2f final_p=%.2f rr_pk=%.1f pr_pk=%.1f rrs_pk=%.1f prs_pk=%.1f ro_pk=%.1f po_pk=%.1f lr_pk=%lu fr_pk=%lu stbl_tot=%lu stbl_run=%lu\r\n",
                          (unsigned)stage_index,
                          stage->name,
                          (unsigned long)(elapsed_ms - stats->start_ms),
+                         (double)stage->throttle,
+                         (double)stage->roll,
+                         (double)stage->pitch,
                          (double)stats->roll_min,
                          (double)stats->roll_max,
                          (double)stats->pitch_min,
                          (double)stats->pitch_max,
                          (double)stats->last_roll,
-                         (double)stats->last_pitch);
+                         (double)stats->last_pitch,
+                         (double)stats->roll_rate_abs_max,
+                         (double)stats->pitch_rate_abs_max,
+                         (double)stats->roll_rate_sp_abs_max,
+                         (double)stats->pitch_rate_sp_abs_max,
+                         (double)stats->roll_out_abs_max,
+                         (double)stats->pitch_out_abs_max,
+                         (unsigned long)stats->left_right_delta_abs_max,
+                         (unsigned long)stats->front_rear_delta_abs_max,
+                         (unsigned long)stats->stable_total_ms,
+                         (unsigned long)stats->stable_longest_ms);
 }
 #endif
 
