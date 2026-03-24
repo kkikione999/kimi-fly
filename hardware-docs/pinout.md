@@ -137,6 +137,12 @@
 
 **配置**: I2C1, 100kHz, 7bit 地址 **0x69** (AD0=VCC)
 
+**运行时机体坐标映射**:
+- `body +X (前) = IMU +Y`
+- `body +Y (左) = IMU -X`
+- `body +Z (上) = IMU +Z`
+- 此映射来自 2026-03-24 的实机 `imu_map` 台架动作验证，不依赖拆机目视。
+
 ### 3.2 气压计 - LPS22HBTR (SPI3 接口)
 
 | LPS22 引脚 | 功能 | STM32 连接 | 说明 |
@@ -197,12 +203,14 @@
 
 ### 4.1 电机 PWM 引脚
 
-| 电机 | TIM实例 | 通道 | STM32引脚 | PWM频率 |
-|------|---------|------|-----------|---------|
-| Motor1 | TIM1 | CH1 | PA8 | 42kHz |
-| Motor2 | TIM1 | CH4 | PA11 | 42kHz |
-| Motor3 | TIM3 | CH4 | PB1 | 42kHz |
-| Motor4 | TIM2 | CH3 | PB10 | 42kHz |
+| 电机 | TIM实例 | 通道 | STM32引脚 | 真机位置 | 旋向 | PWM频率 |
+|------|---------|------|-----------|----------|------|---------|
+| Motor1 | TIM1 | CH1 | PA8 | 前左 (FrontLeft) | CCW | 42kHz |
+| Motor2 | TIM1 | CH4 | PA11 | 后左 (RearLeft) | CW | 42kHz |
+| Motor3 | TIM3 | CH4 | PB1 | 后右 (RearRight) | CCW | 42kHz |
+| Motor4 | TIM2 | CH3 | PB10 | 前右 (FrontRight) | CW | 42kHz |
+
+**真机验证**: 2026-03-24 通过单电机顺序点转确认了电机空间位置和旋向，后续飞控调试以此表为准。
 
 **PWM 配置详情**:
 - Prescaler: 1

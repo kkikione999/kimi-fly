@@ -2,8 +2,8 @@
  * @file motor_test_main.c
  * @brief Standalone brushed motor PWM test for kimi-fly STM32F411CEU6
  *
- * Boots directly into a safe sequential motor test:
- *   M1 -> M2 -> M3 -> M4
+ * Boots directly into a one-shot motor direction test:
+ *   FrontLeft -> RearRight, then hold all outputs at 0.
  *
  * Debug output is sent over USART1 (PA9/PA10, 460800 baud).
  * PWM outputs:
@@ -24,12 +24,14 @@
 #define MOTOR_KICK_DUTY           220U
 #define MOTOR_RUN_DUTY            150U
 #define MOTOR_KICK_MS             120U
-#define MOTOR_RUN_MS              900U
-#define MOTOR_STOP_MS             700U
-#define CYCLE_GAP_MS              2000U
+#define MOTOR_RUN_MS              1800U
+#define MOTOR_STOP_MS             1000U
+#define POST_SEQUENCE_HOLD_MS     2000U
 
 typedef struct {
-    const char *name;
+    const char *logical_name;
+    const char *position_name;
+    const char *pin_name;
     TIM_HandleTypeDef *htim;
     uint32_t channel;
 } motor_channel_t;
@@ -53,10 +55,10 @@ static void run_motor_sequence(void);
 void Error_Handler(void);
 
 static const motor_channel_t g_motors[] = {
-    {"Motor1", &htim1, TIM_CHANNEL_1},
-    {"Motor2", &htim1, TIM_CHANNEL_4},
-    {"Motor3", &htim3, TIM_CHANNEL_4},
-    {"Motor4", &htim2, TIM_CHANNEL_3},
+    {"Motor1", "FrontLeft",  "PA8",  &htim1, TIM_CHANNEL_1},
+    {"Motor2", "RearLeft",   "PA11", &htim1, TIM_CHANNEL_4},
+    {"Motor3", "RearRight",  "PB1",  &htim3, TIM_CHANNEL_4},
+    {"Motor4", "FrontRight", "PB10", &htim2, TIM_CHANNEL_3},
 };
 
 void HAL_TIM_PWM_MspInit(TIM_HandleTypeDef *htim)
@@ -306,10 +308,47 @@ static void SystemClock_Config(void)
 
 static void run_motor_sequence(void)
 {
+    static const size_t k_test_order[] = {0U, 2U};
+    size_t i;
+    size_t motor_index;
+
     stop_all_motors();
-    HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
-    motor_test_printf("[MOTOR_TEST] outputs held at 0, all motors stopped\r\n");
-    HAL_Delay(CYCLE_GAP_MS);
+    motor_test_printf("[MOTOR_TEST] starting direction test: FrontLeft -> RearRight\r\n");
+
+    for (i = 0; i < (sizeof(k_test_order) / sizeof(k_test_order[0])); i++) {
+        motor_index = k_test_order[i];
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
+        motor_test_printf("[MOTOR_TEST] %s (%s, %s) kick %u/%u for %ums\r\n",
+                          g_motors[motor_index].logical_name,
+                          g_motors[motor_index].position_name,
+                          g_motors[motor_index].pin_name,
+                          MOTOR_KICK_DUTY,
+                          MOTOR_PWM_PERIOD,
+                          MOTOR_KICK_MS);
+        set_motor_duty(&g_motors[motor_index], MOTOR_KICK_DUTY);
+        HAL_Delay(MOTOR_KICK_MS);
+
+        motor_test_printf("[MOTOR_TEST] %s (%s, %s) run %u/%u for %ums\r\n",
+                          g_motors[motor_index].logical_name,
+                          g_motors[motor_index].position_name,
+                          g_motors[motor_index].pin_name,
+                          MOTOR_RUN_DUTY,
+                          MOTOR_PWM_PERIOD,
+                          MOTOR_RUN_MS);
+        set_motor_duty(&g_motors[motor_index], MOTOR_RUN_DUTY);
+        HAL_Delay(MOTOR_RUN_MS);
+
+        motor_test_printf("[MOTOR_TEST] %s (%s) stop\r\n",
+                          g_motors[motor_index].logical_name,
+                          g_motors[motor_index].position_name);
+        set_motor_duty(&g_motors[motor_index], 0U);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
+        HAL_Delay(MOTOR_STOP_MS);
+    }
+
+    stop_all_motors();
+    motor_test_printf("[MOTOR_TEST] sequence complete, all motors held at 0\r\n");
+    HAL_Delay(POST_SEQUENCE_HOLD_MS);
 }
 
 int main(void)
@@ -326,13 +365,16 @@ int main(void)
     HAL_Delay(1500U);
 
     motor_test_printf("\r\n========================================\r\n");
-    motor_test_printf("  MOTOR SAFE HOLD v1.1 (STM32F411 @ 42kHz)\r\n");
+    motor_test_printf("  MOTOR DIRECTION TEST v1.4 (STM32F411 @ 42kHz)\r\n");
     motor_test_printf("========================================\r\n");
-    motor_test_printf("PWM initialized, compare registers forced to 0\r\n");
-    motor_test_printf("All motors remain stopped until a different firmware is flashed.\r\n\r\n");
+    motor_test_printf("One-shot sequence on boot: FrontLeft -> RearRight\r\n");
+    motor_test_printf("After the sequence finishes, all motors remain stopped.\r\n\r\n");
+
+    run_motor_sequence();
 
     while (1) {
-        run_motor_sequence();
+        stop_all_motors();
+        HAL_Delay(POST_SEQUENCE_HOLD_MS);
     }
 }
 

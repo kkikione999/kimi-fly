@@ -72,12 +72,12 @@ hal_status_t motors_set_all(uint16_t m1, uint16_t m2, uint16_t m3, uint16_t m4);
 hal_status_t motors_stop_all(void);
 ```
 Motor mapping:
-| Motor | Timer | Pin |
-|-------|-------|-----|
-| MOTOR_1 | TIM1_CH1 | PA8 |
-| MOTOR_2 | TIM1_CH4 | PA11 |
-| MOTOR_3 | TIM3_CH4 | PB1 |
-| MOTOR_4 | TIM2_CH3 | PB10 |
+| Motor | Timer | Pin | Position | Rotation |
+|-------|-------|-----|----------|----------|
+| MOTOR_1 | TIM1_CH1 | PA8 | FrontLeft | CCW |
+| MOTOR_2 | TIM1_CH4 | PA11 | RearLeft | CW |
+| MOTOR_3 | TIM3_CH4 | PB1 | RearRight | CCW |
+| MOTOR_4 | TIM2_CH3 | PB10 | FrontRight | CW |
 
 PWM: 42kHz, duty 0–1000 (0–100%)
 

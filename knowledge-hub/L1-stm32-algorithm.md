@@ -117,10 +117,10 @@ flight_state_t flight_controller_get_state(void);
 
 Motor mixing (quad X frame):
 ```
-Motor1(front-left) = throttle + pitch + roll - yaw
-Motor2(front-right)= throttle + pitch - roll + yaw
-Motor3(rear-right) = throttle - pitch - roll - yaw
-Motor4(rear-left)  = throttle - pitch + roll + yaw
+Motor1(front-left, CCW) = throttle + roll - pitch + yaw
+Motor2(rear-left, CW)   = throttle + roll + pitch - yaw
+Motor3(rear-right, CCW) = throttle - roll + pitch + yaw
+Motor4(front-right, CW) = throttle - roll - pitch - yaw
 ```
 
 ---

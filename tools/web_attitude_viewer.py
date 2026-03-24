@@ -31,14 +31,24 @@ SERIAL_CANDIDATES = [
 SERIAL_BAUDRATE = 460800
 SERIAL_RETRY_DELAY_SEC = 1.0
 SERIAL_OPEN_SETTLE_SEC = 0.2
+SERIAL_NO_DATA_REOPEN_SEC = 2.0
 HEX_BYTE_RE = re.compile(r"\b[0-9A-Fa-f]{2}\b")
-ATT_CDEG_RE = re.compile(r"\[ATT_CDEG\]\s+t=(\d+)\s+r=(-?\d+)\s+p=(-?\d+)\s+y=(-?\d+)\s+m=(\d+)")
+ATT_CDEG_RE = re.compile(
+    r"\[ATT_CDEG\]\s+t=(\d+)\s+r=(-?\d+)\s+p=(-?\d+)\s+y=(-?\d+)"
+    r"(?:\s+rr=(-?\d+)\s+pr=(-?\d+)\s+yr=(-?\d+))?\s+m=(\d+)"
+)
+MAG_DBG_RE = re.compile(
+    r"\[MAG_DBG\]\s+t=(\d+)\s+addr=0x([0-9A-Fa-f]+)\s+lay=(\d+)\s+"
+    r"mx=(-?\d+)\s+my=(-?\d+)\s+mz=(-?\d+)\s+hx=(-?\d+)"
+)
 ATTITUDE_SERIAL_PORT = os.environ.get("ATTITUDE_SERIAL_PORT", "").strip()
 
 # 全局数据
 latest_attitude = {
     'roll': 0, 'pitch': 0, 'yaw': 0,
     'roll_rate': 0, 'pitch_rate': 0, 'yaw_rate': 0,
+    'mag_heading': 0.0,
+    'mag_x': 0, 'mag_y': 0, 'mag_z': 0,
     'armed': False, 'mode': 0, 'error': 0
 }
 last_update = time.time()
@@ -49,10 +59,11 @@ history_path = Path("/Users/ll/kimi-fly/tools/attitude_logs/latest_static_30s.js
 
 def find_serial_port(preferred_port=None):
     """选择当前最可能的 ESP32/调试串口。"""
+    if ATTITUDE_SERIAL_PORT:
+        return ATTITUDE_SERIAL_PORT if Path(ATTITUDE_SERIAL_PORT).exists() else None
+
     candidates = []
 
-    if ATTITUDE_SERIAL_PORT:
-        candidates.append(ATTITUDE_SERIAL_PORT)
     if preferred_port:
         candidates.append(preferred_port)
 
@@ -117,8 +128,6 @@ def parse_status(payload):
 def serial_and_read():
     """从 ESP32 串口日志中提取 STM32 姿态遥测。"""
     global latest_attitude, last_update, packet_count, latest_source
-    line_buffer = ""
-    byte_buffer = bytearray()
     last_port = None
 
     while True:
@@ -130,6 +139,9 @@ def serial_and_read():
 
         ser = None
         try:
+            # 串口重连后丢弃旧文本/旧二进制缓存，避免跨重启混包。
+            line_buffer = ""
+            byte_buffer = bytearray()
             ser = serial.Serial(port, SERIAL_BAUDRATE, timeout=0.1, rtscts=False, dsrdtr=False)
             # 避免部分 USB CDC 设备在打开串口时因 DTR/RTS 翻转而复位。
             ser.dtr = False
@@ -137,12 +149,18 @@ def serial_and_read():
             time.sleep(SERIAL_OPEN_SETTLE_SEC)
             latest_source = port
             last_port = port
+            last_chunk_time = time.time()
             print(f"已连接串口: {port}")
 
             while True:
                 chunk = ser.read(4096)
                 if not chunk:
+                    if (time.time() - last_chunk_time) >= SERIAL_NO_DATA_REOPEN_SEC:
+                        raise serial.SerialException(
+                            f"serial stream stalled for {SERIAL_NO_DATA_REOPEN_SEC:.1f}s"
+                        )
                     continue
+                last_chunk_time = time.time()
 
                 line_buffer += chunk.decode("utf-8", errors="ignore")
                 lines = line_buffer.split("\n")
@@ -151,7 +169,17 @@ def serial_and_read():
                 for line in lines:
                     att_match = ATT_CDEG_RE.search(line)
                     if att_match:
-                        t_ms, roll_cd, pitch_cd, yaw_cd, mag_valid = map(int, att_match.groups())
+                        groups = att_match.groups()
+                        t_ms = int(groups[0])
+                        roll_cd = int(groups[1])
+                        pitch_cd = int(groups[2])
+                        yaw_cd = int(groups[3])
+                        roll_rate_dd = int(groups[4]) if groups[4] is not None else None
+                        pitch_rate_dd = int(groups[5]) if groups[5] is not None else None
+                        yaw_rate_dd = int(groups[6]) if groups[6] is not None else None
+                        mag_valid = int(groups[7])
+                        prev_roll = latest_attitude['roll']
+                        prev_pitch = latest_attitude['pitch']
                         prev_yaw = latest_attitude['yaw']
                         prev_update = last_update
                         latest_attitude['roll'] = roll_cd / 100.0
@@ -159,10 +187,26 @@ def serial_and_read():
                         latest_attitude['yaw'] = yaw_cd / 100.0
                         now = time.time()
                         dt = max(now - prev_update, 1e-3)
-                        latest_attitude['yaw_rate'] = (latest_attitude['yaw'] - prev_yaw) / dt
+                        if roll_rate_dd is not None and pitch_rate_dd is not None and yaw_rate_dd is not None:
+                            latest_attitude['roll_rate'] = roll_rate_dd / 10.0
+                            latest_attitude['pitch_rate'] = pitch_rate_dd / 10.0
+                            latest_attitude['yaw_rate'] = yaw_rate_dd / 10.0
+                        else:
+                            latest_attitude['roll_rate'] = (latest_attitude['roll'] - prev_roll) / dt
+                            latest_attitude['pitch_rate'] = (latest_attitude['pitch'] - prev_pitch) / dt
+                            latest_attitude['yaw_rate'] = (latest_attitude['yaw'] - prev_yaw) / dt
                         latest_attitude['armed'] = bool(mag_valid)
                         last_update = now
                         packet_count += 1
+                        continue
+
+                    mag_match = MAG_DBG_RE.search(line)
+                    if mag_match:
+                        groups = mag_match.groups()
+                        latest_attitude['mag_x'] = int(groups[3])
+                        latest_attitude['mag_y'] = int(groups[4])
+                        latest_attitude['mag_z'] = int(groups[5])
+                        latest_attitude['mag_heading'] = int(groups[6]) / 100.0
                         continue
 
                     if "RX raw" in line:
@@ -285,6 +329,28 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             margin-top: 20px;
             font-size: 12px;
         }}
+        .debug-section {{
+            margin-top: 20px;
+            background: #16213e;
+            padding: 15px;
+            border-radius: 10px;
+        }}
+        .debug-grid {{
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            text-align: center;
+        }}
+        .debug-item {{
+            padding: 10px;
+            background: #0f3460;
+            border-radius: 8px;
+        }}
+        .debug-value {{
+            font-size: 20px;
+            font-weight: bold;
+            color: #7dd3fc;
+        }}
         .history-section {{
             margin-top: 20px;
             background: #16213e;
@@ -393,6 +459,28 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             数据源: {latest_source} | 最后更新: {last_update}s前
         </div>
 
+        <div class="debug-section">
+            <div style="text-align:center;margin-bottom:10px;color:#7dd3fc">IMU / 磁力计调试</div>
+            <div class="debug-grid">
+                <div class="debug-item">
+                    <div>Mag Heading</div>
+                    <div class="debug-value" id="mag-heading">{mag_heading}°</div>
+                </div>
+                <div class="debug-item">
+                    <div>Mag X</div>
+                    <div class="debug-value" id="mag-x">{mag_x}</div>
+                </div>
+                <div class="debug-item">
+                    <div>Mag Y</div>
+                    <div class="debug-value" id="mag-y">{mag_y}</div>
+                </div>
+                <div class="debug-item">
+                    <div>Mag Z</div>
+                    <div class="debug-value" id="mag-z">{mag_z}</div>
+                </div>
+            </div>
+        </div>
+
         <div class="history-section">
             <div style="text-align:center;margin-bottom:10px;color:#00d4ff">静止 30s 验证</div>
             <div class="summary-grid">
@@ -430,6 +518,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             document.getElementById('roll-rate').textContent = data.roll_rate.toFixed(2);
             document.getElementById('pitch-rate').textContent = data.pitch_rate.toFixed(2);
             document.getElementById('yaw-rate').textContent = data.yaw_rate.toFixed(2);
+            document.getElementById('mag-heading').textContent = `${{data.mag_heading.toFixed(2)}}°`;
+            document.getElementById('mag-x').textContent = `${{data.mag_x}}`;
+            document.getElementById('mag-y').textContent = `${{data.mag_y}}`;
+            document.getElementById('mag-z').textContent = `${{data.mag_z}}`;
             document.getElementById('packet-count').textContent = `${{data.packet_count}}`;
             document.getElementById('armed-text').textContent = data.armed ? '在线' : '离线';
             document.getElementById('armed-text').className = `status-value ${{data.stale ? 'stale' : (data.armed ? 'armed' : 'disarmed')}}`;
@@ -509,6 +601,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 'roll_rate': latest_attitude['roll_rate'],
                 'pitch_rate': latest_attitude['pitch_rate'],
                 'yaw_rate': latest_attitude['yaw_rate'],
+                'mag_heading': latest_attitude['mag_heading'],
+                'mag_x': latest_attitude['mag_x'],
+                'mag_y': latest_attitude['mag_y'],
+                'mag_z': latest_attitude['mag_z'],
                 'armed': packet_count > 0,
                 'mode': latest_attitude['mode'],
                 'error': latest_attitude['error'],
@@ -545,6 +641,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 roll_rate=f"{latest_attitude['roll_rate']:.2f}",
                 pitch_rate=f"{latest_attitude['pitch_rate']:.2f}",
                 yaw_rate=f"{latest_attitude['yaw_rate']:.2f}",
+                mag_heading=f"{latest_attitude['mag_heading']:.2f}",
+                mag_x=latest_attitude['mag_x'],
+                mag_y=latest_attitude['mag_y'],
+                mag_z=latest_attitude['mag_z'],
                 armed_class=armed_class,
                 armed_text=armed_text,
                 mode_text=mode_text,

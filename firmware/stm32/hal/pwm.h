@@ -47,10 +47,10 @@ hal_status_t pwm_stop(tim_t tim, tim_channel_t channel);
  * ============================================================================ */
 
 typedef enum {
-    MOTOR_1 = 0,    /* TIM1_CH1 (PA8) */
-    MOTOR_2 = 1,    /* TIM1_CH4 (PA11) */
-    MOTOR_3 = 2,    /* TIM3_CH4 (PB1) */
-    MOTOR_4 = 3     /* TIM2_CH3 (PB10) */
+    MOTOR_1 = 0,    /* TIM1_CH1 (PA8)  - FrontLeft, CCW */
+    MOTOR_2 = 1,    /* TIM1_CH4 (PA11) - RearLeft, CW */
+    MOTOR_3 = 2,    /* TIM3_CH4 (PB1)  - RearRight, CCW */
+    MOTOR_4 = 3     /* TIM2_CH3 (PB10) - FrontRight, CW */
 } motor_id_t;
 
 /**

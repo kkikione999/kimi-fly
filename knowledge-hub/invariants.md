@@ -16,24 +16,30 @@
 
 5. **QMC5883P requires SET operation on init** — must write CTRL2_SET + 10ms wait + 50ms DRDY poll. Skipping causes Y/Z axes to read 0.
 
+6. **Body frame is user-defined and fixed** — `+X = forward`, `+Y = left`, `+Z = up`. Do not silently switch to another convention.
+
+7. **Motor layout/rotation is bench-verified, not inferred** — `M1/PA8=FrontLeft/CCW`, `M2/PA11=RearLeft/CW`, `M3/PB1=RearRight/CCW`, `M4/PB10=FrontRight/CW`.
+
+8. **IMU raw axes must be remapped before AHRS/control** — use `body +X = IMU +Y`, `body +Y = IMU -X`, `body +Z = IMU +Z`, based on 2026-03-24 real-airframe motion tests.
+
 ---
 
 ## Architecture
 
-6. **STM32 is flight controller, ESP32 is transparent bridge** — ESP32 must not interpret or filter protocol frames.
+9. **STM32 is flight controller, ESP32 is transparent bridge** — ESP32 must not interpret or filter protocol frames.
 
-7. **1kHz main loop is the hard real-time constraint** — no blocking calls in the main flight loop. WiFi processing is limited to every 5ms slot.
+10. **1kHz main loop is the hard real-time constraint** — no blocking calls in the main flight loop. WiFi processing is limited to every 5ms slot.
 
-8. **Motor throttle range is 0–999** — `MOTOR_MIN_THROTTLE=0`, `MOTOR_MAX_THROTTLE=999`, `MOTOR_IDLE_THROTTLE=50` (when armed). Never exceed 999.
+11. **Motor throttle range is 0–999** — `MOTOR_MIN_THROTTLE=0`, `MOTOR_MAX_THROTTLE=999`, `MOTOR_IDLE_THROTTLE=50` (when armed). Never exceed 999.
 
-9. **Motors only run when ARMED** — `SYS_STATE_ACTIVE`. Any error transitions to `SYS_STATE_ERROR` which stops motors.
+12. **Motors only run when ARMED** — `SYS_STATE_ACTIVE`. Any error transitions to `SYS_STATE_ERROR` which stops motors.
 
 ---
 
 ## Development Process
 
-10. **USB power = safe development mode** — under USB power, motors cannot generate enough thrust to fly. This is intentional for development safety.
+13. **USB power = safe development mode** — under USB power, motors cannot generate enough thrust to fly. This is intentional for development safety.
 
-11. **Build environments are separate** — `env:flight` does NOT have STM32Cube HAL stdlib; `env:stm32f411` does. Do not mix includes between environments.
+14. **Build environments are separate** — `env:flight` does NOT have STM32Cube HAL stdlib; `env:stm32f411` does. Do not mix includes between environments.
 
-12. **Protocol frame header is 0xAA55** — big-endian, 2 bytes. Any parser must check this before processing.
+15. **Protocol frame header is 0xAA55** — big-endian, 2 bytes. Any parser must check this before processing.

@@ -274,6 +274,12 @@ void platform_set_motors(uint16_t m1, uint16_t m2, uint16_t m3, uint16_t m4)
         return;
     }
 
+    /* Validated on 2026-03-24:
+     * m1 -> PA8  -> FrontLeft  -> CCW
+     * m2 -> PA11 -> RearLeft   -> CW
+     * m3 -> PB1  -> RearRight  -> CCW
+     * m4 -> PB10 -> FrontRight -> CW
+     */
     (void)motor_set_throttle(MOTOR_1, clamp_motor_throttle(m1));
     (void)motor_set_throttle(MOTOR_2, clamp_motor_throttle(m2));
     (void)motor_set_throttle(MOTOR_3, clamp_motor_throttle(m3));

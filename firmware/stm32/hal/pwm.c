@@ -479,10 +479,10 @@ typedef struct {
 } motor_mapping_t;
 
 static const motor_mapping_t motor_map[4] = {
-    {PWM_TIM1, TIM_CH1},   /* MOTOR_1 - PA8 */
-    {PWM_TIM1, TIM_CH4},   /* MOTOR_2 - PA11 */
-    {PWM_TIM3, TIM_CH4},   /* MOTOR_3 - PB1 */
-    {PWM_TIM2, TIM_CH3}    /* MOTOR_4 - PB10 */
+    {PWM_TIM1, TIM_CH1},   /* MOTOR_1 - PA8  - FrontLeft, CCW */
+    {PWM_TIM1, TIM_CH4},   /* MOTOR_2 - PA11 - RearLeft, CW */
+    {PWM_TIM3, TIM_CH4},   /* MOTOR_3 - PB1  - RearRight, CCW */
+    {PWM_TIM2, TIM_CH3}    /* MOTOR_4 - PB10 - FrontRight, CW */
 };
 
 hal_status_t motor_init_all(uint32_t frequency_hz)

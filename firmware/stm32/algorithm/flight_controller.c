@@ -18,15 +18,15 @@
 
 /* X型四旋翼电机布局 (俯视):
  *      前
- *   M1   M2
+ *   M1   M4
  *     \ /
  *     / \
- *   M4   M3
+ *   M2   M3
  *
- * M1: 前左, CW  (顺时针旋转)
- * M2: 前右, CCW (逆时针旋转)
- * M3: 后右, CW  (顺时针旋转)
- * M4: 后左, CCW (逆时针旋转)
+ * M1: 前左, CCW (逆时针旋转)
+ * M2: 后左, CW  (顺时针旋转)
+ * M3: 后右, CCW (逆时针旋转)
+ * M4: 前右, CW  (顺时针旋转)
  */
 
 /* ============================================================================
@@ -369,16 +369,16 @@ void mixer_quad_x(float throttle, float roll, float pitch, float yaw, motor_outp
     }
 
     /* X型混控:
-     * M1 (前左, CW)  = throttle + roll - pitch - yaw
-     * M2 (前右, CCW) = throttle - roll - pitch + yaw
-     * M3 (后右, CW)  = throttle - roll + pitch - yaw
-     * M4 (后左, CCW) = throttle + roll + pitch + yaw
+     * M1 (前左, CCW) = throttle + roll - pitch + yaw
+     * M2 (后左, CW)  = throttle + roll + pitch - yaw
+     * M3 (后右, CCW) = throttle - roll + pitch + yaw
+     * M4 (前右, CW)  = throttle - roll - pitch - yaw
      */
 
-    float m1 = throttle + roll - pitch - yaw;
-    float m2 = throttle - roll - pitch + yaw;
-    float m3 = throttle - roll + pitch - yaw;
-    float m4 = throttle + roll + pitch + yaw;
+    float m1 = throttle + roll - pitch + yaw;
+    float m2 = throttle + roll + pitch - yaw;
+    float m3 = throttle - roll + pitch + yaw;
+    float m4 = throttle - roll - pitch - yaw;
 
     /* 限制在有效范围内 */
     if (m1 < 0) m1 = 0; if (m1 > 1) m1 = 1;

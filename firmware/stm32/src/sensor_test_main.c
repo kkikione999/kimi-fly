@@ -88,6 +88,10 @@ static HAL_StatusTypeDef LPS22HB_Init(void);
 static HAL_StatusTypeDef LPS22HB_ReadData(float *pressure, float *temp);
 static HAL_StatusTypeDef QMC5883P_Init(void);
 static HAL_StatusTypeDef QMC5883P_ReadData(float *mx, float *my, float *mz);
+void Error_Handler(void);
+#ifdef IMU_MAP_MODE
+static void RunIMUMapMode(void);
+#endif
 
 /* ============================================================================
  * 基础函数
@@ -499,6 +503,91 @@ static void SystemClock_Config(void)
     }
 }
 
+#ifdef IMU_MAP_MODE
+static void RunIMUMapMode(void)
+{
+    HAL_StatusTypeDef status;
+    float ax = 0.0f, ay = 0.0f, az = 0.0f;
+    float gx = 0.0f, gy = 0.0f, gz = 0.0f;
+    float temp = 0.0f;
+    float gx_bias = 0.0f, gy_bias = 0.0f, gz_bias = 0.0f;
+    uint32_t sample = 0U;
+    int32_t gx_bias_mdps;
+    int32_t gy_bias_mdps;
+    int32_t gz_bias_mdps;
+
+    sensor_printf("\r\n");
+    sensor_printf("========================================\r\n");
+    sensor_printf("  IMU MAP MODE v1.0 (STM32F411)\r\n");
+    sensor_printf("========================================\r\n");
+    sensor_printf("Goal: reverse sensor XYZ -> body XYZ without opening the airframe.\r\n");
+    sensor_printf("Body frame target: +X forward, +Y left, +Z up.\r\n");
+    sensor_printf("Hold still for gyro bias collection...\r\n");
+
+    status = ICM42688_Init();
+    if (status != HAL_OK) {
+        sensor_printf("[FAIL] ICM42688 init failed st=%d\r\n", status);
+        Error_Handler();
+    }
+
+    for (uint16_t i = 0U; i < 200U; i++) {
+        status = ICM42688_ReadData(&ax, &ay, &az, &gx, &gy, &gz, &temp);
+        if (status == HAL_OK) {
+            gx_bias += gx;
+            gy_bias += gy;
+            gz_bias += gz;
+        }
+        HAL_Delay(5);
+    }
+
+    gx_bias /= 200.0f;
+    gy_bias /= 200.0f;
+    gz_bias /= 200.0f;
+
+    gx_bias_mdps = (int32_t)(gx_bias * 1000.0f);
+    gy_bias_mdps = (int32_t)(gy_bias * 1000.0f);
+    gz_bias_mdps = (int32_t)(gz_bias * 1000.0f);
+
+    sensor_printf("[BIAS_MDPS] gx=%ld gy=%ld gz=%ld\r\n",
+                  (long)gx_bias_mdps,
+                  (long)gy_bias_mdps,
+                  (long)gz_bias_mdps);
+    sensor_printf("[PRIOR] old-code candidate: bodyX=-imuY bodyY=-imuX bodyZ=+imuZ(acc)/-imuZ(gyro)\r\n");
+    sensor_printf("[LOG] [IMU_RAW] ms ax_mg ay_mg az_mg gx_mdps gy_mdps gz_mdps temp_cdeg\r\n");
+
+    while (1) {
+        status = ICM42688_ReadData(&ax, &ay, &az, &gx, &gy, &gz, &temp);
+        if (status == HAL_OK) {
+            int32_t ax_mg = (int32_t)(ax * 1000.0f);
+            int32_t ay_mg = (int32_t)(ay * 1000.0f);
+            int32_t az_mg = (int32_t)(az * 1000.0f);
+            int32_t gx_mdps = (int32_t)((gx - gx_bias) * 1000.0f);
+            int32_t gy_mdps = (int32_t)((gy - gy_bias) * 1000.0f);
+            int32_t gz_mdps = (int32_t)((gz - gz_bias) * 1000.0f);
+            int32_t temp_cdeg = (int32_t)(temp * 100.0f);
+
+            sensor_printf("[IMU_RAW] %lu %ld %ld %ld %ld %ld %ld %ld\r\n",
+                          (unsigned long)HAL_GetTick(),
+                          (long)ax_mg,
+                          (long)ay_mg,
+                          (long)az_mg,
+                          (long)gx_mdps,
+                          (long)gy_mdps,
+                          (long)gz_mdps,
+                          (long)temp_cdeg);
+        } else {
+            sensor_printf("[IMU_ERR] read failed st=%d\r\n", status);
+        }
+
+        sample++;
+        if ((sample % 10U) == 0U) {
+            HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
+        }
+        HAL_Delay(50);
+    }
+}
+#endif
+
 /* ============================================================================
  * 主函数
  * ============================================================================ */
@@ -519,6 +608,10 @@ int main(void)
 
     /* 等待 2 秒让串口监视器就绪 */
     HAL_Delay(2000);
+
+#ifdef IMU_MAP_MODE
+    RunIMUMapMode();
+#endif
 
     sensor_printf("\r\n");
     sensor_printf("========================================\r\n");

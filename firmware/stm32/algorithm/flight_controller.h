@@ -84,10 +84,10 @@ typedef struct {
  * @brief 电机输出
  */
 typedef struct {
-    uint16_t motor1;    /**< 电机1 (前左, CW) */
-    uint16_t motor2;    /**< 电机2 (前右, CCW) */
-    uint16_t motor3;    /**< 电机3 (后右, CW) */
-    uint16_t motor4;    /**< 电机4 (后左, CCW) */
+    uint16_t motor1;    /**< 电机1 (前左, CCW) */
+    uint16_t motor2;    /**< 电机2 (后左, CW) */
+    uint16_t motor3;    /**< 电机3 (后右, CCW) */
+    uint16_t motor4;    /**< 电机4 (前右, CW) */
 } motor_outputs_t;
 
 /**

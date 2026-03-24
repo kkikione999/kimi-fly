@@ -63,7 +63,8 @@ system_state_t flight_main_get_state(void);
 5. Flight controller init
 6. → SYS_STATE_STANDBY
 7. Main loop @ 1kHz:
-   a. Read IMU (ICM42688)
+   a. Read IMU (ICM42688), then remap raw sensor axes to body frame:
+      body +X = IMU +Y, body +Y = IMU -X, body +Z = IMU +Z
    b. AHRS update (Mahony filter)
    c. Flight controller update (PID cascade)
    d. Motor output

@@ -431,6 +431,26 @@ static vec3f_t apply_mag_runtime_calibration(const qmc5883p_data_t *mag_data)
     return corrected;
 }
 
+static void map_imu_to_body_frame(const icm42688_data_t *imu_data, vec3f_t *accel, vec3f_t *gyro)
+{
+    if (imu_data == NULL || accel == NULL || gyro == NULL) {
+        return;
+    }
+
+    /* Reverse-engineered from bench motion tests:
+     * body +X (forward) = IMU +Y
+     * body +Y (left)    = IMU -X
+     * body +Z (up)      = IMU +Z
+     */
+    accel->x = imu_data->accel_y;
+    accel->y = -imu_data->accel_x;
+    accel->z = imu_data->accel_z;
+
+    gyro->x = imu_data->gyro_y * 3.14159f / 180.0f;
+    gyro->y = -imu_data->gyro_x * 3.14159f / 180.0f;
+    gyro->z = imu_data->gyro_z * 3.14159f / 180.0f;
+}
+
 static void read_all_sensors(flight_main_handle_t *handle)
 {
     uint32_t now;
@@ -438,12 +458,10 @@ static void read_all_sensors(flight_main_handle_t *handle)
     /* 读取IMU */
     icm42688_data_t imu_data;
     if (icm42688_read_data(&g_imu, &imu_data) == HAL_OK) {
-        handle->accel.x = imu_data.accel_x;
-        handle->accel.y = imu_data.accel_y;
-        handle->accel.z = imu_data.accel_z;
-        handle->gyro.x = imu_data.gyro_x * 3.14159f / 180.0f - handle->gyro_bias.x;  /* dps to rad/s */
-        handle->gyro.y = imu_data.gyro_y * 3.14159f / 180.0f - handle->gyro_bias.y;
-        handle->gyro.z = imu_data.gyro_z * 3.14159f / 180.0f - handle->gyro_bias.z;
+        map_imu_to_body_frame(&imu_data, &handle->accel, &handle->gyro);
+        handle->gyro.x -= handle->gyro_bias.x;
+        handle->gyro.y -= handle->gyro_bias.y;
+        handle->gyro.z -= handle->gyro_bias.z;
         handle->sensors_ok = true;
     } else {
         handle->sensors_ok = false;
@@ -523,9 +541,13 @@ static void log_attitude_sample(const flight_main_handle_t *handle)
     static uint32_t last_mag_log_ms = 0U;
     uint32_t now;
     euler_angle_t attitude;
+    vec3f_t gyro;
     int32_t roll_cdeg;
     int32_t pitch_cdeg;
     int32_t yaw_cdeg;
+    int32_t roll_rate_ddeg;
+    int32_t pitch_rate_ddeg;
+    int32_t yaw_rate_ddeg;
 
     if (handle == NULL || !handle->initialized) {
         return;
@@ -544,12 +566,24 @@ static void log_attitude_sample(const flight_main_handle_t *handle)
     roll_cdeg = (int32_t)(attitude.roll * 100.0f);
     pitch_cdeg = (int32_t)(attitude.pitch * 100.0f);
     yaw_cdeg = (int32_t)(attitude.yaw * 100.0f);
+    roll_rate_ddeg = 0;
+    pitch_rate_ddeg = 0;
+    yaw_rate_ddeg = 0;
 
-    platform_debug_print("[ATT_CDEG] t=%lu r=%ld p=%ld y=%ld m=%d\r\n",
+    if (flight_controller_get_gyro(&handle->flight_ctrl, &gyro)) {
+        roll_rate_ddeg = (int32_t)(gyro.x * 57.2957795f * 10.0f);
+        pitch_rate_ddeg = (int32_t)(gyro.y * 57.2957795f * 10.0f);
+        yaw_rate_ddeg = (int32_t)(gyro.z * 57.2957795f * 10.0f);
+    }
+
+    platform_debug_print("[ATT_CDEG] t=%lu r=%ld p=%ld y=%ld rr=%ld pr=%ld yr=%ld m=%d\r\n",
                          (unsigned long)now,
                          (long)roll_cdeg,
                          (long)pitch_cdeg,
                          (long)yaw_cdeg,
+                         (long)roll_rate_ddeg,
+                         (long)pitch_rate_ddeg,
+                         (long)yaw_rate_ddeg,
                          handle->mag_valid ? 1 : 0);
 
     if (handle->mag_valid && g_last_mag_valid && (now - last_mag_log_ms) >= 1000U) {
