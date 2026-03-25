@@ -43,6 +43,13 @@ static void clear_attitude_trim(flight_controller_t *fc);
 static void apply_attitude_trim(const flight_controller_t *fc, euler_angle_t *attitude);
 static void reset_controllers(flight_controller_t *fc);
 static float wrap_degrees(float angle_deg);
+static float throttle_schedule_scale(float throttle,
+                                     float start_throttle,
+                                     float end_throttle,
+                                     float max_scale);
+static float throttle_schedule_blend(float throttle,
+                                     float start_throttle,
+                                     float end_throttle);
 
 /* ============================================================================
  * API实现 - 初始化和配置
@@ -519,6 +526,34 @@ static void run_attitude_controller(flight_controller_t *fc, float *roll_rate_sp
     *roll_rate_sp = pid_update(roll_angle_pid, fc->setpoint.roll_angle, fc->attitude.roll, FLIGHT_CTRL_DT);
     *pitch_rate_sp = pid_update(pitch_angle_pid, fc->setpoint.pitch_angle, fc->attitude.pitch, FLIGHT_CTRL_DT);
 
+#ifdef AUTO_TETHER_BALANCE_TEST
+    {
+        /* 仅在 0.20+ 段抬高回正权重，避免重演 round10 那种全局增益放大。 */
+        const float roll_scale = throttle_schedule_scale(fc->setpoint.throttle, 0.18f, 0.22f, 1.55f);
+        const float pitch_scale = throttle_schedule_scale(fc->setpoint.throttle, 0.18f, 0.22f, 1.22f);
+        const float recovery_blend = throttle_schedule_blend(fc->setpoint.throttle, 0.18f, 0.24f);
+        const float roll_error_deg = fc->setpoint.roll_angle - fc->attitude.roll;
+        const float pitch_error_deg = fc->setpoint.pitch_angle - fc->attitude.pitch;
+
+        *roll_rate_sp *= roll_scale;
+        *pitch_rate_sp *= pitch_scale;
+
+        /* 0.35 油门峰值附近的失稳始终表现为向负 roll / 负 pitch 漂移。
+         * 这里仅在高油门且姿态明显落后于目标时，追加受限的正向恢复助推，
+         * 避免像 round10 那样把整段都整体放大。 */
+        if (recovery_blend > 0.0f) {
+            if (roll_error_deg > 1.0f) {
+                const float roll_recovery = fminf((roll_error_deg - 1.0f) * 6.0f, 22.0f);
+                *roll_rate_sp += recovery_blend * roll_recovery;
+            }
+            if (pitch_error_deg > 1.0f) {
+                const float pitch_recovery = fminf((pitch_error_deg - 1.0f) * 10.0f, 34.0f);
+                *pitch_rate_sp += recovery_blend * pitch_recovery;
+            }
+        }
+    }
+#endif
+
     /* 限制角速度设定值 */
     if (*roll_rate_sp > ROLL_RATE_LIMIT) *roll_rate_sp = ROLL_RATE_LIMIT;
     if (*roll_rate_sp < -ROLL_RATE_LIMIT) *roll_rate_sp = -ROLL_RATE_LIMIT;
@@ -545,6 +580,20 @@ static void run_rate_controller(flight_controller_t *fc, float roll_rate_sp, flo
     *roll_out = pid_update(roll_rate_pid, roll_rate_sp, roll_rate, FLIGHT_CTRL_DT);
     *pitch_out = pid_update(pitch_rate_pid, pitch_rate_sp, pitch_rate, FLIGHT_CTRL_DT);
     *yaw_out = pid_update(yaw_rate_pid, fc->setpoint.yaw_rate, yaw_rate, FLIGHT_CTRL_DT);
+
+#ifdef AUTO_TETHER_BALANCE_TEST
+    {
+        const float recovery_blend = throttle_schedule_blend(fc->setpoint.throttle, 0.19f, 0.23f);
+        const float roll_error_deg = fc->setpoint.roll_angle - fc->attitude.roll;
+
+        /* round16 表明高油门 pitch 已基本压住，剩余故障集中为 roll 轴控制力不足。
+         * 这里只在高油门、目标明显落后且内环本来就在给正向 roll 输出时，再放大该轴输出。 */
+        if (recovery_blend > 0.0f && roll_error_deg > 1.0f && *roll_out > 0.0f) {
+            const float extra_scale = fminf((roll_error_deg - 1.0f) * 0.22f, 0.80f);
+            *roll_out *= (1.0f + recovery_blend * extra_scale);
+        }
+    }
+#endif
 }
 
 /**
@@ -636,4 +685,36 @@ static float wrap_degrees(float angle_deg)
         angle_deg += 360.0f;
     }
     return angle_deg;
+}
+
+static float throttle_schedule_scale(float throttle,
+                                     float start_throttle,
+                                     float end_throttle,
+                                     float max_scale)
+{
+    if (max_scale <= 1.0f || end_throttle <= start_throttle) {
+        return 1.0f;
+    }
+
+    const float blend = throttle_schedule_blend(throttle, start_throttle, end_throttle);
+    return 1.0f + (max_scale - 1.0f) * blend;
+}
+
+static float throttle_schedule_blend(float throttle,
+                                     float start_throttle,
+                                     float end_throttle)
+{
+    if (end_throttle <= start_throttle) {
+        return 0.0f;
+    }
+
+    if (throttle <= start_throttle) {
+        return 0.0f;
+    }
+
+    if (throttle >= end_throttle) {
+        return 1.0f;
+    }
+
+    return (throttle - start_throttle) / (end_throttle - start_throttle);
 }
