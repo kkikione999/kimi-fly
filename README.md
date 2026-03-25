@@ -21,3 +21,13 @@ cat docs/plans/active/plan.md
 cat docs/plans/tech-debt-tracker.md
 cat hardware-docs/pinout.md
 ```
+
+## 自动系绳调试命令
+
+```bash
+# 历史日志自动评分（抗串口乱码）
+python3 tools/tether_log_summary.py "artifacts/flight_logs/tether_balance_20260325_035_round*.log"
+
+# 单轮无人协助执行：编译 + 烧录 + 抓串口 + 自动评分
+python3 tools/tether_round_runner.py --env flight_tether_balance --duration 35
+```

@@ -51,6 +51,65 @@ static float throttle_schedule_blend(float throttle,
                                      float start_throttle,
                                      float end_throttle);
 
+#ifdef AUTO_TETHER_BALANCE_TEST
+/* All high-throttle tuning knobs are overridable via -D build flags. */
+#ifndef AUTO_TETHER_ATT_ROLL_SCALE_START_THROTTLE
+#define AUTO_TETHER_ATT_ROLL_SCALE_START_THROTTLE 0.18f
+#endif
+#ifndef AUTO_TETHER_ATT_ROLL_SCALE_END_THROTTLE
+#define AUTO_TETHER_ATT_ROLL_SCALE_END_THROTTLE   0.22f
+#endif
+#ifndef AUTO_TETHER_ATT_ROLL_SCALE_MAX
+#define AUTO_TETHER_ATT_ROLL_SCALE_MAX            1.55f
+#endif
+#ifndef AUTO_TETHER_ATT_PITCH_SCALE_START_THROTTLE
+#define AUTO_TETHER_ATT_PITCH_SCALE_START_THROTTLE 0.18f
+#endif
+#ifndef AUTO_TETHER_ATT_PITCH_SCALE_END_THROTTLE
+#define AUTO_TETHER_ATT_PITCH_SCALE_END_THROTTLE   0.22f
+#endif
+#ifndef AUTO_TETHER_ATT_PITCH_SCALE_MAX
+#define AUTO_TETHER_ATT_PITCH_SCALE_MAX            1.22f
+#endif
+#ifndef AUTO_TETHER_ATT_RECOVERY_START_THROTTLE
+#define AUTO_TETHER_ATT_RECOVERY_START_THROTTLE   0.18f
+#endif
+#ifndef AUTO_TETHER_ATT_RECOVERY_END_THROTTLE
+#define AUTO_TETHER_ATT_RECOVERY_END_THROTTLE     0.24f
+#endif
+#ifndef AUTO_TETHER_ATT_RECOVERY_ERROR_DEG
+#define AUTO_TETHER_ATT_RECOVERY_ERROR_DEG        1.00f
+#endif
+#ifndef AUTO_TETHER_ATT_ROLL_RECOVERY_GAIN
+#define AUTO_TETHER_ATT_ROLL_RECOVERY_GAIN        6.0f
+#endif
+#ifndef AUTO_TETHER_ATT_ROLL_RECOVERY_MAX
+#define AUTO_TETHER_ATT_ROLL_RECOVERY_MAX         22.0f
+#endif
+#ifndef AUTO_TETHER_ATT_PITCH_RECOVERY_GAIN
+#define AUTO_TETHER_ATT_PITCH_RECOVERY_GAIN       10.0f
+#endif
+#ifndef AUTO_TETHER_ATT_PITCH_RECOVERY_MAX
+#define AUTO_TETHER_ATT_PITCH_RECOVERY_MAX        34.0f
+#endif
+
+#ifndef AUTO_TETHER_RATE_RECOVERY_START_THROTTLE
+#define AUTO_TETHER_RATE_RECOVERY_START_THROTTLE  0.19f
+#endif
+#ifndef AUTO_TETHER_RATE_RECOVERY_END_THROTTLE
+#define AUTO_TETHER_RATE_RECOVERY_END_THROTTLE    0.23f
+#endif
+#ifndef AUTO_TETHER_RATE_RECOVERY_ERROR_DEG
+#define AUTO_TETHER_RATE_RECOVERY_ERROR_DEG       1.00f
+#endif
+#ifndef AUTO_TETHER_RATE_ROLL_EXTRA_GAIN
+#define AUTO_TETHER_RATE_ROLL_EXTRA_GAIN          0.22f
+#endif
+#ifndef AUTO_TETHER_RATE_ROLL_EXTRA_MAX
+#define AUTO_TETHER_RATE_ROLL_EXTRA_MAX           0.80f
+#endif
+#endif
+
 /* ============================================================================
  * API实现 - 初始化和配置
  * ============================================================================ */
@@ -529,9 +588,17 @@ static void run_attitude_controller(flight_controller_t *fc, float *roll_rate_sp
 #ifdef AUTO_TETHER_BALANCE_TEST
     {
         /* 仅在 0.20+ 段抬高回正权重，避免重演 round10 那种全局增益放大。 */
-        const float roll_scale = throttle_schedule_scale(fc->setpoint.throttle, 0.18f, 0.22f, 1.55f);
-        const float pitch_scale = throttle_schedule_scale(fc->setpoint.throttle, 0.18f, 0.22f, 1.22f);
-        const float recovery_blend = throttle_schedule_blend(fc->setpoint.throttle, 0.18f, 0.24f);
+        const float roll_scale = throttle_schedule_scale(fc->setpoint.throttle,
+                                                         AUTO_TETHER_ATT_ROLL_SCALE_START_THROTTLE,
+                                                         AUTO_TETHER_ATT_ROLL_SCALE_END_THROTTLE,
+                                                         AUTO_TETHER_ATT_ROLL_SCALE_MAX);
+        const float pitch_scale = throttle_schedule_scale(fc->setpoint.throttle,
+                                                          AUTO_TETHER_ATT_PITCH_SCALE_START_THROTTLE,
+                                                          AUTO_TETHER_ATT_PITCH_SCALE_END_THROTTLE,
+                                                          AUTO_TETHER_ATT_PITCH_SCALE_MAX);
+        const float recovery_blend = throttle_schedule_blend(fc->setpoint.throttle,
+                                                             AUTO_TETHER_ATT_RECOVERY_START_THROTTLE,
+                                                             AUTO_TETHER_ATT_RECOVERY_END_THROTTLE);
         const float roll_error_deg = fc->setpoint.roll_angle - fc->attitude.roll;
         const float pitch_error_deg = fc->setpoint.pitch_angle - fc->attitude.pitch;
 
@@ -542,12 +609,16 @@ static void run_attitude_controller(flight_controller_t *fc, float *roll_rate_sp
          * 这里仅在高油门且姿态明显落后于目标时，追加受限的正向恢复助推，
          * 避免像 round10 那样把整段都整体放大。 */
         if (recovery_blend > 0.0f) {
-            if (roll_error_deg > 1.0f) {
-                const float roll_recovery = fminf((roll_error_deg - 1.0f) * 6.0f, 22.0f);
+            if (roll_error_deg > AUTO_TETHER_ATT_RECOVERY_ERROR_DEG) {
+                const float roll_recovery = fminf(
+                    (roll_error_deg - AUTO_TETHER_ATT_RECOVERY_ERROR_DEG) * AUTO_TETHER_ATT_ROLL_RECOVERY_GAIN,
+                    AUTO_TETHER_ATT_ROLL_RECOVERY_MAX);
                 *roll_rate_sp += recovery_blend * roll_recovery;
             }
-            if (pitch_error_deg > 1.0f) {
-                const float pitch_recovery = fminf((pitch_error_deg - 1.0f) * 10.0f, 34.0f);
+            if (pitch_error_deg > AUTO_TETHER_ATT_RECOVERY_ERROR_DEG) {
+                const float pitch_recovery = fminf(
+                    (pitch_error_deg - AUTO_TETHER_ATT_RECOVERY_ERROR_DEG) * AUTO_TETHER_ATT_PITCH_RECOVERY_GAIN,
+                    AUTO_TETHER_ATT_PITCH_RECOVERY_MAX);
                 *pitch_rate_sp += recovery_blend * pitch_recovery;
             }
         }
@@ -583,13 +654,19 @@ static void run_rate_controller(flight_controller_t *fc, float roll_rate_sp, flo
 
 #ifdef AUTO_TETHER_BALANCE_TEST
     {
-        const float recovery_blend = throttle_schedule_blend(fc->setpoint.throttle, 0.19f, 0.23f);
+        const float recovery_blend = throttle_schedule_blend(fc->setpoint.throttle,
+                                                             AUTO_TETHER_RATE_RECOVERY_START_THROTTLE,
+                                                             AUTO_TETHER_RATE_RECOVERY_END_THROTTLE);
         const float roll_error_deg = fc->setpoint.roll_angle - fc->attitude.roll;
 
         /* round16 表明高油门 pitch 已基本压住，剩余故障集中为 roll 轴控制力不足。
          * 这里只在高油门、目标明显落后且内环本来就在给正向 roll 输出时，再放大该轴输出。 */
-        if (recovery_blend > 0.0f && roll_error_deg > 1.0f && *roll_out > 0.0f) {
-            const float extra_scale = fminf((roll_error_deg - 1.0f) * 0.22f, 0.80f);
+        if (recovery_blend > 0.0f &&
+            roll_error_deg > AUTO_TETHER_RATE_RECOVERY_ERROR_DEG &&
+            *roll_out > 0.0f) {
+            const float extra_scale = fminf(
+                (roll_error_deg - AUTO_TETHER_RATE_RECOVERY_ERROR_DEG) * AUTO_TETHER_RATE_ROLL_EXTRA_GAIN,
+                AUTO_TETHER_RATE_ROLL_EXTRA_MAX);
             *roll_out *= (1.0f + recovery_blend * extra_scale);
         }
     }

@@ -158,3 +158,8 @@
 - 2026-03-25: `artifacts/flight_logs/tether_balance_20260325_035_round19.log` 证实“继续上推 `0.26+` 静态 roll 前馈”不是正确方向; 熔断退回 `STAB_22`, `ABORT_TILT roll=-6.43 pitch=-0.04 t=17617`
 - 2026-03-25: `artifacts/flight_logs/tether_balance_20260325_035_round20.log` 证实“在 `0.22 -> 0.26` 之间插 `STAB_24` 过渡段”同样不如 `round18`; 熔断仍落回 `STAB_22`, `ABORT_TILT roll=-6.51 pitch=1.20 t=17759`
 - 2026-03-25: 工作区代码与板子固件均已重新烧回 `round18` 对应最优方案, 即“高油门 pitch 单侧恢复助推 + 高油门 roll 内环输出助推保留, 阶段表回退到无 `STAB_24` 的 `round18` 版本”
+- 2026-03-25: 已新增无人协助调试工具链: `tools/tether_log_summary.py`（抗串口二进制噪声的日志评分）与 `tools/tether_round_runner.py`（编译/烧录/抓串口/自动评分一体化）; `README.md` 已补充命令入口
+- 2026-03-25: 已用新工具链自主完成两轮基线复测:
+  - `artifacts/flight_logs/auto_round_probe_20260325_132621.log`: `ABORT_TILT roll=-6.09 pitch=-3.33 t=15350`, 提前在 `STAB_18_PROBE` 熔断
+  - `artifacts/flight_logs/auto_round_probe2_20260325_132734.log`: `ABORT_TILT roll=-5.54 pitch=-4.21 t=15802`, 在 `STAB_20` 初段熔断
+  - 两轮均显著早于历史最优 `round18 (t=18369, STAB_26)`; 当前最强判断是“台架/约束状态漂移导致可比性下降”, 下一轮应先做最小化基线稳定化验证，再继续 `STAB_22->26` 定向 roll 调参

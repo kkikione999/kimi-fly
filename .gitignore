@@ -45,6 +45,10 @@ compile_commands.json
 __pycache__/
 *.py[cod]
 *$py.class
+.venv-docling/
 
 # Documentation artifacts
 *.pdf
+
+# Local doc-knowledge tooling
+.local/doc_knowledge/

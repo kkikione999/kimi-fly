@@ -1,0 +1,9 @@
+log_level: INFO
+
+storage:
+  storage_path: ./.local/doc_knowledge/qdrant/data/storage
+  snapshots_path: ./.local/doc_knowledge/qdrant/data/snapshots
+
+service:
+  host: 127.0.0.1
+  http_port: 6333
