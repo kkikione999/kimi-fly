@@ -49,6 +49,14 @@ __pycache__/
 
 # Documentation artifacts
 *.pdf
+!hardware-docs/ESP32-C3_datasheet.pdf
+!hardware-docs/ESP32-C3_technical_reference_manual.pdf
+!hardware-docs/LPS22HBTR_datasheet.pdf
+!hardware-docs/QMC5883P_datasheet.pdf
+!hardware-docs/STM32F411CEU6_datasheet.pdf
+!hardware-docs/STM32F411_reference_manual_RM0383.pdf
+!hardware-docs/STM32F411_programming_manual_PM0214.pdf
+!hardware-docs/ICM-42688-P_datasheet.pdf
 
 # Local doc-knowledge tooling
 .local/doc_knowledge/

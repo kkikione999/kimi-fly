@@ -17,7 +17,7 @@
 ### Phase 1: HAL层基础 ✅
 - GPIO HAL - 通用输入输出控制
 - PWM HAL - 电机PWM输出 (42kHz, TIM1/TIM2/TIM3)
-- UART HAL - 串口通信 (调试460800, ESP8266-115200)
+- UART HAL - 串口通信 (调试460800, ESP32-C3-115200)
 - I2C HAL - 传感器I2C总线 (100kHz, I2C1)
 - SPI HAL - 气压计SPI通信 (SPI3)
 

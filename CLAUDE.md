@@ -1,7 +1,7 @@
 # Drone Flight Controller - Architecture Map
 
 > **项目目标**: 通过WiFi控制无人机飞行
-> **硬件平台**: STM32F411CEU6 + ESP8266 WiFi模块
+> **硬件平台**: STM32F411CEU6 + ESP32-C3 WiFi模块
 > **连接状态**: ✅ 已通过USB连接无人机硬件
 > **开发模式**: AI自主开发，渐进式迭代
 
