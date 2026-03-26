@@ -4,6 +4,21 @@
 
 ---
 
+## AI 工具分派
+
+只要任务不是纯文案, 而是和这个仓库的无人机开发/调试有关, agent 不能只停留在“选芯片 skill”, 还必须先判断应该调用哪条开发调试工具链。
+
+- 只要任务涉及无人机飞控开发、台架/系绳调试、编译、烧录、串口抓日志、飞行日志复盘、STM32 <-> ESP32 联调、或“现在该用什么工具”, 必须先加载 `.agents/skills/drone-debug`
+- `drone-debug` 负责先确认仓库里真实存在的工具和代码路径, 再继续分派到 `.agents/skills/stm32-dev` / `.agents/skills/esp32-c3-idf`
+- 如果 `README.md`、`FLIGHT_DEBUG_STATUS.md`、旧注释、旧会话记录里提到某个脚本或命令, 但仓库当前文件树里不存在, 必须先把它判定为 stale, 再选择真实存在的工具
+- 验证工具存在时优先用:
+  - `rg --files tools`
+  - `python3 -m platformio --version`
+  - `source /Users/ll/esp/esp-idf/export.sh >/dev/null 2>&1 && idf.py --version`
+  - `which openocd arm-none-eabi-gdb minicom`
+
+---
+
 ## 实机确认事实
 
 以下信息来自用户说明或 2026-03-24 的实机台架验证，不能仅凭源码可靠推导。后续 agent 必须默认相信这些事实，除非用户明确说硬件又改了。
@@ -37,6 +52,7 @@
 
 | 任务类型 | 必用 skill | 说明 |
 |----------|------------|------|
+| 无人机飞控开发、台架/系绳调试、编译/烧录、串口抓日志、飞行日志复盘、联调时判断该用什么工具 | `.agents/skills/drone-debug` | 先分派真实工具链, 再决定是否继续加载 STM32 / ESP32 skill |
 | STM32、HAL/LL、GPIO、PWM、UART、I2C、SPI、ADC、EXTI、时钟、外设初始化 | `.agents/skills/stm32-dev` | 适用于所有 STM32F411 硬件敏感任务 |
 | IMU (`ICM-42688-P`)、气压计 (`LPS22HBTR`)、磁力计 (`QMC5883P`) 驱动或配置 | `.agents/skills/stm32-dev` | 先查板级真连线, 再查芯片知识与寄存器 |
 | 电机、电调、PWM 输出、定时器通道、混控所依赖的电机位置/旋向 | `.agents/skills/stm32-dev` | 电机身份必须绑定真实物理位置, 不能按通道顺序臆测 |
@@ -83,6 +99,8 @@
   - GPIO/AF/时钟/I2C/SPI/UART/ADC/EXTI 配置
   - 电机通道映射、旋向、PWM 频率、混控输入映射
   - ESP32 boot/reset/UART/GPIO 相关配置
+- 在确认文件真实存在前, 不能直接照抄旧文档里的脚本名或命令名当成当前工具链
+- 在确认当前代码路径前, 不能把 `firmware/esp32/platformio.ini` / `firmware/esp32/src/main.cpp` 自动当成 ESP32 当前主线; 先核对是否应走 `ESP-IDF` 的 `firmware/esp32/main/` + `sdkconfig` + `CMakeLists.txt`
 
 原则:
 
@@ -90,6 +108,7 @@
 - 引脚、电机位置、坐标系这类板级真相, 必须优先引用 `pinout.md`
 
 ### 5. 对应 skill 选择
+- 无人机飞控调试、台架联调、串口抓日志、编译烧录、飞行日志复盘、判断当前该跑什么工具 → `.agents/skills/drone-debug`
 - STM32 HAL/LL、引脚、时钟、GPIO、PWM、I2C、SPI、UART、ADC、EXTI → `.agents/skills/stm32-dev`
 - ICM-42688-P、LPS22HBTR、QMC5883P、传感器总线、坐标系、寄存器地址 → `.agents/skills/stm32-dev`
 - 电机位置、旋向、定时器通道、混控依赖的物理映射 → `.agents/skills/stm32-dev`

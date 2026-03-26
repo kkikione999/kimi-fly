@@ -36,12 +36,53 @@ cp .env.example .env
 docker compose up -d
 ```
 
-## 自动系绳调试命令
+## 当前真实可用调试命令
+
+先说明两件事:
+
+- 当前仓库实际提供的串口抓取工具是 `tools/serial_capture.py`
+- 如果 `FLIGHT_DEBUG_STATUS.md` 或旧会话记录里提到别的 `tools/*.py`, 先用 `rg --files tools` 确认文件是否仍在仓库中
+
+### STM32 构建 / 烧录
 
 ```bash
-# 历史日志自动评分（抗串口乱码）
-python3 tools/tether_log_summary.py "artifacts/flight_logs/tether_balance_20260325_035_round*.log"
+# 推荐写法: 直接走 PlatformIO Python 入口, 不依赖 PATH 里的 pio
+python3 -m platformio run -d firmware/stm32 -e flight
+python3 -m platformio run -d firmware/stm32 -e flight -t upload
 
-# 单轮无人协助执行：编译 + 烧录 + 抓串口 + 自动评分
-python3 tools/tether_round_runner.py --env flight_tether_balance --duration 35
+# 其他常用环境
+python3 -m platformio run -d firmware/stm32 -e flight_tether_balance
+python3 -m platformio run -d firmware/stm32 -e flight_tether_balance -t upload
+python3 -m platformio run -d firmware/stm32 -e imu_map
+python3 -m platformio run -d firmware/stm32 -e imu_map -t upload
+```
+
+### ESP32 构建 / 烧录 / 监视
+
+```bash
+# 当前 ESP32 主线是 ESP-IDF 工程: firmware/esp32/CMakeLists.txt + sdkconfig + main/*.c
+source /Users/ll/esp/esp-idf/export.sh >/dev/null 2>&1 && idf.py -C firmware/esp32 build
+source /Users/ll/esp/esp-idf/export.sh >/dev/null 2>&1 && idf.py -C firmware/esp32 flash
+source /Users/ll/esp/esp-idf/export.sh >/dev/null 2>&1 && idf.py -C firmware/esp32 monitor
+```
+
+### 串口抓日志
+
+```bash
+# 查串口
+ls /dev/cu.usbmodem* /dev/cu.usbserial* /dev/tty.usbmodem* /dev/tty.usbserial* 2>/dev/null
+
+# STM32 调试串口抓取（USART1 @ 460800）
+python3 tools/serial_capture.py /dev/cu.usbmodem212403 \
+  --preset stm32-debug \
+  --duration 20 \
+  --flush-input \
+  --text-out artifacts/serial_logs/stm32.log \
+  --raw-out artifacts/serial_logs/stm32.bin
+
+# ESP32 控制台抓取（115200）
+python3 tools/serial_capture.py /dev/cu.usbmodemXXXX \
+  --preset esp32-console \
+  --duration 20 \
+  --text-out artifacts/serial_logs/esp32.log
 ```

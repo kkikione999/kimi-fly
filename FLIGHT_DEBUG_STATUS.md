@@ -7,6 +7,7 @@
 
 - 日期: 2026-03-25
 - 阶段: `AUTO_TETHER_BALANCE_TEST` 的 `0.35` 峰值自动迭代仍在继续; 当前最优已推进到完整通过 `STAB_22`、首次在 `STAB_26` 才触发 `5°` 熔断, 但尚未达到“全程不触发 `5°` 熔断并稳定悬停到 `0.35`”目标.
+- 工具链审计: 2026-03-26 已确认当前工作树里真实存在的调试脚本只有 `tools/serial_capture.py`; 本文件中提到的 `tools/simulation/test_runner.py`、`tools/tether_log_summary.py`、`tools/tether_round_runner.py` 仅代表历史会话记录, 不能当成当前可直接执行的入口. 当前入口以 `README.md` 和 `.agents/skills/drone-debug/SKILL.md` 为准.
 - 最新固件:
   - `firmware/stm32` 的 `env:flight_tether_balance` 已重新编译并成功烧录到板子
   - 板子当前固件已回到本轮最优 `round18` 对应方案
@@ -55,7 +56,7 @@
 - 本轮验证:
   - `~/Library/Python/3.9/bin/pio run -e flight_tether_balance` 通过
   - `~/Library/Python/3.9/bin/pio run -e flight_tether_balance -t upload` 通过
-  - `python3 tools/simulation/test_runner.py` 通过 (`8/8 PASS`)
+  - `python3 tools/simulation/test_runner.py` 通过 (`8/8 PASS`, 历史记录; 当前工作树已无该脚本)
 - 当前最强结论:
   - 当前自动系绳阶段曲线与 PID 组合已经达到“`0.18` 探测段稳定、不触发 `8°` 熔断”的目标
   - 真正的剩余姿态峰值主要在 `POST18_14_COOLDOWN / STAB_12_COOLDOWN`, 但幅值仅约 `4°`; 若后续继续追求更平顺, 应只削减回收段尾部反弹, 不必重改 `0.18` 探测段
@@ -95,7 +96,7 @@
 - `artifacts/flight_logs/tether_balance_20260325_035_round18.log`
 - `artifacts/flight_logs/tether_balance_20260325_035_round19.log`
 - `artifacts/flight_logs/tether_balance_20260325_035_round20.log`
-- `python3 tools/simulation/test_runner.py`
+- `python3 tools/simulation/test_runner.py` (`历史记录; 当前工作树已无该脚本`)
 - `tools/simulation/ahrs_static_verification.c`
 
 ## Main Touch Points
@@ -134,7 +135,7 @@
 - 2026-03-25: 已在 `0.12 -> 0.18` 之间加入 `STAB_16_ENTRY` 过渡段, 同时增强 `AUTO_TEST result` 阶段统计, 让下一轮台架能直接区分“阶段命令过猛”与“俯仰闭环压不住”
 - 2026-03-25: `env:flight_tether_balance` 已用 ST-Link 成功烧录并校验; 板子现可直接进入下一轮限位起飞验证
 - 2026-03-25: 代码审查发现位置式 PID 的 `D` 项实现虽然注释写的是“基于测量值变化”, 实际仍在对误差求导; 已改为测量微分并跳过首次更新微分, 以降低 `AUTO_TETHER` 阶段切换时的 `D-kick`
-- 2026-03-25: `~/Library/Python/3.9/bin/pio run -e flight_tether_balance` 与 `python3 tools/simulation/test_runner.py` 均通过; 注意仓库内实际测试脚本路径是 `tools/simulation/test_runner.py`, 不是根目录 `test_runner.py`
+- 2026-03-25: `~/Library/Python/3.9/bin/pio run -e flight_tether_balance` 与 `python3 tools/simulation/test_runner.py` 均通过; 该脚本路径是当时会话记录, 2026-03-26 审计当前工作树时已不存在, 不能再作为现行入口
 - 2026-03-25: 已将包含 `D-kick` 修正与 `STAB_16_ENTRY` 过渡段的 `env:flight_tether_balance` 固件重新烧录到板子; ST-Link 校验通过
 - 2026-03-25: 已自主通过 `/dev/cu.usbmodem212403 @ 460800` 抓取两轮完整 `AUTO_TEST` 日志, 文件位于 `artifacts/flight_logs/tether_balance_20260325_round1.log` 与 `artifacts/flight_logs/tether_balance_20260325_round2.log`
 - 2026-03-25: 两轮自动系绳测试均未触发 `ABORT_TILT`; `STAB_18_ENTRY / STAB_18_PROBE` 峰值约 `0.6~1.0° roll`, `1.2~2.1° pitch`, 全程最坏姿态仅 `|roll|=4.11°`, `|pitch|=3.90°`
@@ -158,8 +159,9 @@
 - 2026-03-25: `artifacts/flight_logs/tether_balance_20260325_035_round19.log` 证实“继续上推 `0.26+` 静态 roll 前馈”不是正确方向; 熔断退回 `STAB_22`, `ABORT_TILT roll=-6.43 pitch=-0.04 t=17617`
 - 2026-03-25: `artifacts/flight_logs/tether_balance_20260325_035_round20.log` 证实“在 `0.22 -> 0.26` 之间插 `STAB_24` 过渡段”同样不如 `round18`; 熔断仍落回 `STAB_22`, `ABORT_TILT roll=-6.51 pitch=1.20 t=17759`
 - 2026-03-25: 工作区代码与板子固件均已重新烧回 `round18` 对应最优方案, 即“高油门 pitch 单侧恢复助推 + 高油门 roll 内环输出助推保留, 阶段表回退到无 `STAB_24` 的 `round18` 版本”
-- 2026-03-25: 已新增无人协助调试工具链: `tools/tether_log_summary.py`（抗串口二进制噪声的日志评分）与 `tools/tether_round_runner.py`（编译/烧录/抓串口/自动评分一体化）; `README.md` 已补充命令入口
+- 2026-03-25: 历史会话曾记录新增 `tools/tether_log_summary.py` 与 `tools/tether_round_runner.py`; 2026-03-26 审计当前工作树时未发现这两个脚本, 因此这条只保留为历史记录, 不能作为现行工具链依据
 - 2026-03-25: 已用新工具链自主完成两轮基线复测:
   - `artifacts/flight_logs/auto_round_probe_20260325_132621.log`: `ABORT_TILT roll=-6.09 pitch=-3.33 t=15350`, 提前在 `STAB_18_PROBE` 熔断
   - `artifacts/flight_logs/auto_round_probe2_20260325_132734.log`: `ABORT_TILT roll=-5.54 pitch=-4.21 t=15802`, 在 `STAB_20` 初段熔断
   - 两轮均显著早于历史最优 `round18 (t=18369, STAB_26)`; 当前最强判断是“台架/约束状态漂移导致可比性下降”, 下一轮应先做最小化基线稳定化验证，再继续 `STAB_22->26` 定向 roll 调参
+- 2026-03-26: 已对仓库开发/调试入口做一致性修复: `AGENTS.md` 新增 `drone-debug` 工具分派规则, `README.md` 已改为当前真实存在的命令链. 后续需要编译/烧录/抓日志时, 以 `python3 -m platformio`、`source /Users/ll/esp/esp-idf/export.sh && idf.py`、`python3 tools/serial_capture.py` 为准
