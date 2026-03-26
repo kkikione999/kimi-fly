@@ -1,4 +1,4 @@
-# Agent Index - 可用Agent列表
+# 硬件开发强约束
 
 > **项目**: 无人机WiFi飞行控制器
 
@@ -28,74 +28,70 @@
 
 ---
 
-## Ralph-loop 核心 Agent
+## 硬件知识检索强约束
 
-| Agent | 角色 | 职责 | 触发时机 |
-|-------|------|------|----------|
-| **team-orchestrator** | Leader | 编排、计划、任务分配 | 每轮首先启动 |
-| **code-reviewer** | Reviewer | 审核计划、任务、代码、PR | 计划制定后 |
-| **harness-architect** | Architect | 流程监控、架构设计 | Leader之后启动 |
 
----
+### 1. 哪些任务必须先调用 skill
 
-## 专业 Worker Agent
+处理以下任务时, 不能直接开始写代码、改寄存器、改初始化顺序、改引脚复用或改外设配置, 必须先加载对应 skill:
 
-| Agent | 专长 | 适用任务 |
-|-------|------|----------|
-| **stm32-embedded-engineer** | STM32 HAL/LL驱动 | GPIO/PWM/UART/I2C/SPI开发 |
-| **esp32-c3-autonomous-engineer** | ESP32-C3/WiFi | WiFi模块、通信协议 |
-| **embedded-test-engineer** | 嵌入式测试 | 单元测试、HIL测试 |
-| **code-simplifier** | 代码优化 | 重构、简化 |
+| 任务类型 | 必用 skill | 说明 |
+|----------|------------|------|
+| STM32、HAL/LL、GPIO、PWM、UART、I2C、SPI、ADC、EXTI、时钟、外设初始化 | `.agents/skills/stm32-dev` | 适用于所有 STM32F411 硬件敏感任务 |
+| IMU (`ICM-42688-P`)、气压计 (`LPS22HBTR`)、磁力计 (`QMC5883P`) 驱动或配置 | `.agents/skills/stm32-dev` | 先查板级真连线, 再查芯片知识与寄存器 |
+| 电机、电调、PWM 输出、定时器通道、混控所依赖的电机位置/旋向 | `.agents/skills/stm32-dev` | 电机身份必须绑定真实物理位置, 不能按通道顺序臆测 |
+| 引脚分配、总线映射、片选、中断脚、外设模式、地址、时序、坐标系 | `.agents/skills/stm32-dev` | 先确认 `pinout.md` 与实机结论 |
+| ESP32-C3、ESP-IDF、UART 桥接、WiFi 通信、GPIO、boot/reset、ESP32 侧外设配置 | `.agents/skills/esp32-c3-idf` | ESP32 任务一律走 ESP32 skill |
+| 同时涉及 STM32 与 ESP32 的跨芯片链路任务 | `.agents/skills/stm32-dev` + `.agents/skills/esp32-c3-idf` | 两边都要完成各自检索, 不能只查一侧 |
 
----
+### 2. 硬件任务统一检索顺序
 
-## 辅助 Agent
+进入实现前, 必须按以下顺序完成检索:
 
-| Agent | 用途 |
-|-------|------|
-| **plan-reviewer** | 计划审查（通用） |
-| **code-structure-analyst** | 代码结构分析 |
-| **documentation-reviewer** | 文档审查 |
-| **quality-inspector** | 质量检查 |
+1. `hardware-docs/pinout.md`
+2. `knowledge-hub/README.md`
+3. `knowledge-hub/hardware/<chip>/00-overview.md`
+4. `knowledge-hub/hardware/<chip>/10-registers.md`
+5. `knowledge-hub/hardware/<chip>/20-bringup-recipes.md`
+6. `python3 scripts/search_hardware_knowledge.py "<query>" --chip <chip>`
+7. 打开命中的 `knowledge-hub/extracted/chunks/<chip>/<document>/...`
+8. 如果前述资料仍不足, 再打开 `hardware-docs/` 下原始 PDF
 
----
+适用 chip slug:
 
-## Agent 选择指南
+- `stm32f411`
+- `esp32-c3`
+- `icm-42688-p`
+- `lps22hbtr`
+- `qmc5883p`
 
-### HAL层开发
-- GPIO → `stm32-embedded-engineer`
-- PWM → `stm32-embedded-engineer`
-- UART → `stm32-embedded-engineer`
-- I2C → `stm32-embedded-engineer`
-- SPI → `stm32-embedded-engineer`
+### 3. 检索时必须确认的事实
 
-### 传感器驱动
-- IMU (ICM-42688-P) → `stm32-embedded-engineer`
-- 气压计 (LPS22HBTR) → `stm32-embedded-engineer`
-- 磁力计 (QMC5883P) → `stm32-embedded-engineer`
+在开始编码前, agent 必须明确确认与当前任务相关的以下事实:
 
-### 通信模块
-- ESP32-C3 WiFi → `esp32-c3-autonomous-engineer`
-- 控制协议 → `esp32-c3-autonomous-engineer`
+- 引脚与总线: 引脚号、外设实例、AF/模式、片选、中断脚、上下游连接对象
+- 寄存器与地址: 外设寄存器、传感器寄存器、7-bit 地址、默认值、`WHO_AM_I`
+- 时序与模式: SPI mode、I2C 时序、PWM 频率、启动等待时间、复位顺序、数据就绪行为
+- 坐标系与物理映射: IMU 到机体系映射、电机真实位置、旋向、台架限制状态
+- 芯片约束: boot/reset/strap、电气限制、总线共享关系、初始化前置条件
 
-### 测试
-- 单元测试 → `embedded-test-engineer`
-- 集成测试 → `embedded-test-engineer`
+如果这些事实里有任何一项没有查清, agent 只能继续检索, 不能直接写驱动或改配置。
 
----
+### 4. 禁止事项
+- 在完成检索前, 不能修改:
+  - 传感器地址、寄存器常量、初始化序列
+  - GPIO/AF/时钟/I2C/SPI/UART/ADC/EXTI 配置
+  - 电机通道映射、旋向、PWM 频率、混控输入映射
+  - ESP32 boot/reset/UART/GPIO 相关配置
 
-## Agent 定义位置
+原则:
 
-所有Agent定义位于: `.claude/agents/`
+- 只要改动依赖某个硬件事实, 就必须能指出该事实来自哪里
+- 引脚、电机位置、坐标系这类板级真相, 必须优先引用 `pinout.md`
 
-```
-.claude/agents/
-├── team-orchestrator.md       # Leader
-├── code-reviewer.md           # Reviewer
-├── harness-architect.md       # Architect
-├── stm32-embedded-engineer.md # STM32专家
-├── esp32-c3-autonomous-engineer.md # ESP32专家
-├── embedded-test-engineer.md  # 测试专家
-├── code-simplifier.md         # 代码简化
-└── plan-reviewer.md           # 计划审查
-```
+### 5. 对应 skill 选择
+- STM32 HAL/LL、引脚、时钟、GPIO、PWM、I2C、SPI、UART、ADC、EXTI → `.agents/skills/stm32-dev`
+- ICM-42688-P、LPS22HBTR、QMC5883P、传感器总线、坐标系、寄存器地址 → `.agents/skills/stm32-dev`
+- 电机位置、旋向、定时器通道、混控依赖的物理映射 → `.agents/skills/stm32-dev`
+- ESP32-C3、ESP-IDF、WiFi 桥接、UART/reset/boot/GPIO、ESP32 侧外设配置 → `.agents/skills/esp32-c3-idf`
+- 跨 STM32 <-> ESP32 链路 → 两个 skill 都要使用
