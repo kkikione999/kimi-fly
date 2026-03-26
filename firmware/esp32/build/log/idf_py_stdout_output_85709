@@ -1,0 +1,40 @@
+[0/1] Re-running CMake...
+-- Building ESP-IDF components for target esp32c3
+-- Project sdkconfig file /Users/ll/kimi-fly/firmware/esp32/sdkconfig
+-- App "esp32_wifi_bridge" version: ba4c7f3-dirty
+-- Adding linker script /Users/ll/kimi-fly/firmware/esp32/build/esp-idf/esp_system/ld/memory.ld
+-- Adding linker script /Users/ll/esp/esp-idf/components/esp_system/ld/esp32c3/sections.ld.in
+-- Adding linker script /Users/ll/esp/esp-idf/components/esp_rom/esp32c3/ld/esp32c3.rom.ld
+-- Adding linker script /Users/ll/esp/esp-idf/components/esp_rom/esp32c3/ld/esp32c3.rom.api.ld
+-- Adding linker script /Users/ll/esp/esp-idf/components/esp_rom/esp32c3/ld/esp32c3.rom.libgcc.ld
+-- Adding linker script /Users/ll/esp/esp-idf/components/esp_rom/esp32c3/ld/esp32c3.rom.newlib.ld
+-- Adding linker script /Users/ll/esp/esp-idf/components/esp_rom/esp32c3/ld/esp32c3.rom.version.ld
+-- Adding linker script /Users/ll/esp/esp-idf/components/esp_rom/esp32c3/ld/esp32c3.rom.eco3.ld
+-- Adding linker script /Users/ll/esp/esp-idf/components/soc/esp32c3/ld/esp32c3.peripherals.ld
+-- Components: app_trace app_update bootloader bootloader_support bt cmock console cxx driver efuse esp-tls esp_adc esp_app_format esp_bootloader_format esp_coex esp_common esp_eth esp_event esp_gdbstub esp_hid esp_http_client esp_http_server esp_https_ota esp_https_server esp_hw_support esp_lcd esp_local_ctrl esp_mm esp_netif esp_netif_stack esp_partition esp_phy esp_pm esp_psram esp_ringbuf esp_rom esp_system esp_timer esp_wifi espcoredump esptool_py fatfs freertos hal heap http_parser idf_test ieee802154 json log lwip main mbedtls mqtt newlib nvs_flash nvs_sec_provider openthread partition_table protobuf-c protocomm pthread riscv sdmmc soc spi_flash spiffs tcp_transport ulp unity usb vfs wear_levelling wifi_provisioning wpa_supplicant
+-- Component paths: /Users/ll/esp/esp-idf/components/app_trace /Users/ll/esp/esp-idf/components/app_update /Users/ll/esp/esp-idf/components/bootloader /Users/ll/esp/esp-idf/components/bootloader_support /Users/ll/esp/esp-idf/components/bt /Users/ll/esp/esp-idf/components/cmock /Users/ll/esp/esp-idf/components/console /Users/ll/esp/esp-idf/components/cxx /Users/ll/esp/esp-idf/components/driver /Users/ll/esp/esp-idf/components/efuse /Users/ll/esp/esp-idf/components/esp-tls /Users/ll/esp/esp-idf/components/esp_adc /Users/ll/esp/esp-idf/components/esp_app_format /Users/ll/esp/esp-idf/components/esp_bootloader_format /Users/ll/esp/esp-idf/components/esp_coex /Users/ll/esp/esp-idf/components/esp_common /Users/ll/esp/esp-idf/components/esp_eth /Users/ll/esp/esp-idf/components/esp_event /Users/ll/esp/esp-idf/components/esp_gdbstub /Users/ll/esp/esp-idf/components/esp_hid /Users/ll/esp/esp-idf/components/esp_http_client /Users/ll/esp/esp-idf/components/esp_http_server /Users/ll/esp/esp-idf/components/esp_https_ota /Users/ll/esp/esp-idf/components/esp_https_server /Users/ll/esp/esp-idf/components/esp_hw_support /Users/ll/esp/esp-idf/components/esp_lcd /Users/ll/esp/esp-idf/components/esp_local_ctrl /Users/ll/esp/esp-idf/components/esp_mm /Users/ll/esp/esp-idf/components/esp_netif /Users/ll/esp/esp-idf/components/esp_netif_stack /Users/ll/esp/esp-idf/components/esp_partition /Users/ll/esp/esp-idf/components/esp_phy /Users/ll/esp/esp-idf/components/esp_pm /Users/ll/esp/esp-idf/components/esp_psram /Users/ll/esp/esp-idf/components/esp_ringbuf /Users/ll/esp/esp-idf/components/esp_rom /Users/ll/esp/esp-idf/components/esp_system /Users/ll/esp/esp-idf/components/esp_timer /Users/ll/esp/esp-idf/components/esp_wifi /Users/ll/esp/esp-idf/components/espcoredump /Users/ll/esp/esp-idf/components/esptool_py /Users/ll/esp/esp-idf/components/fatfs /Users/ll/esp/esp-idf/components/freertos /Users/ll/esp/esp-idf/components/hal /Users/ll/esp/esp-idf/components/heap /Users/ll/esp/esp-idf/components/http_parser /Users/ll/esp/esp-idf/components/idf_test /Users/ll/esp/esp-idf/components/ieee802154 /Users/ll/esp/esp-idf/components/json /Users/ll/esp/esp-idf/components/log /Users/ll/esp/esp-idf/components/lwip /Users/ll/kimi-fly/firmware/esp32/main /Users/ll/esp/esp-idf/components/mbedtls /Users/ll/esp/esp-idf/components/mqtt /Users/ll/esp/esp-idf/components/newlib /Users/ll/esp/esp-idf/components/nvs_flash /Users/ll/esp/esp-idf/components/nvs_sec_provider /Users/ll/esp/esp-idf/components/openthread /Users/ll/esp/esp-idf/components/partition_table /Users/ll/esp/esp-idf/components/protobuf-c /Users/ll/esp/esp-idf/components/protocomm /Users/ll/esp/esp-idf/components/pthread /Users/ll/esp/esp-idf/components/riscv /Users/ll/esp/esp-idf/components/sdmmc /Users/ll/esp/esp-idf/components/soc /Users/ll/esp/esp-idf/components/spi_flash /Users/ll/esp/esp-idf/components/spiffs /Users/ll/esp/esp-idf/components/tcp_transport /Users/ll/esp/esp-idf/components/ulp /Users/ll/esp/esp-idf/components/unity /Users/ll/esp/esp-idf/components/usb /Users/ll/esp/esp-idf/components/vfs /Users/ll/esp/esp-idf/components/wear_levelling /Users/ll/esp/esp-idf/components/wifi_provisioning /Users/ll/esp/esp-idf/components/wpa_supplicant
+-- Configuring done (2.0s)
+-- Generating done (0.2s)
+-- Build files have been written to: /Users/ll/kimi-fly/firmware/esp32/build
+[1/12] Performing build step for 'bootloader'
+[1/1] cd /Users/ll/kimi-fly/firmware/esp32/build/bootloader/esp-idf/esptool_py && /Users/ll/.espressif/python_env/idf5.2_py3.9_env/bin/python /Users/ll/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x0 /Users/ll/kimi-fly/firmware/esp32/build/bootloader/bootloader.bin
+Bootloader binary size 0x5170 bytes. 0x2e90 bytes (36%) free.
+[2/12] No install step for 'bootloader'
+[3/12] Completed 'bootloader'
+[4/12] Building C object esp-idf/esp_app_format/CMakeFiles/__idf_esp_app_format.dir/esp_app_desc.c.obj
+[5/12] Linking C static library esp-idf/esp_app_format/libesp_app_format.a
+[6/12] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/main.c.obj
+/Users/ll/kimi-fly/firmware/esp32/main/main.c:363:13: warning: 'uart_bridge_task' defined but not used [-Wunused-function]
+  363 | static void uart_bridge_task(void *pvParameters)
+      |             ^~~~~~~~~~~~~~~~
+[7/12] Linking C static library esp-idf/main/libmain.a
+[8/12] Generating ld/sections.ld
+[9/12] Linking CXX executable esp32_wifi_bridge.elf
+[10/12] Generating binary image from built executable
+esptool.py v4.11.0
+Creating esp32c3 image...
+Merged 2 ELF sections
+Successfully created esp32c3 image.
+Generated /Users/ll/kimi-fly/firmware/esp32/build/esp32_wifi_bridge.bin
+[11/12] cd /Users/ll/kimi-fly/firmware/esp32/build/esp-idf/esptool_py && /Users/ll/.espressif/python_env/idf5.2_py3.9_env/bin/python /Users/ll/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /Users/ll/kimi-fly/firmware/esp32/build/partition_table/partition-table.bin /Users/ll/kimi-fly/firmware/esp32/build/esp32_wifi_bridge.bin
+esp32_wifi_bridge.bin binary size 0xcafc0 bytes. Smallest app partition is 0x100000 bytes. 0x35040 bytes (21%) free.

@@ -1,0 +1,11 @@
+[1/2] cd /Users/ll/kimi-fly/firmware/esp32/build/esp-idf/partition_table && /opt/homebrew/bin/cmake -E echo "Partition table binary generated. Contents:" && /opt/homebrew/bin/cmake -E echo "*******************************************************************************" && /Users/ll/.espressif/python_env/idf5.2_py3.9_env/bin/python /Users/ll/esp/esp-idf/components/partition_table/gen_esp32part.py -q --offset 0x8000 --flash-size 2MB -- /Users/ll/kimi-fly/firmware/esp32/build/partition_table/partition-table.bin && /opt/homebrew/bin/cmake -E echo "*******************************************************************************"
+Partition table binary generated. Contents:
+*******************************************************************************
+# ESP-IDF Partition Table
+# Name, Type, SubType, Offset, Size, Flags
+nvs,data,nvs,0x9000,24K,
+phy_init,data,phy,0xf000,4K,
+factory,app,factory,0x10000,1M,
+*******************************************************************************
+[2/2] Warning: command "partition_table" is deprecated. Have you wanted to run "partition-table" instead?
+

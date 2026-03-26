@@ -1,0 +1,22 @@
+[1/10] Performing build step for 'bootloader'
+[1/1] cd /Users/ll/kimi-fly/firmware/esp32/build/bootloader/esp-idf/esptool_py && /Users/ll/.espressif/python_env/idf5.2_py3.9_env/bin/python /Users/ll/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x0 /Users/ll/kimi-fly/firmware/esp32/build/bootloader/bootloader.bin
+Bootloader binary size 0x5170 bytes. 0x2e90 bytes (36%) free.
+[2/10] No install step for 'bootloader'
+[3/10] Completed 'bootloader'
+[4/10] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/protocol_bridge.c.obj
+[5/10] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/main.c.obj
+/Users/ll/kimi-fly/firmware/esp32/main/main.c: In function 'uart_bridge_task':
+/Users/ll/kimi-fly/firmware/esp32/main/main.c:248:16: warning: unused variable 'last_status' [-Wunused-variable]
+  248 |     TickType_t last_status = last_heartbeat;
+      |                ^~~~~~~~~~~
+[6/10] Linking C static library esp-idf/main/libmain.a
+[7/10] Generating ld/sections.ld
+[8/10] Linking CXX executable esp32_wifi_bridge.elf
+[9/10] Generating binary image from built executable
+esptool.py v4.11.0
+Creating esp32c3 image...
+Merged 2 ELF sections
+Successfully created esp32c3 image.
+Generated /Users/ll/kimi-fly/firmware/esp32/build/esp32_wifi_bridge.bin
+[10/10] cd /Users/ll/kimi-fly/firmware/esp32/build/esp-idf/esptool_py && /Users/ll/.espressif/python_env/idf5.2_py3.9_env/bin/python /Users/ll/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /Users/ll/kimi-fly/firmware/esp32/build/partition_table/partition-table.bin /Users/ll/kimi-fly/firmware/esp32/build/esp32_wifi_bridge.bin
+esp32_wifi_bridge.bin binary size 0xcbca0 bytes. Smallest app partition is 0x100000 bytes. 0x34360 bytes (20%) free.
