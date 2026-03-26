@@ -1,0 +1,13 @@
+services:
+  anythingllm:
+    image: mintplexlabs/anythingllm:latest
+    container_name: kimi-fly-anythingllm
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    volumes:
+      - ../../../artifacts/anythingllm-storage:/app/server/storage
+      - ../../../hardware-docs:/app/server/storage/imports/hardware-docs:ro
+      - ../../../knowledge-hub:/app/server/storage/imports/knowledge-hub:ro

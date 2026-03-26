@@ -1,0 +1,65 @@
+# INT_STATUS and FIFO_COUNTH
+
+- Chip: `ICM-42688-P`
+- Chip Slug: `icm-42688-p`
+- Document: `icm-42688-p-datasheet`
+- Document Kind: `datasheet`
+- Source PDF: `hardware-docs/ICM-42688-P_datasheet.pdf`
+- Page: `68`
+- Tags: `int_status, data_ready, fifo`
+
+## Curated Summary
+
+INT_STATUS is read-to-clear. RESET_DONE_INT, DATA_RDY_INT, FIFO threshold/full flags live here. FIFO_COUNTH/FIFO_COUNTL report buffered data count.
+
+## Extracted Page Text
+
+ICM-42688-P
+Page 68 of 109
+Document Number: DS-000347
+Revision: 1.2
+14.20 TMST_FSYNCL
+Name: TMST_FSYNCL
+Address: 44 (2Ch)
+Serial IF: SYNCR
+Reset value: 0x00
+Clock Domain: SCLK_UI
+BIT NAME FUNCTION
+7:0 TMST_FSYNC_DATA_UI[7:0]
+Stores the lower byte of the time delta from the rising edge of FSYNC to
+the latest ODR until the UI Interface reads the FSYNC tag in the status
+register
+14.21 INT_STATUS
+Name: INT_STATUS
+Address: 45 (2Dh)
+Serial IF: R/C
+Reset value: 0x10
+Clock Domain: SCLK_UI
+BIT NAME FUNCTION
+7 - Reserved
+6 UI_FSYNC_INT This bit automatically sets to 1 when a UI FSYNC interrupt is generated.  The
+bit clears to 0 after the register has been read.
+5 PLL_RDY_INT This bit automatically sets to 1 when a PLL Ready interrupt is generated.  The
+bit clears to 0 after the register has been read.
+4 RESET_DONE_INT This bit automatically sets to 1 when software reset is complete.  The bit
+clears to 0 after the register has been read.
+3 DATA_RDY_INT This bit automatically sets to 1 when a Data Ready interrupt is generated.
+The bit clears to 0 after the register has been read.
+2 FIFO_THS_INT This bit automatically sets to 1 when the FIFO buffer reaches the threshold
+value.  The bit clears to 0 after the register has been read.
+1 FIFO_FULL_INT This bit automatically sets to 1 when the FIFO buffer is full.  The bit clears to
+0 after the register has been read.
+0 AGC_RDY_INT This bit automatically sets to 1 when an AGC Ready interrupt is generated.
+The bit clears to 0 after the register has been read.
+14.22 FIFO_COUNTH
+Name: FIFO_COUNTH
+Address: 46 (2Eh)
+Serial IF: R
+Reset value: 0x00
+Clock Domain: SCLK_UI
+BIT NAME FUNCTION
+7:0 FIFO_COUNT[15:8]
+High Bits, count indicates the number of records or bytes available in FIFO
+according to FIFO_COUNT_REC setting.
+Note:  Must read FIFO_COUNTL to latch new data for both FIFO_COUNTH
+and FIFO_COUNTL.

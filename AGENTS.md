@@ -1,7 +1,6 @@
 # Agent Index - 可用Agent列表
 
 > **项目**: 无人机WiFi飞行控制器
-> **Harness**: RALPH-HARNESS.md
 
 ---
 
@@ -99,25 +98,4 @@
 ├── embedded-test-engineer.md  # 测试专家
 ├── code-simplifier.md         # 代码简化
 └── plan-reviewer.md           # 计划审查
-```
-
----
-
-## 快速参考
-
-```bash
-# Leader - 编排任务
-/team-orchestrator
-
-# Reviewer - 审核代码
-/code-reviewer
-
-# STM32开发
-/stm32-embedded-engineer
-
-# ESP32开发
-/esp32-c3-autonomous-engineer
-
-# 启动完整Ralph-loop
-/ralph-loop
 ```

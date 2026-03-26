@@ -1,0 +1,196 @@
+{
+  "version": 1,
+  "documents": [
+    {
+      "id": "icm-42688-p-datasheet",
+      "chip_slug": "icm-42688-p",
+      "chip_name": "ICM-42688-P",
+      "doc_kind": "datasheet",
+      "source_pdf": "hardware-docs/ICM-42688-P_datasheet.pdf",
+      "extract_mode": "all_pages",
+      "is_large_manual": false,
+      "tags": ["imu", "i2c", "gyro", "accel"],
+      "curated_pages": [
+        {
+          "page": 9,
+          "section": "Product overview",
+          "tags": ["overview", "interfaces", "fifo", "package"],
+          "summary": "6-axis IMU with gyro + accel, 2 KB FIFO, I3C/I2C/SPI interfaces, 14-pin LGA package. Project uses I2C mode only."
+        },
+        {
+          "page": 11,
+          "section": "Gyroscope specifications",
+          "tags": ["gyro", "sensitivity", "startup", "noise"],
+          "summary": "Gyro supports ±2000 to ±15.625 dps. Sensitivity at ±2000 dps is 16.4 LSB/dps. Typical gyro startup time is 30 ms."
+        },
+        {
+          "page": 12,
+          "section": "Accelerometer specifications",
+          "tags": ["accel", "sensitivity", "startup", "noise"],
+          "summary": "Accel supports ±16/8/4/2 g. Sensitivity at ±8 g is 4096 LSB/g. Typical accel startup time from sleep is 10 ms."
+        },
+        {
+          "page": 24,
+          "section": "Temperature and power modes",
+          "tags": ["temperature", "power", "formula"],
+          "summary": "Temperature conversion for sensor registers is raw/132.48 + 25. User-visible modes include sleep, standby, accel LP/LN, gyro LN, and 6-axis LN."
+        },
+        {
+          "page": 36,
+          "section": "FIFO overview",
+          "tags": ["fifo", "buffer", "20bit"],
+          "summary": "FIFO size is 2 KB. FIFO can hold accel, gyro, temperature, and timestamp data. 20-bit FIFO mode has FSR constraints and should not be the initial bring-up path."
+        },
+        {
+          "page": 41,
+          "section": "Programmable interrupts overview",
+          "tags": ["interrupts", "int1", "int2"],
+          "summary": "INT1 and INT2 can be configured as push-pull or open-drain, level or pulse, active-high or active-low."
+        },
+        {
+          "page": 57,
+          "section": "Use notes for interface and filters",
+          "tags": ["i2c", "spi", "i3c", "filters"],
+          "summary": "Datasheet includes explicit interface settings for I2C/I3C/SPI operation and notes that notch/anti-alias filters are for LN mode only."
+        },
+        {
+          "page": 58,
+          "section": "Use notes for interrupts and FIFO timestamp",
+          "tags": ["interrupts", "int_async_reset", "fifo", "timestamp"],
+          "summary": "INT_CONFIG1.INT_ASYNC_RESET should be changed from default 1 to 0 for proper INT pin behavior. FIFO timestamp values require scaling depending on clock mode."
+        },
+        {
+          "page": 63,
+          "section": "DEVICE_CONFIG",
+          "tags": ["reset", "device_config", "startup"],
+          "summary": "DEVICE_CONFIG.SOFT_RESET_CONFIG triggers software reset. After writing 1, wait at least 1 ms before any other register access."
+        },
+        {
+          "page": 64,
+          "section": "INT_CONFIG and FIFO_CONFIG",
+          "tags": ["interrupts", "fifo_config", "int_config"],
+          "summary": "INT_CONFIG controls polarity, drive, and pulse/latched behavior. FIFO_CONFIG selects bypass, stream, or stop-on-full FIFO mode."
+        },
+        {
+          "page": 68,
+          "section": "INT_STATUS and FIFO_COUNTH",
+          "tags": ["int_status", "data_ready", "fifo"],
+          "summary": "INT_STATUS is read-to-clear. RESET_DONE_INT, DATA_RDY_INT, FIFO threshold/full flags live here. FIFO_COUNTH/FIFO_COUNTL report buffered data count."
+        },
+        {
+          "page": 72,
+          "section": "INT_STATUS2/3 and SIGNAL_PATH_RESET",
+          "tags": ["signal_path_reset", "fifo_flush", "wom", "apex"],
+          "summary": "SIGNAL_PATH_RESET provides FIFO flush and signal-path reset helpers. INT_STATUS2/3 expose WOM and APEX-related flags."
+        },
+        {
+          "page": 75,
+          "section": "PWR_MGMT0",
+          "tags": ["power", "pwr_mgmt0", "low_noise", "low_power"],
+          "summary": "PWR_MGMT0 controls temp sensor enable plus gyro/accel modes. After OFF-to-ON transition, do not issue register writes for 200 us. Gyro should remain on at least 45 ms."
+        },
+        {
+          "page": 76,
+          "section": "GYRO_CONFIG0",
+          "tags": ["gyro_config0", "odr", "fsr"],
+          "summary": "GYRO_CONFIG0 holds gyro full-scale range and UI ODR. Reset value 0x06 means ±2000 dps and 1 kHz."
+        },
+        {
+          "page": 77,
+          "section": "ACCEL_CONFIG0",
+          "tags": ["accel_config0", "odr", "fsr"],
+          "summary": "ACCEL_CONFIG0 holds accel full-scale range and UI ODR. Reset value 0x06 means ±16 g and 1 kHz. For ±8 g and 1 kHz, write 0x26."
+        },
+        {
+          "page": 79,
+          "section": "GYRO_ACCEL_CONFIG0",
+          "tags": ["filters", "bandwidth", "gyro_accel_config0"],
+          "summary": "GYRO_ACCEL_CONFIG0 controls shared UI filter bandwidth behavior for gyro and accel. Keep default reset value 0x11 until basic data path is verified."
+        },
+        {
+          "page": 87,
+          "section": "WHO_AM_I and REG_BANK_SEL",
+          "tags": ["who_am_i", "bank", "identity"],
+          "summary": "WHO_AM_I reset value is 0x47. REG_BANK_SEL selects banks 0,1,2,4. WHO_AM_I is not the same as I2C slave address."
+        }
+      ]
+    },
+    {
+      "id": "lps22hbtr-datasheet",
+      "chip_slug": "lps22hbtr",
+      "chip_name": "LPS22HBTR",
+      "doc_kind": "datasheet",
+      "source_pdf": "hardware-docs/LPS22HBTR_datasheet.pdf",
+      "extract_mode": "all_pages",
+      "is_large_manual": false,
+      "tags": ["barometer", "pressure", "spi", "st"],
+      "curated_pages": []
+    },
+    {
+      "id": "qmc5883p-datasheet",
+      "chip_slug": "qmc5883p",
+      "chip_name": "QMC5883P",
+      "doc_kind": "datasheet",
+      "source_pdf": "hardware-docs/QMC5883P_datasheet_revC_official.pdf",
+      "extract_mode": "all_pages",
+      "is_large_manual": false,
+      "tags": ["magnetometer", "i2c", "qst"],
+      "curated_pages": []
+    },
+    {
+      "id": "esp32-c3-datasheet",
+      "chip_slug": "esp32-c3",
+      "chip_name": "ESP32-C3",
+      "doc_kind": "datasheet",
+      "source_pdf": "hardware-docs/ESP32-C3_datasheet.pdf",
+      "extract_mode": "all_pages",
+      "is_large_manual": false,
+      "tags": ["wifi", "uart", "espressif", "riscv"],
+      "curated_pages": []
+    },
+    {
+      "id": "esp32-c3-trm",
+      "chip_slug": "esp32-c3",
+      "chip_name": "ESP32-C3",
+      "doc_kind": "technical_reference_manual",
+      "source_pdf": "hardware-docs/ESP32-C3_technical_reference_manual.pdf",
+      "extract_mode": "all_pages",
+      "is_large_manual": true,
+      "tags": ["wifi", "peripherals", "registers", "espressif"],
+      "curated_pages": []
+    },
+    {
+      "id": "stm32f411-datasheet",
+      "chip_slug": "stm32f411",
+      "chip_name": "STM32F411CEU6",
+      "doc_kind": "datasheet",
+      "source_pdf": "hardware-docs/STM32F411CEU6_datasheet.pdf",
+      "extract_mode": "all_pages",
+      "is_large_manual": false,
+      "tags": ["stm32", "pinout", "electrical", "timers"],
+      "curated_pages": []
+    },
+    {
+      "id": "stm32f411-reference-manual",
+      "chip_slug": "stm32f411",
+      "chip_name": "STM32F411CEU6",
+      "doc_kind": "reference_manual",
+      "source_pdf": "hardware-docs/STM32F411_reference_manual_RM0383.pdf",
+      "extract_mode": "all_pages",
+      "is_large_manual": true,
+      "tags": ["stm32", "registers", "reference", "peripherals"],
+      "curated_pages": []
+    },
+    {
+      "id": "stm32f411-programming-manual",
+      "chip_slug": "stm32f411",
+      "chip_name": "STM32F411CEU6",
+      "doc_kind": "programming_manual",
+      "source_pdf": "hardware-docs/STM32F411_programming_manual_PM0214.pdf",
+      "extract_mode": "all_pages",
+      "is_large_manual": true,
+      "tags": ["stm32", "cortex-m4", "arm", "programming"],
+      "curated_pages": []
+    }
+  ]
+}
