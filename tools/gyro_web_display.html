@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Gyroscope Display</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 { color: #00d4ff; margin-bottom: 10px; }
+        .status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .status.connected { background: #0a5; }
+        .status.disconnected { background: #a00; }
+        .container {
+            display: flex;
+            gap: 40px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .panel {
+            background: #16213e;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .panel h2 { color: #00d4ff; margin-bottom: 16px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* 3D Cube */
+        .cube-container {
+            width: 200px;
+            height: 200px;
+            perspective: 500px;
+        }
+        .cube {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.05s linear;
+        }
+        .cube-face {
+            position: absolute;
+            width: 160px;
+            height: 160px;
+            border: 2px solid #00d4ff;
+            background: rgba(0, 212, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #00d4ff;
+        }
+        .front  { transform: rotateY(0deg) translateZ(80px); }
+        .back   { transform: rotateY(180deg) translateZ(80px); }
+        .right  { transform: rotateY(90deg) translateZ(80px); }
+        .left   { transform: rotateY(-90deg) translateZ(80px); }
+        .top    { transform: rotateX(90deg) translateZ(80px); }
+        .bottom { transform: rotateX(-90deg) translateZ(80px); }
+
+        /* Data Values */
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .data-item {
+            background: rgba(0,0,0,0.3);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .data-label { font-size: 11px; color: #888; text-transform: uppercase; }
+        .data-value { font-size: 20px; font-weight: bold; color: #00d4ff; font-family: monospace; }
+        .data-unit { font-size: 10px; color: #666; }
+
+        /* Attitude Indicator */
+        .attitude-canvas {
+            border: 2px solid #00d4ff;
+            border-radius: 8px;
+            background: #0a0a1a;
+        }
+
+        /* Connection Form */
+        .connect-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        input {
+            background: #0a0a1a;
+            border: 1px solid #00d4ff;
+            color: #fff;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        input:focus { outline: none; border-color: #00ff88; }
+        button {
+            background: #00d4ff;
+            color: #000;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover { background: #00ff88; }
+        button:disabled { background: #555; cursor: not-allowed; }
+
+        /* Packet Stats */
+        .stats { font-size: 12px; color: #666; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Drone Gyroscope Display</h1>
+
+    <div class="connect-form">
+        <input type="text" id="ip" placeholder="ESP32 IP (e.g. 192.168.4.1 or 10.252.0.x)" value="">
+        <input type="number" id="port" placeholder="Port" value="8888">
+        <button id="connectBtn" onclick="connect()">Connect</button>
+        <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+    </div>
+
+    <div id="status" class="status disconnected">Disconnected</div>
+
+    <div class="container">
+        <!-- 3D Cube -->
+        <div class="panel">
+            <h2>3D Attitude</h2>
+            <div class="cube-container">
+                <div class="cube" id="cube">
+                    <div class="cube-face front">FRONT</div>
+                    <div class="cube-face back">BACK</div>
+                    <div class="cube-face right">RIGHT</div>
+                    <div class="cube-face left">LEFT</div>
+                    <div class="cube-face top">TOP</div>
+                    <div class="cube-face bottom">BOTTOM</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attitude Indicator (Artificial Horizon) -->
+        <div class="panel">
+            <h2>Artificial Horizon</h2>
+            <canvas class="attitude-canvas" id="horizon" width="200" height="200"></canvas>
+        </div>
+
+        <!-- Data Panel -->
+        <div class="panel">
+            <h2>Angle Data</h2>
+            <div class="data-grid">
+                <div class="data-item">
+                    <div class="data-label">Roll</div>
+                    <div class="data-value" id="roll">0.00</div>
+                    <div class="data-unit">deg</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Pitch</div>
+                    <div class="data-value" id="pitch">0.00</div>
+                    <div class="data-unit">deg</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Yaw</div>
+                    <div class="data-value" id="yaw">0.00</div>
+                    <div class="data-unit">deg</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Temp</div>
+                    <div class="data-value" id="temp">--</div>
+                    <div class="data-unit">C</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rate Data Panel -->
+        <div class="panel">
+            <h2>Gyro Rate</h2>
+            <div class="data-grid">
+                <div class="data-item">
+                    <div class="data-label">Roll Rate</div>
+                    <div class="data-value" id="rollRate">0.0</div>
+                    <div class="data-unit">deg/s</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Pitch Rate</div>
+                    <div class="data-value" id="pitchRate">0.0</div>
+                    <div class="data-unit">deg/s</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Yaw Rate</div>
+                    <div class="data-value" id="yawRate">0.0</div>
+                    <div class="data-unit">deg/s</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Packets/s</div>
+                    <div class="data-value" id="pps">0</div>
+                    <div class="data-unit">Hz</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="stats" id="stats">Waiting for data...</div>
+
+    <script>
+        // Protocol constants (from ESP32 firmware)
+        // Format: [AA][CMD=01][LEN=12][roll(2)][pitch(2)][yaw(2)][roll_rate(2)][pitch_rate(2)][yaw_rate(2)][SUM]
+        const PROTOCOL_HEADER = 0xAA;
+        const CMD_ATTITUDE = 0x01;
+
+        // State
+        let ws = null;
+        let lastPacketTime = 0;
+        let packetCount = 0;
+        let ppsCounter = 0;
+        let ppsInterval = null;
+
+        // Current attitude
+        let roll = 0, pitch = 0, yaw = 0;
+        let rollRate = 0, pitchRate = 0, yawRate = 0;
+
+        // DOM elements
+        const cube = document.getElementById('cube');
+        const horizon = document.getElementById('horizon');
+        const ctx = horizon.getContext('2d');
+
+        function connect() {
+            const ip = document.getElementById('ip').value;
+            const port = document.getElementById('port').value;
+
+            try {
+                ws = new WebSocket(`ws://${ip}:${port}`);
+
+                ws.binaryType = 'arraybuffer';
+
+                ws.onopen = () => {
+                    setStatus('Connected', true);
+                    document.getElementById('connectBtn').disabled = true;
+                    document.getElementById('disconnectBtn').disabled = false;
+                    startPpsCounter();
+                };
+
+                ws.onclose = () => {
+                    setStatus('Disconnected', false);
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('disconnectBtn').disabled = true;
+                    stopPpsCounter();
+                };
+
+                ws.onerror = (e) => {
+                    console.error('WebSocket error', e);
+                    setStatus('Error', false);
+                };
+
+                ws.onmessage = (event) => {
+                    if (typeof event.data === 'string') {
+                        // Text message - just log it
+                        console.log('Text:', event.data);
+                    } else {
+                        // Binary message - parse protocol
+                        parseBinaryPacket(new Uint8Array(event.data));
+                    }
+                };
+
+            } catch (e) {
+                console.error('Connection error:', e);
+                alert('Connection failed: ' + e.message);
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function setStatus(text, connected) {
+            const el = document.getElementById('status');
+            el.textContent = text;
+            el.className = 'status ' + (connected ? 'connected' : 'disconnected');
+        }
+
+        function startPpsCounter() {
+            ppsInterval = setInterval(() => {
+                document.getElementById('pps').textContent = ppsCounter;
+                ppsCounter = 0;
+            }, 1000);
+        }
+
+        function stopPpsCounter() {
+            if (ppsInterval) {
+                clearInterval(ppsInterval);
+                ppsInterval = null;
+            }
+            document.getElementById('pps').textContent = '0';
+        }
+
+        function parseBinaryPacket(data) {
+            // ESP32 sends: [AA][CMD=01][LEN=12][roll(2)][pitch(2)][yaw(2)][roll_rate(2)][pitch_rate(2)][yaw_rate(2)][SUM]
+            // Total frame size = 1 + 1 + 1 + 12 + 1 = 16 bytes
+
+            for (let i = 0; i < data.length - 1; i++) {
+                if (data[i] === 0xAA) {
+                    // Found header, check if we have enough data for complete frame
+                    // Frame: [AA][CMD][LEN][DATA(12)][SUM] = 16 bytes minimum
+                    if (i + 16 <= data.length) {
+                        const cmd = data[i + 1];
+                        const len = data[i + 2];
+
+                        if (cmd === CMD_ATTITUDE && len === 12) {
+                            // Extract attitude data (big-endian int16)
+                            const rollRaw = (data[i + 3] << 8) | data[i + 4];
+                            const pitchRaw = (data[i + 5] << 8) | data[i + 6];
+                            const yawRaw = (data[i + 7] << 8) | data[i + 8];
+                            const rollRateRaw = (data[i + 9] << 8) | data[i + 10];
+                            const pitchRateRaw = (data[i + 11] << 8) | data[i + 12];
+                            const yawRateRaw = (data[i + 13] << 8) | data[i + 14];
+
+                            // Verify checksum (sum of CMD + LEN + DATA bytes)
+                            let sumCalc = cmd + len;
+                            for (let j = 0; j < 12; j++) {
+                                sumCalc += data[i + 3 + j];
+                            }
+                            sumCalc &= 0xFF;
+                            const sumRx = data[i + 15];
+
+                            if (sumCalc === sumRx) {
+                                // Convert (ESP32 sends: deg*100 for angles, deg/s*10 for rates)
+                                roll = (int16(rollRaw)) / 100.0;
+                                pitch = (int16(pitchRaw)) / 100.0;
+                                yaw = (int16(yawRaw)) / 100.0;
+                                rollRate = (int16(rollRateRaw)) / 10.0;
+                                pitchRate = (int16(pitchRateRaw)) / 10.0;
+                                yawRate = (int16(yawRateRaw)) / 10.0;
+
+                                updateDisplay();
+                                packetCount++;
+                                ppsCounter++;
+
+                                document.getElementById('stats').textContent =
+                                    `Packets received: ${packetCount} | Last at ${new Date().toLocaleTimeString()}`;
+                            } else {
+                                console.log(`Checksum mismatch: calc=${sumCalc.toString(16)} rx=${sumRx.toString(16)}`);
+                            }
+                            break; // Only process first valid frame per message
+                        }
+                    }
+                }
+            }
+        }
+
+        function int16(val) {
+            val = val & 0xFFFF;
+            return (val >= 0x8000) ? val - 0x10000 : val;
+        }
+
+        function updateDisplay() {
+            // Update text values
+            document.getElementById('roll').textContent = roll.toFixed(2);
+            document.getElementById('pitch').textContent = pitch.toFixed(2);
+            document.getElementById('yaw').textContent = yaw.toFixed(2);
+            document.getElementById('rollRate').textContent = rollRate.toFixed(1);
+            document.getElementById('pitchRate').textContent = pitchRate.toFixed(1);
+            document.getElementById('yawRate').textContent = yawRate.toFixed(1);
+
+            // Update 3D cube rotation
+            // Note: The drone body frame vs cube frame might differ
+            // roll = rotate around X (left-right tilt)
+            // pitch = rotate around Y (front-back tilt)
+            // yaw = rotate around Z (compass heading)
+            const rx = pitch;  // pitch -> cube X rotation
+            const ry = roll;    // roll -> cube Y rotation
+            const rz = yaw;     // yaw -> cube Z rotation
+            cube.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg)`;
+
+            // Update artificial horizon
+            drawHorizon(roll, pitch);
+        }
+
+        function drawHorizon(roll, pitch) {
+            const w = horizon.width;
+            const h = horizon.height;
+            const cx = w / 2;
+            const cy = h / 2;
+            const radius = Math.min(w, h) / 2 - 10;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Sky/Ground based on pitch
+            const pitchOffset = pitch * 2; // Scale for visibility
+            const rollRad = roll * Math.PI / 180;
+
+            // Draw sky (blue)
+            ctx.fillStyle = '#1a3a6a';
+            ctx.beginPath();
+            ctx.arc(cx, cy + pitchOffset, radius, Math.PI, 0);
+            ctx.fill();
+
+            // Draw ground (brown)
+            ctx.fillStyle = '#5a3a1a';
+            ctx.beginPath();
+            ctx.arc(cx, cy + pitchOffset, radius, 0, Math.PI);
+            ctx.fill();
+
+            // Draw horizon line
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, cy + pitchOffset);
+            ctx.lineTo(w, cy + pitchOffset);
+            ctx.stroke();
+
+            // Draw roll indicator (the aircraft symbol)
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(-rollRad);
+
+            // Aircraft wings
+            ctx.strokeStyle = '#ff0';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(-50, 0);
+            ctx.lineTo(-15, 0);
+            ctx.lineTo(-10, -8);
+            ctx.moveTo(-15, 0);
+            ctx.lineTo(-10, 8);
+            ctx.moveTo(15, 0);
+            ctx.lineTo(10, -8);
+            ctx.moveTo(15, 0);
+            ctx.lineTo(10, 8);
+            ctx.moveTo(50, 0);
+            ctx.lineTo(15, 0);
+            ctx.stroke();
+
+            // Center dot
+            ctx.fillStyle = '#ff0';
+            ctx.beginPath();
+            ctx.arc(0, 0, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+
+            // Draw roll scale arc at top
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius - 5, -Math.PI * 0.75, -Math.PI * 0.25);
+            ctx.stroke();
+
+            // Roll indicator triangle at top
+            ctx.save();
+            ctx.translate(cx, cy - radius + 15);
+            ctx.rotate(-rollRad);
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.moveTo(0, -8);
+            ctx.lineTo(-6, 0);
+            ctx.lineTo(6, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Initial draw
+        drawHorizon(0, 0);
+    </script>
+</body>
+</html>

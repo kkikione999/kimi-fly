@@ -437,6 +437,10 @@ void app_main(void)
 {
     esp_err_t ret;
 
+    /* Early debug output using ROM function */
+    printf("ESP32 BOOTING...\n");
+    fflush(stdout);
+
     ESP_LOGI(TAG, "================================");
     ESP_LOGI(TAG, "ESP32-C3 UART bridge");
     ESP_LOGI(TAG, "Target: STM32F411CEU6");
@@ -449,11 +453,19 @@ void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+    ESP_LOGI(TAG, "NVS init done");
 
     ret = wifi_sta_init();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "WiFi init failed: %s", esp_err_to_name(ret));
+    } else {
+        ESP_LOGI(TAG, "WiFi init done");
     }
+
+    ESP_LOGI(TAG, "ESP32-C3 UART bridge");
+    ESP_LOGI(TAG, "Target: STM32F411CEU6");
+    ESP_LOGI(TAG, "Protocol: [55][CMD][LEN][DATA][SUM][AA]");
+    ESP_LOGI(TAG, "================================");
 
     ret = tcp_server_init();
     if (ret != ESP_OK) {
